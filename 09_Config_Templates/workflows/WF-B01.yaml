@@ -1,0 +1,119 @@
+# Project OS workflow definition template; unresolved readiness blocks the relevant live profile.
+schema_version: 1
+bundle_state: template
+workflow_id: WF-B01
+definition_version: 1
+title: Measurement and business outcome of one accepted submission
+category: business
+purpose: >-
+  Every accepted landing submission reaches a confirmed CRM binding or a visible unresolved state, and its
+  independent business facts (qualified, contract, payment, fulfilment, renewal, cancel, refund, correction)
+  are attached from their source systems until the approved maturity horizon closes with an
+  attribution-revisioned outcome.
+accountable: owner
+requirement_refs: [FR-INT-01, FR-INT-02, FR-TRK-01, FR-TRK-02, FR-BIZ-01, EVO-R01, EVO-R02, EVO-R03]
+trigger:
+  kinds: [event]
+  source: AMT ingest of landing submission_delivery records, pulled by sync-worker from the read-only PII-free delivery endpoint (runtime-isolation.yaml#external_dependencies[landing-delivery-api]); the landing host accepts and delivers independently of the AMT host and runtime
+  source_refs: [landing-intake-delivery, sync-worker]
+  schedule: null
+  dedup_key: submission_id
+  correlation_key: submission_id
+authorization:
+  may_start: [sync-worker]
+  may_cancel: [owner, privacy_owner]
+  preconditions:
+    - F2_LIVE_INTAKE profile approved for live traffic
+input:
+  schema_ref: DATA_MODEL §3.1 submission_receipts
+  required_fields: [submission_id, pipeline, accepted_at, payload_hash]   # the landing rejects a submission without a valid pipeline before the durable commit
+  optional_fields: [consent_receipt_ref]   # absent → failure_paths.missing_input (custody kept, marketing steps skipped, needs_review)
+  freshness: [tracking.freshness]
+steps:
+  - id: S01
+    name: Durable accept (landing host; mirrored into the run by ingest)
+    executor: {type: deterministic, ref: landing-intake}
+    depends_on: []
+    outputs: [submission_receipt(accepted), consent_receipt_ref]
+    external_effect: internal_only
+    retry: safe_resume
+    timeout: PT10S
+  - id: S02
+    name: CRM delivery and binding (landing host; mirrored into the run by ingest)
+    executor: {type: deterministic, ref: landing-intake-delivery}
+    depends_on: [S01]
+    inputs: [submission_receipt]
+    outputs: [submission_attempts, submission_resolution(crm_lead_id) or needs_review]
+    command_action: null
+    external_effect: irreversible
+    retry: new_attempt_after_reconcile
+    timeout: PT15M
+  - id: S03
+    name: Stage events and qualification facts
+    executor: {type: deterministic, ref: capi-bridge}
+    depends_on: [S02]
+    inputs: [webhook_inbox, crm_lead_id]
+    outputs: [lead_stage_events, business_events(qualified|contacted)]
+    external_effect: internal_only
+    retry: safe_resume
+    timeout: readiness:sales.sop
+  - id: S04
+    name: Consent-valid CAPI delivery
+    executor: {type: deterministic, ref: capi-bridge}
+    depends_on: [S03]
+    inputs: [business_events, consent_references]
+    outputs: [delivery_outbox(confirmed|uncertain|skipped)]
+    external_effect: irreversible
+    retry: new_attempt_after_reconcile
+    timeout: readiness:vendor.meta_capi
+  - id: S05
+    name: Contract, payment, fulfilment and refund facts
+    executor: {type: deterministic, ref: sync-worker}
+    depends_on: [S02]
+    inputs: [business.outcome_sources]
+    outputs: [business_events(contract_signed|payment_received|delivered|rental_started|renewal|cancelled|refunded), cash_events]
+    external_effect: internal_only
+    retry: safe_resume
+    timeout: readiness:business.acceptance
+  - id: S06
+    name: Mature outcome classification
+    executor: {type: deterministic, ref: sync-worker}
+    depends_on: [S03, S05]
+    inputs: [cohort maturity revision, attribution revision]
+    outputs: [lead outcome record with data_status, cohort_metrics contribution]
+    external_effect: none
+    retry: safe_resume
+    timeout: PT1H
+limits:
+  max_duration: readiness:business.acceptance
+  max_attempts_per_step: 5
+  cost: {budget_account: none, max_minor: null, currency: null, readiness_ref: null}
+  concurrency: {per_correlation_key: 1, global: null}
+  escalation:
+    - {after: PT30M, to: technical_operator, channel: ops-bot+independent_monitor}
+    - {after: PT2H, to: owner, channel: ops-bot+independent_monitor}
+  owner_absent: >-
+    Intake keeps accepting into durable custody; unresolved receipts stay visible as crm_pending/uncertain/needs_review;
+    no marketing event is sent without valid consent; nothing is deleted or re-created blindly.
+continuation:
+  checkpoint: after_every_step_transition
+  timers: [crm_delivery_retry, maturity_horizon_close]
+  signals: [amo_webhook_event, finance_source_ingest, consent_withdrawal, merge_or_correction]
+  lease_ttl: PT2M
+  cancel: privacy/withdrawal cancels remaining marketing steps (S04) only; business facts keep being ingested
+  compensation: tombstone/correction events; never delete source facts
+  uncertain_external_effect: reconcile_via_source_system
+completion:
+  technical_done: receipt is crm_confirmed (or needs_review resolved by technical_operator) and every attached event is idempotently ingested
+  end_steps: [S04, S06]
+  required_evidence: [submission_resolution, inbox/outbox dispositions, source count reconciliation]
+  observation: maturity horizon from business.acceptance; renewals do not create a new acquisition
+  business_acceptance: BUSINESS_CONTRACT §§2–8 counting rules; cohort result carries a data_status from business-policy.yaml#data_status_values
+failure_paths:
+  missing_input: Missing consent receipt → submission still accepted into custody, marketing steps skipped, needs_review raised to technical_operator.
+  cancel_or_escalate: Withdrawal or retention expiry → marketing delivery stops, deletion/tombstone per privacy.retention; CRM outage → escalation timers above, receipts stay crm_pending.
+  uncertain_external_effect: CRM create timeout → uncertain; reconcile by submission reference/event history before any new attempt; never create a second lead blindly.
+  other:
+    - AMT host or workflow runtime down → landing keeps accepting and delivering; runs are created or caught up from submission_delivery ingest after recovery; no submission is lost or duplicated
+    - Independent monitor unreachable → S04 holds every CAPI event in the queue (operations.yaml#host_loss.capi_dispatch_lease) and the host raises ALERT_MONITOR_UNREACHABLE (operations.yaml#host_loss); queued events are sent after the monitor ACKs again, inside the vendor event-age window
+tests: [UAT-08, UAT-09, UAT-10, UAT-11, UAT-12, UAT-03, UAT-05, EVO-AT01, EVO-AT02, WF-TEST-B01-E2E, WF-TEST-B01-MISSING, WF-TEST-B01-CANCEL, WF-TEST-B01-UNCERTAIN]

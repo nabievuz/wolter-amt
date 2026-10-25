@@ -1,0 +1,175 @@
+# Project OS configuration template; unresolved readiness blocks the relevant live profile.
+schema_version: 1
+bundle_state: template
+decision_refs: [Q28, Q52, Q54, Q55, Q61, Q62]
+readiness_refs:
+- privacy.purposes
+- privacy.retention
+- privacy.breach_response
+- offers.asset_rights
+purposes:
+- service_fulfilment
+- marketing_measurement
+consent_receipt_fields:
+- subject_ref
+- purpose
+- text_version
+- granted_at
+- source
+- withdrawn_at
+agent_fields: sanitized IDs and aggregates only
+datasets:
+- {dataset: amocrm_contacts, host: amoCRM SaaS, custodian: amt-amo (API), purpose: service_fulfilment, fields: name/phone/status, key: vendor, retention_ref: privacy.retention, withdrawal: CRM process owned by sales_lead}
+- {dataset: landing_submission_store, host: production Dokploy, custodian: landing app, purpose: service_fulfilment, fields: encrypted submission payload, key: LANDING_SUBMISSION_ENCRYPTION_KEY, retention_ref: privacy.retention, withdrawal: purge job + audit}
+- {dataset: webhook_inbox, host: AMT PC, custodian: capi-bridge, purpose: service_fulfilment, fields: 'allowlisted fields only (entity IDs, status, timestamps, account, body sha256, signature result); the raw body is processed in memory and never written (Q62)', key: DB grants, retention_ref: privacy.retention, withdrawal: purge after processing window}
+- {dataset: capi_in_memory, host: AMT PC, custodian: capi-bridge, purpose: marketing_measurement, fields: hashed identifiers in memory only, key: none persisted, retention_ref: none, withdrawal: consent check before send}
+- {dataset: capi_attempt_evidence, host: AMT PC, custodian: capi-bridge, purpose: marketing_measurement, fields: 'request_hash, field_presence bitmap, provider response code and trace id; never raw user_data', key: DB grants, retention_ref: privacy.retention, withdrawal: not personal after hashing rules}
+- {dataset: staff_identity, host: 'AMT PC + GitHub (nightly roles.yaml export PR, Q47★)', custodian: amt.people/amt.roles, purpose: access control, fields: 'tg_id, display name, memberships, flags, attestations', key: DB grants, retention_ref: privacy.retention, withdrawal: offboarding runbook}
+- {dataset: tg_auth_sessions, host: AMT PC, custodian: tg-auth, purpose: access control, fields: session and login request metadata, key: TG_AUTH_SESSION_KEY, retention_ref: privacy.retention, withdrawal: expiry}
+- {dataset: hermes_sessions, host: AMT PC, custodian: hermes, purpose: CMO chat (Q07), fields: 'DM transcripts of hermes_chat people, voice-note transcripts and tool results shown in chat (Hermes state.db); no lead PII - the inbound filter redacts it before storage (runtime-isolation.yaml#cmo_telegram_inbound_filter)', key: 'hermes UID home 0700; disk unencrypted (Q54)', retention_ref: privacy.retention, withdrawal: 'retention purge job + audit; offboarding deletes the person''s sessions'}   # P-87: the conversation store is memory in effect
+- {dataset: hermes_memory, host: AMT PC, custodian: hermes, purpose: 'CMO memory (Q07, P-14)', fields: 'MEMORY.md and USER.md within the pinned character limits (runtime-isolation.yaml#hermes_memory); free text sanitized, no lead PII', key: hermes UID home 0700, retention_ref: privacy.retention, withdrawal: 'owner removes an entry; monthly C12 memory diff audit'}
+- {dataset: drive_raw_and_quarantine_media, host: Google Drive + AMT PC scratch, custodian: ops-bot/render-worker, purpose: creative production, fields: photos/videos of people and products, key: Drive ACL, retention_ref: privacy.retention, withdrawal: asset_rights_revoke}
+- {dataset: backups, host: 'AMT PC (local snapshot on the same RAID1; no copy leaves the PC, Q55)', custodian: amt-backup, purpose: recovery, fields: copies of the above AMT PC datasets, key: 'none - unencrypted by owner rule (Q54); root 0700 directory', retention_ref: recovery.full_datasets, withdrawal: expires with the 7-day snapshot retention}
+- {dataset: forensic_copy, host: 'AMT PC only (scenario (e), P-32; carried through the installer RAM, never external media - Q55)', custodian: owner, purpose: incident analysis (AAR), fields: 'amt dump, MANIFEST and /var/log/amt from the untrusted disks (no lead PII - Q62)', key: 'none - unencrypted (Q54); root 0700 /var/lib/amt-forensic', retention_ref: deleted by the owner when the AAR closes, withdrawal: 'never restored into any PostgreSQL server; read only as text (pg_restore --list / -f -)'}
+raw_assets: quarantine_until_rights_and_review
+off_host_flows:   # P-33, P-76: every operational flow that leaves the AMT PC (none of them is a backup copy under Q55); a flow not listed here is not added. Each row names the registry services (runtime-isolation.yaml#services) or principals that perform it (by) and whether data is sent, only requests leave (read) or the destination carries AMT traffic (transport); every service with non-local egress is in at least one row (G06)
+- flow: heartbeat and control journal
+  to: independent off-host monitor (HG-F2-17)
+  direction: send
+  by: [amt-control]
+  data: 'control-event ids, modes, timestamps, backlog counts, the capi_terminal_before time and the audit-chain head (seq and hash); no business data or PII'
+- flow: roles.yaml export PR
+  to: GitHub (private repo)
+  direction: send
+  by: [unassigned]
+  open_item: OI-70
+  data: 'staff identity (tg_id, display name, memberships), see staff_identity'
+- flow: build and release evidence
+  to: GitHub (private repo)
+  direction: send
+  by: [builder]
+  data: 'test and drill evidence; no secrets, no lead PII'
+- flow: Telegram messages
+  to: Telegram
+  direction: send
+  by: [telegram-bot-api, hermes]
+  data: 'alerts, change sets, approvals and reports (sanitized); hermes only for the CMO bot (cmo_telegram_transport)'
+- flow: LLM and media requests
+  to: OpenRouter
+  direction: send
+  by: [llm-proxy]
+  data: 'sanitized IDs and aggregates (agent_fields); CMO chat text after the inbound lead-PII filter (cmo_telegram_inbound_filter, C-43); Jev pre-screen per non_pii_processors'
+- flow: OpenRouter key usage reads
+  to: OpenRouter (usage API)
+  direction: read
+  by: [cost-watchdog]
+  data: 'key usage and limit queries with the read credential; no prompt or completion content'
+- flow: CAPI events
+  to: Meta
+  direction: send
+  by: [capi-bridge]
+  data: 'hashed identifiers in memory (capi_in_memory)'
+- flow: CRM writes
+  to: amoCRM
+  direction: send
+  by: [amocrm-mcp]
+  data: 'allowlisted AMT tags and fields'
+- flow: CRM reads
+  to: amoCRM
+  direction: read
+  by: [amocrm-mcp]
+  data: 'lead, contact and pipeline IDs and filters; responses pass the amocrm-mcp field filter before any caller sees them'
+- flow: PR drafts
+  to: GitHub (landing and offers repos)
+  direction: send
+  by: [gateway]
+  data: 'content and offer text; no lead PII'
+- flow: Meta Marketing API writes
+  to: Meta
+  direction: send
+  by: [executor]
+  data: 'executor budget and status changes and creative uploads of rights-cleared assets'
+- flow: Meta Marketing API reads
+  to: Meta
+  direction: read
+  by: [meta-ads-mcp]
+  data: 'ad account, campaign, ad set and ad IDs with insight field and date-range queries; responses are account-level objects and aggregates'
+- flow: content uploads
+  to: Google Drive
+  direction: send
+  by: [ops-bot]
+  data: 'photos and videos received by ops-bot from content_contributor (drive_raw_and_quarantine_media)'
+- flow: asset reads
+  to: Google Drive
+  direction: read
+  by: [gateway]
+  data: 'file IDs of library assets requested for review and upload; no lead PII'
+- flow: analytics reads
+  to: Umami on production Dokploy (stats.wolter.uz)
+  direction: read
+  by: [gateway, sync-worker]
+  data: 'website ID and date-range queries with the read token; responses are aggregates'
+- flow: Clarity reads
+  to: Microsoft Clarity API
+  direction: read
+  by: [gateway]
+  data: 'project ID and date-range queries; responses are aggregate session metrics'
+- flow: landing delivery state reads
+  to: production Dokploy landing (go.wolter.uz, GET /internal/delivery)
+  direction: read
+  by: [sync-worker]
+  data: 'a cursor; responses are PII-free delivery states (runtime-isolation.yaml#external_dependencies[landing-delivery-api])'
+  conflict_ref: C-42               # a new AMT <-> production flow created by P-74; P-33 lists it only after the owner accepts it
+- flow: landing public deployment metadata reads
+  to: production Dokploy landing (go.wolter.uz, GET /.well-known/amt-deployment.json)
+  direction: read
+  by: [sync-worker]
+  data: 'public commit and build/artifact hashes with cache-free readback; no credentials, lead IDs, PII or business payload; exact deployment check in WF-B04 S09'
+- flow: role-change mirror
+  to: independent monitor channel
+  direction: send
+  by: [amt-control]
+  data: 'event id, role, action, time and an opaque person_ref; no tg_id or name'
+- flow: TLS-terminated ingress at the Cloudflare edge
+  to: Cloudflare
+  direction: transport
+  by: [cloudflared]
+  data: 'Cloudflare terminates TLS for mar, mar2 and mar3 (ADR-033), so it sees in clear the operator UI content and tg-auth login traffic behind mar (Paperclip) and mar3 (Langfuse) and every webhook body on mar2 - amoCRM bodies include the lead custom fields amt_client_ip, amt_client_ua, amt_fbc and amt_fbp (TRACKING_CAPI.md §3); AMT itself writes no raw body (Q62)'
+  conflict_ref: C-41               # Q57 <-> Q28: lead custom fields seen in clear at the edge; privacy_owner decision at HG-F2-07
+- flow: admin access transport
+  to: Tailscale
+  direction: transport
+  by: [tailscaled]
+  data: 'WireGuard-encrypted SSH and admin sessions to tailnet devices; the Tailscale coordination service sees node keys, device names and addresses, DERP relays only ciphertext'
+- flow: release artifact fetch
+  to: GitHub (read-only)
+  direction: read
+  by: [amt-release]
+  data: 'repository refs and signed release-* tags requested by the publisher (release-policy.yaml#publisher_egress)'
+- flow: engineering candidate push
+  to: GitHub (cand/* branches)
+  direction: send
+  by: [amt-sandbox]
+  condition: FE_SANDBOX
+  data: 'code and test fixtures of an upgrade candidate (ENG_GITHUB_TOKEN); no secrets, no lead PII'
+- flow: dependency downloads
+  to: package registries (package proxy allowlist)
+  direction: read
+  by: [amt-sandbox]
+  condition: FE_SANDBOX
+  data: 'package names and versions requested by sandbox builds; lockfile-pinned'
+- flow: engineering LLM requests
+  to: engineering LLM provider (OD-02)
+  direction: send
+  by: [amt-eng-proxy]
+  condition: 'OD-02 option (a) or (b) approved; off under the (c) default'
+  data: 'code context and task text of the engineering roles; no lead PII (agents and engineering roles never hold lead PII, Q28)'
+local_only_egress: [amt-workflow]   # services whose egress reaches only local services (amt-workflow: the Paperclip API projection); G06 needs no off_host_flows row for them
+at_rest_disk_encryption: false   # Q54 strict owner rule; theft of the PC or a disk = breach incident (INC-26) + rotation of every credential
+failed_disk_disposal: physical destruction; never returned under warranty (Q54)
+non_pii_processors:
+- {processor: TypeSafe (Jev decision model) via OpenRouter, purpose: creative pre-screen (Q61), data: 'creative copy, offer and landing text (image previews only if models.pre_screen approves image checks)', lead_pii: 'not sent by design (Q28: agents never hold lead PII); second layer - a local guard in the gateway skips Jev and flags pii_leakage locally on phone, email, card or ID numbers and on a UZ/RU name and address heuristic; residual - any name outside the matched forms passes (a lone given name, a lone surname, an unlisted given name, other surname endings); the owner decides on it with models.pre_screen (OI-54)', provider_preferences: 'data_collection: deny', hosting: United States}
+free_text_sanitization_required: true
+hash_means_anonymous: false
+breach_response_ref: privacy.breach_response
+retention_rules: []

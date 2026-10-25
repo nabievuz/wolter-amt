@@ -1,0 +1,20 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "https://wolter.uz/amt/schemas/tools/offers.read.schema.json",
+ "title": "offers.read arguments",
+ "description": "Gateway guard 4 argument schema; contract: GUARDRAIL_GATEWAY.md §9.1.",
+ "type": "object",
+ "additionalProperties": false,
+ "properties": {
+  "offer_ids": {
+   "type": "array",
+   "items": {
+    "$ref": "_common.schema.json#/$defs/slug"
+   },
+   "maxItems": 50
+  },
+  "include_expired": {
+   "type": "boolean"
+  }
+ }
+}

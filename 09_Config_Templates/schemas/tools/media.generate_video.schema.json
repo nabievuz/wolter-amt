@@ -1,0 +1,27 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "https://wolter.uz/amt/schemas/tools/media.generate_video.schema.json",
+ "title": "media.generate_video arguments",
+ "description": "Gateway guard 4 argument schema; contract: GUARDRAIL_GATEWAY.md §9.1. model, price upper bound and reservation are server-side (llm-proxy, media_generation share)",
+ "type": "object",
+ "additionalProperties": false,
+ "properties": {
+  "prompt": {
+   "$ref": "_common.schema.json#/$defs/free_text"
+  },
+  "duration_s": {
+   "type": "integer",
+   "minimum": 1
+  },
+  "aspect_ratio": {
+   "type": "string",
+   "maxLength": 5,
+   "pattern": "^[0-9]{1,2}:[0-9]{1,2}$"
+  }
+ },
+ "required": [
+  "prompt",
+  "duration_s",
+  "aspect_ratio"
+ ]
+}

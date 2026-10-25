@@ -1,0 +1,144 @@
+# Project OS workflow definition template; unresolved readiness blocks the relevant live profile.
+schema_version: 1
+bundle_state: template
+workflow_id: WF-B06
+definition_version: 1
+title: Weekly plan and report
+category: business
+purpose: >-
+  Source-referenced weekly results become a BLUF report, a prioritized plan with owners, deadlines and stop rules,
+  delegated child runs, owner decisions where authority is required, and a check of last period's plan items.
+accountable: owner
+requirement_refs: [FR-PLN-01, FR-RPT-01, FR-RPT-02, EVO-R01, EVO-R15]
+trigger:
+  kinds: [schedule]
+  source: amt-workflow scheduler
+  source_refs: [amt-workflow, kill_criteria, owner]
+  schedule: "30 7 * * 1"
+  dedup_key: iso_week
+  correlation_key: iso_week
+authorization:
+  may_start: [amt-workflow, owner]
+  may_cancel: [owner]
+  preconditions: []
+input:
+  schema_ref: DATA_MODEL §10 views (v_qualified_weekly, v_cash_contribution, v_fleet_daily, v_kill_criteria, v_agent_costs_month)
+  required_fields: [iso_week, measurement_revision]
+  freshness: []   # stale tracking or fleet data never stops the KC evaluation from running: S01 checks it and records the week blocked (kill-criteria.yaml#streak.blocked_rule)
+steps:
+  - id: S01
+    name: Kill-criteria evaluation and data freeze (Mon 07:30)
+    executor: {type: deterministic, ref: sync-worker}
+    depends_on: []
+    outputs: ["kill_criteria_evaluations: S01 checks tracking.freshness and fleet.freshness itself; stale data makes the week blocked (kill-criteria.yaml#streak.blocked_rule, catch-up when data arrives, ALERT_KILL_CRITERIA evaluation_blocked) instead of preventing the run", frozen weekly dataset reference with data_status]
+    external_effect: internal_only
+    retry: safe_resume
+    timeout: PT30M
+  - id: S02
+    name: C07 analysis and report submission (Mon 08:00)
+    executor: {type: agent, ref: funnel-analyst}
+    depends_on: [S01]
+    outputs: [C07 report with the Q24 metric list (business-policy.yaml#weekly_report_metrics), BLUF <=250 words via report.submit, thinking-kernel JSON handoff]
+    handoff:
+      to: reviewer
+      accept_when: [every number source/time referenced, data_status explicit, <=7 handoff items, no PII]
+      reject_codes: [unsourced_number, missing_data_status, pii_detected]
+      on_reject: {route: producer_retry, max_rounds: 2, after_max: escalate, escalate_to: owner}
+    external_effect: internal_only
+    retry: safe_resume
+    timeout: PT1H
+  - id: S03
+    name: Reviewer pre-check of the exact report text (Mon 08:00-09:00)
+    executor: {type: agent, ref: reviewer}
+    depends_on: [S02]
+    schedule_refs: [weekly_report_review]
+    outputs: ['review verdict on subject_type weekly_report bound to subject_hash (Kernel, PII, claims)']
+    handoff:
+      to: ops-bot
+      accept_when: [verdict pass bound to the submitted subject_hash]
+      reject_codes: [kernel_fail, pii_detected, unsupported_claim]
+      on_reject: {route: producer_retry, producer_step: S02, max_rounds: 2, after_max: escalate, escalate_to: owner}
+    external_effect: internal_only
+    retry: safe_resume
+    timeout: PT1H
+  - id: S04
+    name: Weekly report publication (Mon 09:00)
+    executor: {type: deterministic, ref: ops-bot}
+    depends_on: [S03]
+    outputs: [Telegram BLUF <=250 words; full report in Paperclip (Q24)]
+    external_effect: internal_only
+    retry: safe_resume
+    timeout: PT30M
+  - id: S05
+    name: Plan (Mon 11:00)
+    executor: {type: agent, ref: cmo}
+    depends_on: [S04, S08]
+    inputs: [published weekly report (S04), previous_period_check (S08) with every item of the previous plan classified done|blocked|missed]
+    outputs: [plan items with pipeline goal, owner, deadline, expected effect, stop rule; every blocked or missed previous item is carried over, re-scoped or closed with a reason]
+    external_effect: internal_only
+    retry: safe_resume
+    timeout: PT2H
+  - id: S06
+    name: Owner decisions
+    executor: {type: human, ref: owner}
+    depends_on: [S05]
+    outputs: [approved/rejected plan items needing owner authority]
+    approval: {policy_action: plan_authority_items, never_auto: true}
+    external_effect: none
+    retry: never
+    timeout: P2D
+  - id: S07
+    name: Delegation
+    executor: {type: deterministic, ref: amt-workflow}
+    depends_on: [S06]
+    outputs: [child runs WF-B02/WF-B04/WF-B05 with accepted handoffs or explicit blockers]
+    starts:
+    - {workflow: WF-B02, key: brief_id, input: [brief_id, pipeline, hypothesis, offer_revision_refs, formats, languages], await: started, on_parent_end: continue, condition: "an accepted plan item that needs a creative"}
+    - {workflow: WF-B04, key: change_request_id, input: [change_request_id, pipeline, "kind(offer|landing_content|tracking)", rationale, evidence_refs], await: started, on_parent_end: continue, condition: "an accepted plan item that changes an offer, landing content or tracking"}
+    - {workflow: WF-B05, key: experiment_id, input: [experiment_id, pipeline, hypothesis, primary_metric, guardrail_metrics, min_sample, maturity, max_exposure, design], await: started, on_parent_end: continue, condition: "an accepted plan item that is an experiment"}
+    external_effect: internal_only
+    retry: safe_resume
+    timeout: P1D
+  - id: S08
+    name: Previous-period check
+    executor: {type: agent, ref: cmo}
+    depends_on: [S01]
+    outputs: ["previous_period_check: status of every plan item of the previous ISO week's WF-B06 run (done|blocked|missed) with evidence refs; the first run records not_applicable (no previous plan)"]
+    external_effect: internal_only
+    retry: safe_resume
+    timeout: PT2H
+  - id: S09
+    name: Friday status (Fri 16:00)
+    executor: {type: agent, ref: cmo}
+    depends_on: [S05]
+    outputs: ['short weekly status (L1, <=250 words) - open plan items, owner decisions still waiting at S06 and blocked delegations; delivered through ops-bot']
+    external_effect: internal_only
+    retry: safe_resume
+    timeout: PT2H
+limits:
+  max_duration: P6D
+  max_attempts_per_step: 3
+  cost: {budget_account: ai_runtime, max_minor: null, max_minor_ref: 'readiness:budget.request_bounds', currency: USD, readiness_ref: budget.request_bounds}
+  concurrency: {per_correlation_key: 1, global: 1}
+  escalation:
+    - {after: PT4H, to: owner, channel: ops-bot}
+  owner_absent: Report still ships; plan items needing owner authority wait; delegated runs start only for items already within policy.
+continuation:
+  checkpoint: after_every_step_transition
+  timers: [mon_07_30, mon_08_00, mon_09_00, mon_11_00, fri_16_00_status]
+  signals: [owner_decision, child_run_completed, kill_criteria_trigger, kill]
+  lease_ttl: PT5M
+  cancel: Owner may cancel the plan; already-started child runs follow their own cancel rules
+  compensation: none
+  uncertain_external_effect: not_applicable
+completion:
+  technical_done: report delivered, plan recorded, every plan item delegated with accepted handoff or explicit blocker
+  end_steps: [S07, S09]
+  required_evidence: [report ids, plan record, child run ids, owner decisions]
+  observation: next week's S08 classifies every item of this plan before the next plan is written
+  business_acceptance: "not_applicable: planning workflow; business results are judged in WF-B01/B03/B05"
+failure_paths:
+  missing_input: Stale/missing data → report states data_status and blockers; no invented numbers; plan items depending on it are blocked.
+  cancel_or_escalate: Reviewer rejects the report (S02 or S03 handoff) → funnel-analyst resubmits a corrected revision, at most 2 rounds (handoff.on_reject); after that the run is blocked and the owner is told the report is late; no unreviewed BLUF is published. Owner silent for plan authority items → items wait; Friday status flags them.
+  uncertain_external_effect: Telegram delivery failure → durable outbox retry; Paperclip copy remains the source.
+tests: [EVO-AT13, EVO-AT14, WF-TEST-B06-E2E, WF-TEST-B06-MISSING, WF-TEST-B06-CANCEL, WF-TEST-B06-UNCERTAIN, WF-TEST-B06-REVIEW-BOUND, WF-TEST-B06-REPORTSIZE]

@@ -1,0 +1,25 @@
+# Project OS configuration template; unresolved readiness blocks the relevant live profile.
+schema_version: 1
+bundle_state: template
+decision_refs: [Q43]
+mode: unconfigured
+gate: F6_STEP2
+source: sales_lead daily /sale_ready wizard (P-22) or an approved export; source_ref recorded in sale.readiness
+source_ref: null
+cadence: daily before 09:30 Asia/Tashkent
+required_fields:
+- report_id
+- observed_at
+- reported_by_person_ref
+- offer_revision
+- stock_unpromised_by_model
+- delivery_lead_time_days
+- financing_available
+- call_center_backlog
+- response_lag_hours
+- capacity_per_day
+- valid_until
+readiness_ref: sale.readiness
+missing_or_stale: block_sale_budget_increase
+stale_alert: ALERT_SALE_READINESS_STALE
+unused_budget_may_remain_unspent: true

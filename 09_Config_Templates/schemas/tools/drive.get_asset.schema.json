@@ -1,0 +1,21 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "https://wolter.uz/amt/schemas/tools/drive.get_asset.schema.json",
+ "title": "drive.get_asset arguments",
+ "description": "Gateway guard 4 argument schema; contract: GUARDRAIL_GATEWAY.md §9.1.",
+ "type": "object",
+ "additionalProperties": false,
+ "properties": {
+  "asset_id": {
+   "$ref": "_common.schema.json#/$defs/ref"
+  },
+  "version": {
+   "type": "integer",
+   "minimum": 1
+  }
+ },
+ "required": [
+  "asset_id",
+  "version"
+ ]
+}

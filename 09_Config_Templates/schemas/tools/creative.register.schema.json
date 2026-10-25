@@ -1,0 +1,56 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "https://wolter.uz/amt/schemas/tools/creative.register.schema.json",
+ "title": "creative.register arguments",
+ "description": "Gateway guard 4 argument schema; contract: GUARDRAIL_GATEWAY.md §9.1.",
+ "type": "object",
+ "additionalProperties": false,
+ "properties": {
+  "copy_artifact_id": {
+   "$ref": "_common.schema.json#/$defs/ref"
+  },
+  "asset_refs": {
+   "type": "array",
+   "items": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+     "asset_id": {
+      "$ref": "_common.schema.json#/$defs/ref"
+     },
+     "version": {
+      "type": "integer",
+      "minimum": 1
+     }
+    },
+    "required": [
+     "asset_id",
+     "version"
+    ]
+   },
+   "maxItems": 20,
+   "minItems": 1
+  },
+  "offer_revisions": {
+   "type": "array",
+   "items": {
+    "$ref": "_common.schema.json#/$defs/revision_ref"
+   },
+   "maxItems": 20,
+   "minItems": 1
+  },
+  "asset_manifest_sha": {
+   "$ref": "_common.schema.json#/$defs/sha256"
+  },
+  "pipeline": {
+   "$ref": "_common.schema.json#/$defs/pipeline"
+  }
+ },
+ "required": [
+  "copy_artifact_id",
+  "asset_refs",
+  "offer_revisions",
+  "asset_manifest_sha",
+  "pipeline"
+ ]
+}

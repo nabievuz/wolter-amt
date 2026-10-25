@@ -1,0 +1,96 @@
+# Project OS workflow definition template; unresolved readiness blocks the relevant live profile.
+schema_version: 1
+bundle_state: template
+workflow_id: WF-B07
+definition_version: 1
+title: Change effect measurement
+category: business
+purpose: >-
+  Every dispatched change (a command that reached succeeded or done_manual with a measurable expected_effect) gets
+  exactly one current outcome record against its own expected effect at outcome_check_at, so the daily decision run
+  ends at reconciliation and Trust Ramp reads only recorded outcomes.
+accountable: owner
+requirement_refs: [FR-GOV-01, FR-GOV-03, EVO-R01, EVO-R02, EVO-R03]
+trigger:
+  kinds: [event]
+  source: >-
+    amt-workflow, when a command linked to a WF-B02 or WF-B03 run reaches succeeded or done_manual with remote evidence
+    and its expected_effect kind is not not_applicable (command ledger delivery_outbox, channel workflow; DATA_MODEL §6.5)
+  source_refs: [amt-workflow, WF-B02, WF-B03]
+  schedule: null
+  dedup_key: command_id+command_revision
+  correlation_key: command_id
+authorization:
+  may_start: [amt-workflow]
+  may_cancel: [owner]
+  preconditions:
+    - command state is succeeded or done_manual with remote evidence (DATA_MODEL §6.4 writer rule)
+    - expected_effect present; horizon_days not shorter than the business.acceptance maturity horizon of its metric
+    - "amt-workflow starts this run only on the command's own ledger transition (workflow-policy.yaml#outcome_start), never from a step of the run that dispatched it"
+input:
+  schema_ref: DATA_MODEL §6.1 change_set_items.expected_effect and §6.4 command_outcomes
+  required_fields: [command_id, command_revision, pipeline, action_type, expected_effect, effect_started_at, outcome_check_at]
+  freshness: [tracking.freshness]
+steps:
+  - id: S01
+    name: Due timer and confounder watch
+    executor: {type: deterministic, ref: amt-workflow}
+    depends_on: []
+    outputs: ["durable timer at outcome_check_at; list of commands in the expected_effect scope (the pipeline for scope pipeline, the same entity or its parent for scope entity), protective pauses and kills included, whose execution time or open effect window intersects the observation window, earlier ones included (confounders, approval-policy trust_ramp.graduation.overlap_rule)"]
+    external_effect: none
+    retry: safe_resume
+    timeout: readiness:business.acceptance
+  - id: S02
+    name: Deterministic outcome classification
+    executor: {type: deterministic, ref: sync-worker}
+    depends_on: [S01]
+    outputs: ["command_outcomes record met|not_met|inconclusive written by outcome_classify (recorded_by system:outcome_classify) from expected_effect and wh.metrics under approval-policy trust_ramp.graduation.met_rule and harm_rule (harmful flag computed from harm_margin_pct, guardrail breach in scope and a linked WF-O02 incident), with data_status (valid|not_mature|insufficient_sample|incomparable_baseline|missing_data|stale_data), countable flag and evidence refs"]
+    external_effect: internal_only
+    retry: safe_resume
+    timeout: PT1H
+  - id: S03
+    name: Trust Ramp and incident effects
+    executor: {type: deterministic, ref: gateway}
+    depends_on: [S02]
+    outputs: ["command_outcomes row accepted; trust counters per trust key (action_type x pipeline, x direction for direction_split_actions) updated - only a countable met counts; a harmful outcome (harm_rule or a later one-way harm_flag) demotes the key to L1_approve_each and starts a WF-O02 incident run (trigger kind signal, source gateway)"]
+    external_effect: internal_only
+    retry: safe_resume
+    timeout: PT10M
+  - id: S04
+    name: Analyst annotation
+    executor: {type: agent, ref: funnel-analyst}
+    depends_on: [S02]
+    outputs: ["change_set.record_outcome annotation on a not_met or inconclusive outcome (cause, confounders, data gaps) and, when warranted, a one-way harm_flag; it never changes or raises the outcome; skipped for met (a harm on a met outcome is flagged from the weekly report run WF-B06 or through a WF-O02 incident)"]
+    external_effect: internal_only
+    retry: safe_resume
+    timeout: P2D
+limits:
+  max_duration: readiness:business.acceptance
+  max_attempts_per_step: 3
+  cost: {budget_account: ai_runtime, max_minor: null, max_minor_ref: 'readiness:budget.request_bounds', currency: USD, readiness_ref: budget.request_bounds}
+  concurrency: {per_correlation_key: 1, global: null}
+  escalation:
+    - {after: P2D, to: owner, channel: ops-bot}
+  owner_absent: >-
+    Outcome records are computed by the deterministic classifier and applied by the gateway without owner action; the
+    analyst only annotates; nothing in this workflow raises autonomy (graduation stays the owner trust_graduation action,
+    HG-L2-01).
+continuation:
+  checkpoint: after_every_step_transition
+  timers: [outcome_check_at]
+  signals: [command_compensated, entity_released, kill]
+  lease_ttl: PT5M
+  cancel: Owner cancel records the outcome as inconclusive with reason owner_cancel; no command is created or changed
+  compensation: none; a correction is a new command_outcomes record with supersedes_id
+  uncertain_external_effect: not_applicable
+completion:
+  technical_done: exactly one current command_outcomes record (met, not_met or inconclusive) with a data_status exists for the command revision and its trust effect is applied
+  end_steps: [S03, S04]
+  required_evidence: [command id and revision, expected_effect, outcome record id, data_status, evidence refs, confounder list]
+  observation: the declared horizon_days of the command expected_effect
+  business_acceptance: only a countable met counts toward Trust Ramp and every other result resets the pair's streak (P-42); inconclusive never counts as clean (P-04); a harmful outcome demotes and opens an incident
+failure_paths:
+  missing_input: Data immature, missing or stale at outcome_check_at → outcome inconclusive with that data_status, never met; one superseding record is allowed once the data matures inside max_duration.
+  cancel_or_escalate: The command is compensated, the entity is released, or any other command in the expected_effect scope (the pipeline, or the same entity or its parent), protective pauses and kills included, executed or still in its effect window inside this window → outcome inconclusive with reason attribution_confounded and overlapping_command_ids; no record by outcome_check_at + P2D → owner escalation; kill → classification and trust effects still run (internal, no LLM); only the S04 annotation waits for resume (LLM dispatch is refused while killed).
+  uncertain_external_effect: No external effect in this workflow; a duplicate or late record is rejected unless it carries the supersedes_id of the current record.
+tests: [WF-TEST-B07-E2E, WF-TEST-B07-MISSING, WF-TEST-B07-CANCEL, WF-TEST-B07-UNCERTAIN, WF-TEST-B07-CLASSIFY, WF-TEST-B07-STREAK]

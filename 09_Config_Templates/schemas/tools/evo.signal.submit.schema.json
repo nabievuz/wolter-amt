@@ -1,0 +1,25 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "https://wolter.uz/amt/schemas/tools/evo.signal.submit.schema.json",
+ "title": "evo.signal.submit arguments",
+ "description": "Gateway guard 4 argument schema; contract: GUARDRAIL_GATEWAY.md §9.1; DATA_MODEL evolution_signals. source, problem_fingerprint and run binding are set by amt-workflow submit_signal()",
+ "type": "object",
+ "additionalProperties": false,
+ "properties": {
+  "summary": {
+   "$ref": "_common.schema.json#/$defs/free_text"
+  },
+  "evidence_refs": {
+   "type": "array",
+   "items": {
+    "$ref": "_common.schema.json#/$defs/ref"
+   },
+   "maxItems": 20,
+   "minItems": 1
+  }
+ },
+ "required": [
+  "summary",
+  "evidence_refs"
+ ]
+}

@@ -1,0 +1,41 @@
+// Tailnet policy template for the AMT PC (Q58; ADR-033).
+// HG-F0-04: the owner replaces OWNER_LOGIN with the Tailscale login of the owner's account and pastes this policy in the
+// admin console (Access controls) BEFORE creating the tag:amt auth key. Tailscale runs the "tests" block on every save
+// and refuses a policy whose tests fail. If the tailnet already has other rules, the owner merges them so that no rule
+// names tag:amt as a source and no rule other than the one below names tag:amt as a destination.
+// The builder commits the same content as infra/tailscale/acl.hujson in F0; F0-AT-08 compares the two.
+// Changes only by PR + HG-F0-04 (owner applies the merged file in the admin console).
+{
+  "groups": {
+    "group:owner": ["OWNER_LOGIN"],
+  },
+
+  // Only the owner may apply tag:amt, so the one-time auth key can register the AMT node with this tag.
+  "tagOwners": {
+    "tag:amt": ["group:owner"],
+  },
+
+  // The only rule: owner devices may open TCP 22 on the AMT node.
+  // No rule has tag:amt as a source, so the AMT node cannot open a connection to any other tailnet node.
+  // Owner devices get no rule to each other: this tailnet exists for AMT access only.
+  "acls": [
+    {"action": "accept", "proto": "tcp", "src": ["group:owner"], "dst": ["tag:amt:22"]},
+  ],
+
+  // Tailscale SSH is not used (tailscale up --ssh=false); access is plain sshd with keys.
+  "ssh": [],
+
+  "tests": [
+    {
+      "src":    "group:owner",
+      "proto":  "tcp",
+      "accept": ["tag:amt:22"],
+      "deny":   ["tag:amt:80", "tag:amt:443", "tag:amt:3100", "tag:amt:8080"],
+    },
+    {
+      "src":    "tag:amt",
+      "proto":  "tcp",
+      "deny":   ["group:owner:22", "group:owner:443", "group:owner:18022"],
+    },
+  ],
+}

@@ -1,0 +1,54 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "https://wolter.uz/amt/schemas/tools/meta_write.create_campaign_paused.schema.json",
+ "title": "meta_write.create_campaign_paused arguments",
+ "description": "Gateway guard 4 argument schema; contract: GUARDRAIL_GATEWAY.md §8.",
+ "type": "object",
+ "additionalProperties": false,
+ "properties": {
+  "name": {
+   "$ref": "_common.schema.json#/$defs/short_text"
+  },
+  "objective": {
+   "type": "string",
+   "maxLength": 64,
+   "pattern": "^[A-Z][A-Z_]{1,63}$",
+   "description": "Meta objective constant pinned in VERSIONS.lock.md"
+  },
+  "special_ad_categories": {
+   "type": "array",
+   "maxItems": 10,
+   "items": {
+    "type": "string",
+    "maxLength": 64,
+    "pattern": "^[A-Z][A-Z_]{1,63}$"
+   },
+   "description": "explicit, an empty list is written as []"
+  },
+  "pipeline": {
+   "$ref": "_common.schema.json#/$defs/pipeline_single"
+  },
+  "daily_budget_minor": {
+   "$ref": "_common.schema.json#/$defs/money_minor"
+  },
+  "currency": {
+   "$ref": "_common.schema.json#/$defs/currency"
+  },
+  "expected_effect": {
+   "$ref": "_common.schema.json#/$defs/expected_effect"
+  },
+  "reason": {
+   "$ref": "_common.schema.json#/$defs/free_text"
+  }
+ },
+ "required": [
+  "name",
+  "objective",
+  "special_ad_categories",
+  "pipeline",
+  "daily_budget_minor",
+  "currency",
+  "expected_effect",
+  "reason"
+ ]
+}

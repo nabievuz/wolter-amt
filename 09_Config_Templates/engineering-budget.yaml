@@ -1,0 +1,25 @@
+# Project OS configuration template; unresolved readiness blocks the relevant live profile.
+schema_version: 1
+bundle_state: template
+account: engineering
+shares_runtime_ai_cap: false
+shares_ads_cap: false
+paid_engineering_enabled: false
+readiness_refs:
+- engineering.budget
+- engineering.llm_access
+identity: separate engineering identity and accounting; never the runtime OpenRouter key held by llm-proxy
+currency: USD
+period: null
+cap_minor: null
+per_proposal_max_minor: null
+reservation_required: true
+unknown_cost_behavior: retain_reservation_until_reconciled
+max_parallel_candidates: null
+max_attempts_per_step: 3
+token_or_wall_time_limits: null
+on_exhaustion: stop_new_engineering_work_and_queue; production_runtime_unaffected
+options_for_owner_decision:
+- engineering identity on the existing builder subscription (no marginal USD; usage limits and terms verified first)
+- separate provider key with its own monthly cap
+- disabled (owner/builder performs engineering manually through the same sandbox, verification and release path)

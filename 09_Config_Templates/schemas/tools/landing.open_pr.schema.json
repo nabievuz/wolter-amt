@@ -1,0 +1,62 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "https://wolter.uz/amt/schemas/tools/landing.open_pr.schema.json",
+ "title": "landing.open_pr arguments",
+ "description": "Gateway guard 4 argument schema; contract: GUARDRAIL_GATEWAY.md §9.1. paths are re-checked against approval-policy.yaml#landing_pr_paths",
+ "type": "object",
+ "additionalProperties": false,
+ "properties": {
+  "title": {
+   "$ref": "_common.schema.json#/$defs/short_text"
+  },
+  "body": {
+   "$ref": "_common.schema.json#/$defs/free_text"
+  },
+  "changes": {
+   "type": "array",
+   "items": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+     "path": {
+      "type": "string",
+      "maxLength": 200,
+      "pattern": "^(content|tracking)/([A-Za-z0-9_-][A-Za-z0-9_.-]*/)*[A-Za-z0-9_-][A-Za-z0-9_.-]*$",
+      "not": {
+       "pattern": "\\.\\."
+      },
+      "description": "repository-relative content/ or tracking/ file path, no empty/dot/traversal segments; authenticated actor paths and generated content/offers.snapshot.json denial are checked by gateway guard 2"
+     },
+     "artifact_ref": {
+      "$ref": "_common.schema.json#/$defs/ref"
+     },
+     "artifact_digest": {
+      "$ref": "_common.schema.json#/$defs/sha256"
+     }
+    },
+    "required": [
+     "path",
+     "artifact_ref",
+     "artifact_digest"
+    ]
+   },
+   "maxItems": 50,
+   "minItems": 1
+  },
+  "offer_revisions": {
+   "type": "array",
+   "items": {
+    "$ref": "_common.schema.json#/$defs/revision_ref"
+   },
+   "maxItems": 20
+  },
+  "consent_text_version": {
+   "$ref": "_common.schema.json#/$defs/ref"
+  }
+ },
+ "required": [
+  "title",
+  "body",
+  "changes"
+ ]
+}

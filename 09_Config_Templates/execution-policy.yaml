@@ -1,0 +1,189 @@
+# Project OS configuration template; unresolved readiness blocks the relevant live profile.
+schema_version: 1
+bundle_state: template
+decision_refs: [Q25, Q26, Q37, Q38, Q61]
+command_states:
+- pending_review
+- pending_approval
+- approved
+- claimed
+- executing
+- succeeded
+- rejected
+- expired
+- cancelled
+- failed_confirmed
+- uncertain
+- reconciling
+- manual_resolution
+- awaiting_manual
+- done_manual
+extra_transitions:
+- claimed -> cancelled (kill or revoke before dispatch intent; reservation released)
+- approved|claimed -> cancelled (guard failure with reason_code)
+- awaiting_manual -> expired
+- manual_resolution -> succeeded|failed_confirmed (operator evidence)
+- shadow item -> expired at TTL
+- pending_review -> expired (review_ttl - no Reviewer pass within the review TTL; reservation released)
+- pending_review|pending_approval -> cancelled (step_incomplete - the producing workflow step ended without workflow.submit_output; reservation released)
+review_ttl: {basis: created_at, hours_ref: 'approval-policy.yaml#change_set.approval_ttl_hours', reason_code: review_ttl, reservation: release, auto_approve: false}   # P-85: an unreviewed item never waits forever with a hold
+orphan_cancel: {writer: amt_gateway, invoked_by: amt-workflow, when: producing step failed or timed out or was cancelled without an accepted submit_output, reason_code: step_incomplete, reservation: release}   # P-85: a half-built change set is never presented
+kill_cancel_reason_code: kill
+global_modes: [shadow, enabled, read_only, killed]
+pipeline_modes: [L0_shadow, L1_approve_each, L2_auto_within_guardrails]
+shared_pipeline_mode: min(sale, rent)
+approval_binding:
+- payload_hash
+- command_revision
+- creative_revision
+- asset_manifest_sha
+- creative_review_revision
+- review_revision
+- human_check_id
+- offer_revision
+- policy_revision
+- role_revision
+- entity_state_version
+- control_epoch
+- expires_at
+approval_binding_lifecycle:
+  immutable_intent: normalized target/params, expected_effect, rollback, evidence, initial policy/author-role/epoch and existing creative/offer/asset dependencies; excludes later command verdict, human check, approval and lifecycle fields
+  command_review:
+    required_when: actions.<action>.review_required == true
+    created_without_verdict: pending_review
+    subject: exact change_set_item command_id + command_revision + payload_hash, issued by review.get_subject
+    binding_table: command_review_bindings
+    writer: amt_gateway bind_command_review inside submit_verdict
+    write_rule: append_only_unique_command_revision
+    accepts: independent issued subject pass; exact payload/hash, policy/offer dependencies, current expiry and no revocation
+    transition: bind pass + pending_review -> pending_approval + audit + outbox in one transaction
+    needs_owner: remain pending_review; owner resolves material/cause and independent Reviewer submits a new verdict; no human verdict override
+    not_required: NULL plus review_not_required reason
+    creative_review_is_separate: creative_review_revision binds an existing creative_revision subject; never substitutes the exact command payload verdict
+  approval_snapshot:
+    table: command_approval_bindings
+    writer: amt_ops freeze_approval_binding; amt_gateway uses the same function for policy/auto approvals
+    write_rule: append_only_unique_command_revision
+    repeat_freeze: return the same still-valid snapshot; different dependency bytes reject revision_stale, never update; crash before presentation resumes that same snapshot or cancels
+    freeze_before: [mark_presented, approval_callback_issued, record_approval]
+    includes: immutable dependency fields of approval_binding plus command author-role revision, creative_review_revision and explicit not_applicable reasons
+    approver_role_revision: selected approver membership_revision is verified and recorded atomically in record_approval, alongside binding_hash; it never mutates the frozen dependency snapshot
+    human_check_when_required: must exist and pass before freeze
+    approval_reference: approval_binding_id + binding_hash
+    after_freeze: no dependency replacement; invalidation or edit requires a new command revision, fresh review and approval
+    validity: freeze never extends any expiry; revalidate membership, roles, policy, epoch, remote state and every dependency before each effect
+retry:
+  attempt_states: [claimed, dispatch_intent, succeeded, no_effect, uncertain, reconciling, manual_resolution]
+  unresolved_attempt_states: [claimed, dispatch_intent, uncertain, reconciling, manual_resolution]
+  command_states: [claimed, executing]
+  command_state_during_backoff: unchanged
+  attempt_terminal_no_effect: no_effect
+  max_attempts: 5   # includes the original attempt; preserves the existing builder standard
+  backoff: exponential, respecting a longer provider retry_after
+  scheduler_field: next_attempt_at
+  retry_only_when:
+  - previous attempt is durably terminal no_effect with finished_at and no_effect_evidence_ref
+  - pinned F3-verified classifier marks transient and retryable; transport proves no request bytes were sent or provider proves no effect
+  - no unresolved attempt, command still open and attempt_no < max_attempts
+  - all ingress/dispatch guards and the frozen approval binding pass again
+  unknown_classification: uncertain
+  automatic_sdk_retry: false
+  deadline: min of original command.expires_at, approval.expires_at, approval_expires_at where applicable and every required dependency expiry
+  expiry_extension: forbidden
+  retry_claim: CAS on the same command; new attempt_no and strictly higher fence; old worker lease and dispatch permit invalidated
+  reservation: same reservation and entity conflict lock retained through backoff; no second reserve; release once only at terminal confirmed no-effect, settle once on success
+  eligibility_lost:
+    claimed: cancelled with guard_failed and exact cause; no dispatch
+    executing: failed_confirmed with retry_ineligible and exact cause after all attempts proven no_effect; no dispatch
+  permanent_or_limit: failed_confirmed terminal; same revision never reopens
+  uncertain_or_reconciling: no retry, retain reservation/conflict lock; reconcile to succeeded, failed_confirmed or manual_resolution
+  reconciled_no_effect: failed_confirmed terminal; a further write requires a new command revision, review and approval
+  attempt_signal_key: attempt:<attempt_id>:<state>
+  command_signal_key: cmd:<command_id>:<command_revision>:<state> only for real command transitions
+revalidate_before: [dispatch, retry, rollback]
+unknown_result: uncertain
+lease_and_fence_required: true
+provider_fencing_assumed: false
+kill_first: durable_local_latch_and_epoch
+kill_default_mode: A
+kill_modes:
+  A: stop AI dispatch, LLM/media and normal external writes
+  B: A + pause the highest fully managed level of every managed entity; foreign parents untouched
+kill_rejects:
+- normal_external_write
+- llm_dispatch
+- media_dispatch
+- amo_write
+- github_write
+- non_recovery_release
+kill_allows:
+- protective_pause
+- capi_delivery
+- landing_crm_delivery
+- notifications_and_acks
+writer_classes_ref: 03_Architecture/SECURITY.md#6
+ssh_kill_path: /opt/wolter-amt/current/bin/amt-kill
+kill_cli:   # the only accepted arguments; every document copies this block
+  path: /opt/wolter-amt/current/bin/amt-kill
+  invocation: sudo /opt/wolter-amt/current/bin/amt-kill
+  kill: --mode ai_only | --mode ai_and_ads   # ai_only = mode A (default), ai_and_ads = mode B
+  status: --status
+  self_test: --self-test   # barrier probe; never changes the mode (P-12)
+  sudoers: the owner sudoers entry allows exactly this path with these arguments
+telegram_kill_requires: [ops_db_available, ops_inbox_available]
+resume:
+  after_global_kill: min(pre_kill_pipeline_mode, L1_approve_each)
+  preserve_global_shadow: true
+  preserve_read_only_until_cause_resolved: true
+  after_kill_criteria: L0_shadow until C05 RCA + owner takeover_scope_change (HG-F6-04) + owner pipeline_mode_change to L1_approve_each
+  released_entities_require_owner_retakeover: true
+  auto_retakeover_on_resume: false
+restore:
+  start_mode: killed
+  shadow_l0_after: reconcile complete + owner step (control_resume, cause restore)
+  resume_level: min(snapshot_mode, off_host_control_journal_last_mode, L1_approve_each)   # reached with control_resume, not a gate
+  journal_unavailable: all pipelines L0_shadow; owner opens each pipeline separately with control_resume per pipeline (cause restore, at most L1; not a gate)
+  preconditions: [reconcile complete, provider spending limit read-back matches (vendor.meta_cap), handback custodians ACK, operator ACK]   # explicit restore checks instead of re-passing gates
+  mirror_events_to_off_host_journal: [kill, mode_change, role_revoke, resume]
+mode_causes:   # several causes can hold read_only or a proxy admission pause at the same time
+  read_only_causes: set of {cause, control_event_id, raised_at}; causes - maintenance_hold, tracking_read_only, provider_limit_read_only, account_restricted_read_only
+  proxy_admission_causes: set of {cause, control_event_id, raised_at}; causes - maintenance_hold, proxy_admission_pause (reason_code)
+  exit: each exit removes only its own cause - maintenance_release (maintenance_hold), control_resume (the read_only cause it names; or cause kc02_guardrail for a triggered KC-02 streak after C05 RCA and one matured cohort that is not worse, kill-criteria.yaml#streak), agent_resume (proxy_admission_pause with reason key_noncritical_stop, share_stop or month_boundary, refused while the cause is still active), billing_unreliable_resume (billing_unreliable); write_mode leaves read_only and admission reopens only when the set is empty
+maintenance_hold:
+  global_mode: read_only
+  proxy_admission: paused
+  restore_previous_modes_on_release: true
+  release_by: amt-release maintenance_release after the approved release is active (or the window closes without activation)
+  restores_only_hold_dimensions: true   # global mode and proxy admission as they were when the hold began
+  controls_raised_during_hold_persist: [kill, tracking_read_only, provider_limit_read_only, account_restricted_read_only, proxy_admission_pause, kill_criteria_l0, protective_pause]   # each keeps its own exit rule
+  is_kill: false
+per_attempt_ledger_required: true
+notification_outbox_atomic: true
+capability_requires_profile:
+  llm.billable: F1_COST_RUNTIME
+  workflow.runtime: F1_WORKFLOW
+  intake.live_traffic: F2_LIVE_INTAKE
+  shadow.real_data: F2_TRACKING_PASS
+  meta.remote_test: F3_CONTROLLED_TEST
+  agents.run: F4_AGENTS
+  creative.publish: F4_CONTENT
+  sandbox.candidate: FE_SANDBOX
+  release.manifest: FE_RELEASE
+  write_mode.enabled: F6_STEP1
+  pipeline.rent.L1: F6_STEP1
+  pipeline.sale.L1: F6_STEP2
+  pipeline.any.L2: L2_ENABLE
+  release.auto: AUTO_RELEASE_ENABLE
+  review.pre_screen: PRE_SCREEN
+capability_extra_conditions:
+  release.auto: evolution-policy.yaml#promotion.auto_release.enabled == true
+capability_enablement:   # readiness.yaml#rules.gate_time; validator X09 checks that every capability is listed exactly once
+  release_enabled: [llm.billable, workflow.runtime, intake.live_traffic, shadow.real_data, meta.remote_test, agents.run, creative.publish, sandbox.candidate, release.manifest, release.auto, review.pre_screen]
+  release_rule: a release enables a capability by listing it in the manifest capabilities_enabled; its gate is the release in which it first enters the list (amt-release evaluates the profile at prepare and again at activate); leaving the list disables it
+  transition_enabled:
+    write_mode.enabled: global_mode_change shadow -> enabled
+    pipeline.rent.L1: pipeline_mode_change rent L0 -> L1
+    pipeline.sale.L1: pipeline_mode_change sale L0 -> L1
+    pipeline.any.L2: pipeline_mode_change <pipeline> L1 -> L2 and trust_graduation L1 -> L2; the gate evaluates L2_ENABLE together with that pipeline's L1 profile (rent F6_STEP1, sale F6_STEP2)
+  lowering_is_never_a_gate: true   # enabled -> shadow, L2 -> L1, L1 -> L0 and trust L2 -> L1 need no profile check
+capability_enforced_by: [amt-release, amt-control]

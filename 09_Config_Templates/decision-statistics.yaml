@@ -1,0 +1,184 @@
+# Project OS configuration template; unresolved readiness blocks the relevant live profile.
+schema_version: 1
+bundle_state: template
+decision_refs: [Q04, Q08, Q29.1, Q31, Q36, Q38, Q41]
+purpose: >-
+  One statistical decision spec for every rule that turns noisy business numbers into a control decision. Each rule
+  names its method, minimum detectable effect, alpha, power, minimum exposure, maximum extension and non-inferiority
+  margin; a consumer config names the rule it applies with decision_rule, and the rule lists that consumer (validator
+  K04). Owner values stay readiness references approved at the key's existing gate; this file adds no gate and no money.
+contract_ref: 11_Production_Contracts/BUSINESS_CONTRACT.md#8.7
+required_parameters: [method, statistic, mde, alpha, power, min_exposure, max_extension, non_inferiority_margin, at_limit]
+required_rules: [KC-01, KC-02, STEP1_TO_STEP2, TRUST_RAMP_GRADUATION, SHADOW_WEEK, EXPERIMENT, Q29_1_VOLUME]   # every control rule that turns noisy numbers into a decision
+value_forms: >-
+  every parameter is either a literal that names its source (a ✅ Q-ID, a ★ standard or a ◇ P-NN), a readiness reference
+  readiness:<key>.<field> (an owner value approved at that key's existing gate), or 'not_applicable: <reason>'
+count_model:
+  weekly_counts: negative_binomial   # qualified leads per pipeline per event_week; Poisson is the limit k -> infinity
+  overdispersion_estimate: >-
+    k is estimated from the weekly qualified counts of the frozen baseline window and stored with the baseline revision
+    (business.baseline) with its interval; 8 weekly counts give an unstable k, so planning floors k at Poisson and reports
+    the interval; it is diagnostic (operating characteristics, the weekly report) and never changes a threshold
+  operating_characteristics_ref: 11_Production_Contracts/BUSINESS_CONTRACT.md#8.7
+decision_rules:
+  KC-01:
+    title: qualified CPL kill rule
+    owner_refs: [Q31]
+    consumers: ['kill-criteria.yaml#rules[id=KC-01]']
+    method: threshold_streak   # deterministic point comparison per pipeline x event_week; no hypothesis test (✅ Q31 as written)
+    statistic: >-
+      weekly qualified_cpl_event_week / baseline CPL - 1, where baseline CPL = sum(spend) / sum(qualified) over the valid
+      weeks of the frozen window (kill-criteria.yaml#baseline.cpl_formula)
+    threshold: worse by more than 25 percent (✅ Q31)
+    mde: 'not_applicable: a threshold rule has no designed MDE; the detection probability is in operating_characteristics'
+    alpha: 'not_applicable: the false-alarm probability is recorded in operating_characteristics, not controlled'
+    power: 'not_applicable: see operating_characteristics'
+    min_exposure: readiness:business.acceptance.min_sample   # qualified facts per pipeline x event_week; below it -> hold, unless kill-criteria streak.low_sample_bound fires (P-56)
+    max_extension: 'not_applicable: continuous weekly monitoring while the pipeline is under AI control'
+    non_inferiority_margin: 'not_applicable: a kill rule, not a success rule'
+    at_limit: the streak reaches consecutive_weeks (2, ✅ Q31) -> kill-criteria.yaml rules KC-01 actions (pipeline L0, urgent alert, human handback, C05 RCA)
+    streak_ref: kill-criteria.yaml#streak
+    operating_characteristics: >-
+      simulation with Poisson or negative-binomial weekly counts (k = 25, 8), constant spend, 8-week baseline, strict
+      adjacent-week streak: with no true change at least one trigger within 8 weeks in 9-60 percent of runs (lambda 40 to 5
+      qualified per week) and up to 47 percent even at lambda 80 when k = 8; a true +25 percent CPL is caught within 4 weeks
+      in 51-55 percent of runs, within 8 weeks in 76-80 percent; +50 percent within 4 weeks in 70-97 percent
+    owner_choice: >-
+      a statistical method (gamma-Poisson posterior or CUSUM with a spend offset) would change ✅ Q31 and goes to the owner
+      (⧗ OD-13); until then the rule runs exactly as Q31 states
+  KC-02:
+    title: lead to contract guardrail
+    owner_refs: [Q04]
+    consumers: ['kill-criteria.yaml#rules[id=KC-02]']
+    method: threshold_streak   # on matured lead cohorts, deterministic
+    statistic: >-
+      lead_to_contract of each weekly lead-creation cohort when it matures (business.acceptance maturity_days) against the
+      baseline lead_to_contract of the matured cohorts of the frozen window, same definition revision
+    threshold: readiness:business.acceptance.kc02_worse_pct
+    mde: 'not_applicable: threshold rule'
+    alpha: 'not_applicable: threshold rule'
+    power: 'not_applicable: threshold rule'
+    min_exposure: readiness:business.acceptance.min_sample   # leads per cohort; a smaller cohort is insufficient_sample -> hold
+    max_extension: 'not_applicable: continuous evaluation of each newly matured cohort'
+    non_inferiority_margin: 'not_applicable: guardrail'
+    at_limit: two consecutive matured cohorts worse -> kill-criteria.yaml rules KC-02 actions (block automatic increases, urgent alert)
+    streak_ref: kill-criteria.yaml#streak
+    operating_characteristics: >-
+      a cohort is evaluable only after maturity_days, so within a 14-day Step 1 KC-02 usually has no matured AI cohort and
+      every increase stays under the stricter gateway guard (approval-policy budget_change business_outcome_guard)
+  STEP1_TO_STEP2:
+    title: Step 1 (rent L1) to Step 2 (sale L1, full takeover) decision
+    owner_refs: [Q36, Q31]
+    consumers: ['kill-criteria.yaml#step1_timing']
+    method: readiness:business.acceptance.verdict_rule   # decision non_inferiority or superiority per pipeline, pre-registered by the owner
+    statistic: >-
+      qualified CPL of the AI-controlled rent event_weeks against the rent frozen baseline (each pipeline against its own
+      baseline, ADR-013); the rent-versus-sale difference-in-differences is diagnostic only (BUSINESS_CONTRACT 8.4)
+    mde: readiness:business.acceptance.verdict_rule   # COMPARISON.md shows the MDE implied by min_qualified, alpha, power and the baseline k
+    alpha: readiness:business.acceptance.verdict_rule
+    power: readiness:business.acceptance.verdict_rule
+    min_exposure: readiness:business.acceptance.verdict_rule   # min_qualified in the AI window
+    max_extension: readiness:business.acceptance.verdict_rule   # extension_unit_weeks and max_weeks
+    non_inferiority_margin: readiness:business.acceptance.verdict_rule   # margin_pct
+    at_limit: >-
+      Step 1 reaches max_weeks without a sufficient verdict -> hold; sale stays with the targetologist and the owner decides
+      at HG-F6-02; never auto-advance
+    pre_registration: >-
+      verdict_rule is approved at F5_GO (HG-F5-04), before HG-F6-01; a verdict_rule revision approved after the Step 1
+      anchor is not used for that Step 1 (the protected-suite principle of EVALS 11.4)
+    operating_characteristics: >-
+      with 2 AI weeks against 8 baseline weeks (alpha 0.05 two-sided, power 0.8, log CPL ratio) the smallest detectable CPL
+      change at 40-10 qualified per week is +42 / -30 to +101 / -50 percent for Poisson counts, +76 / -43 to +129 / -56 at
+      k = 25 and +136 / -58 to +186 / -65 at k = 8; non-inferiority is never reachable with an 8-week baseline when its own
+      variance exceeds the margin (every cell at k = 8, at k = 25 except margin 25 percent at 80 per week) (BUSINESS_CONTRACT 8.7)
+    required_design_fields: [test.statistic, test.variance_model, test.baseline_uncertainty, alpha_sided, verdict_map, looks]   # P-56: values are the owner's
+    owner_choice: decision type, margin, alpha, power and max_weeks interpret ✅ Q36 and go to the owner (⧗ OD-31, OD-33); this file fixes only their form and timing
+  TRUST_RAMP_GRADUATION:
+    title: Trust Ramp L1 to L2 per action_type x pipeline
+    owner_refs: [Q08, Q38]
+    consumers: ['approval-policy.yaml#trust_ramp.graduation']
+    method: consecutive_success_run   # 10 consecutive countable met items (★) + 14 incident-free days (★); owner trust_graduation (HG-L2-01)
+    statistic: >-
+      per item a deterministic met (approval-policy trust_ramp.graduation.met_rule, WF-B07 S02); streak per pair in presented_at
+      order, streak_effects reset on every result other than a countable met
+    mde: 'not_applicable: graduation is a run-length rule, not a test; feasibility is shown per pair at HG-F5-04'
+    alpha: 'not_applicable: run-length rule; P(10 consecutive) by met share is in operating_characteristics'
+    power: 'not_applicable: run-length rule'
+    min_exposure: readiness:business.acceptance.min_sample   # an item whose metric is below the minimum sample is inconclusive and resets
+    max_extension: 'not_applicable: graduation has no deadline; HG-F7-01 reviews pairs that stay below it'
+    non_inferiority_margin: 'not_applicable: graduation rule'
+    band_width_bound: readiness:business.acceptance.outcome_band_max_relative_width
+    at_limit: a pair reaches the criteria -> CMO proposes graduation (C12); only the owner trust_graduation (HG-L2-01) raises it to L2
+    operating_characteristics: >-
+      independent items with met share q: P(10 consecutive within 30 items) 1 % at q = 0.5, 19 % at 0.7, 49 % at 0.8, 87 % at
+      0.9; expected items to the first run of 10 = (1 - q^10) / ((1 - q) q^10): about 2 000 at 0.5, 115 at 0.7, 42 at 0.8, 19 at 0.9
+      ; under the interim reset rule q is the countable met share over all live items (q = d * p), so at r = 0.5 items/day
+      and a decisive share d = 0.3 L2 is never reached (about 4.2 million days at p = 0.8); hold gives about 277 days (P-55)
+    owner_choice: >-
+      whether inconclusive holds instead of resetting, the band width bound and any portfolio-level graduation are owner
+      choices at HG-F5-04 (a portfolio rule would need a new Q)
+  EXPERIMENT:
+    title: one experiment per pipeline (WF-B05)
+    owner_refs: [Q41]
+    consumers: ['workflows/WF-B05.yaml#steps[id=S02]', 'workflows/WF-B05.yaml#steps[id=S06]']
+    method: pre_registered_design   # per experiment design.decision superiority or non_inferiority, approved with the exposure at WF-B05 S03
+    statistic: primary metric (qualified leads or qualified CPL) of the arms against the comparable baseline or control arm, design.primary_metric
+    mde: 'per experiment design.mde_pct, approved at WF-B05 S03 (experiment_exposure, Q41); planned MDE at the expected volume is recorded at S02'
+    alpha: per experiment design.alpha, approved at WF-B05 S03 (Q41, ◇ P-43)
+    power: per experiment design.power, approved at WF-B05 S03 (Q41, ◇ P-43)
+    min_exposure: readiness:business.acceptance.min_sample   # and the design min_exposure, whichever is larger
+    max_extension: readiness:business.exposure.max_elapsed_hours   # the design max_duration never exceeds business.exposure
+    non_inferiority_margin: per experiment design.margin_pct when design.decision is non_inferiority (Q41, ◇ P-43)
+    at_limit: max_duration or exposure reached -> stop, arms revert through authorized commands, verdict under the design (inconclusive allowed); the owner decides at S07
+    isolation: approval-policy change_set.experiment_lock blocks confounding changes in the pipeline while the experiment runs
+    operating_characteristics: >-
+      at the volumes of BUSINESS_CONTRACT 8.7 a one-to-two-week experiment detects only differences of tens of percent;
+      S02 records the planned MDE so an underpowered test is labelled exploratory before launch, not after the data
+  SHADOW_WEEK:
+    title: F5 real shadow week criterion (useful share)
+    owner_refs: [Q36]
+    consumers: ['07_Evals/EVALS.md#6']
+    method: proportion_with_minimum_n   # useful share over rated SHADOW items (aggregation OD-09) against the ★ 60 percent
+    statistic: useful items / rated items over the window; material items (budget, creative, structure) also separately
+    threshold: >-
+      60 percent useful over all rated items (★ EVALS 6) and the material rule below; 0 harmful among items presented on days
+      5-7 and among items presented in the last 3 days of the final (possibly extended) window; 0 policy-violating items
+      passed by the gateway
+    zero_harmful_windows: [days_5_to_7, last_3_days_of_final_window]   # the stricter union (P-54)
+    material_rule: {min_items: 10, statistic: wilson_lower_bound, confidence: 0.80, lower_bound_at_least: 0.5}   # ◇ P-54, replaces the material 60 percent point rule
+    reasonless_ratings: a harmful rating without a reason still counts as harmful; a neutral rating without a reason stays in the denominator as not useful
+    mde: 'not_applicable: point threshold with a minimum sample; PASS probabilities by true usefulness are in operating_characteristics'
+    alpha: 'not_applicable: point threshold; the Wilson 95 percent interval is reported, not tested'
+    power: 'not_applicable: see operating_characteristics'
+    min_exposure: min_rated_items 30 and min_material_items 10 (◇ P-44, from operating_characteristics)
+    max_extension: two extensions of P7D (21 days in total), then the owner decides at HG-F5-02 (◇ P-44)
+    max_extensions: 2
+    extension_unit: P7D
+    non_inferiority_margin: 'not_applicable: single-arm criterion'
+    at_limit: minimum not reached after two extensions -> no silent PASS; HG-F5-02 owner decision with the counts shown
+    pre_registration: written into the protected suite (evals/protected) before the window starts (EVALS 11.4)
+    operating_characteristics: >-
+      P(PASS) with the 60 percent point rule: n = 10 - 38 percent at true usefulness 0.5, 85 percent at 0.7; n = 20 - 25 and
+      89 percent; n = 30 - 18 and 92 percent; n = 50 - 10 and 95 percent. Material rule (Wilson 80 percent lower bound >= 0.5):
+      n = 10 needs 8 useful - P(PASS) 5 percent at 0.5, 38 percent at 0.7, 68 percent at 0.8; n = 20 needs 13 - 13, 77 and
+      97 percent; n = 30 needs 19 - 10, 84 and 99 percent
+  Q29_1_VOLUME:
+    title: CAPI optimisation goal volume rule
+    owner_refs: [Q29.1]
+    consumers: ['business-policy.yaml#qualified_optimization_rule']
+    method: threshold_with_hysteresis   # up-switch needs 2 consecutive monthly measurements, down-switch at the first one below (no looser band)
+    statistic: per pipeline count of crm_confirmed Meta-attributed landing submissions over the previous calendar month
+    threshold: max(owner_volume_floor_per_month 200 (✅ Q29.1), the current official vendor volume)
+    mde: 'not_applicable: threshold rule'
+    alpha: 'not_applicable: threshold rule'
+    power: 'not_applicable: threshold rule'
+    min_exposure: 'not_applicable: the count itself is the decision quantity'
+    max_extension: 'not_applicable: monthly re-measurement'
+    non_inferiority_margin: 'not_applicable: threshold rule'
+    at_limit: a switch condition is met -> weekly report and an owner events_manager_change proposal; the owner switches (NEVER_AUTO)
+    operating_characteristics: >-
+      Poisson monthly counts with true mean mu: P(count >= 200) is 1 percent at mu 170, 14 percent at 185, 51 percent at 200,
+      86 percent at 215, 98 percent at 230; with the 2-up / 1-down rule at mu 200 the goal still switches about 0.26 times
+      per month (once every 4 months), at mu 230 an up-switch needs two passes (about 96 percent) and a miss is rare. A
+      trailing 28-day count compared with the monthly floor would have moved the effective floor to about 217 per month
+      (P(pass) 13 percent at mu 200, two in a row 1.6 percent); the calendar month keeps the owner value exact (P-56)

@@ -1,0 +1,56 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "https://wolter.uz/amt/schemas/tools/meta_write.duplicate_adset.schema.json",
+ "title": "meta_write.duplicate_adset arguments",
+ "description": "Gateway guard 4 argument schema; contract: GUARDRAIL_GATEWAY.md §8.",
+ "type": "object",
+ "additionalProperties": false,
+ "properties": {
+  "source_adset_id": {
+   "$ref": "_common.schema.json#/$defs/meta_id"
+  },
+  "name": {
+   "$ref": "_common.schema.json#/$defs/short_text"
+  },
+  "pipeline": {
+   "$ref": "_common.schema.json#/$defs/pipeline_single"
+  },
+  "daily_budget_minor": {
+   "$ref": "_common.schema.json#/$defs/money_minor"
+  },
+  "currency": {
+   "$ref": "_common.schema.json#/$defs/currency"
+  },
+  "overrides": {
+   "type": "object",
+   "maxProperties": 20,
+   "propertyNames": {
+    "$ref": "_common.schema.json#/$defs/slug"
+   },
+   "additionalProperties": {
+    "type": [
+     "string",
+     "number",
+     "boolean"
+    ],
+    "maxLength": 200
+   },
+   "description": "targeting and placement fields of the gateway field allowlist only (approval-policy.yaml tool_constraints)"
+  },
+  "expected_effect": {
+   "$ref": "_common.schema.json#/$defs/expected_effect"
+  },
+  "reason": {
+   "$ref": "_common.schema.json#/$defs/free_text"
+  }
+ },
+ "required": [
+  "source_adset_id",
+  "name",
+  "pipeline",
+  "daily_budget_minor",
+  "currency",
+  "expected_effect",
+  "reason"
+ ]
+}

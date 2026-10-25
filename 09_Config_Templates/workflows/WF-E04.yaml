@@ -1,0 +1,113 @@
+# Project OS workflow definition template; unresolved readiness blocks the relevant live profile.
+schema_version: 1
+bundle_state: template
+workflow_id: WF-E04
+definition_version: 1
+title: Prompt, skill and knowledge improvement
+category: engineering
+purpose: >-
+  Only a verified lesson becomes a versioned prompt/skill/knowledge change; it passes independent holdout and
+  regression (including invariant tests) and the relevant release gate before agents use it.
+accountable: owner
+requirement_refs: [EVO-R08, EVO-R13, FR-PLN-03]
+trigger:
+  kinds: [signal, parent_run, manual]
+  source: accepted improvement-memory lesson, C12 retro, WF-O02 AAR, eval drift
+  source_refs: [retro, WF-O02, "evolution-policy.yaml#signal_sources"]
+  schedule: null
+  dedup_key: lesson_id
+  correlation_key: target_artifact
+  parent_workflows: [WF-E01]
+authorization:
+  may_start: [amt-workflow, owner]
+  may_cancel: [owner]
+  preconditions:
+    - lesson record verdict=accepted with provenance; rejected/inconclusive lessons cannot start this workflow
+    - "a parent_run start by amt-workflow happens only on behalf of a parent run step that lists this workflow in starts (parent_run_id and parent step recorded)"
+input:
+  schema_ref: schemas/improvement-memory-record.schema.json
+  required_fields: [lesson_id, target_artifact, evidence_refs]
+  freshness: []
+steps:
+  - id: S01
+    name: Lesson check
+    executor: {type: deterministic, ref: amt-workflow}
+    depends_on: []
+    outputs: [lesson provenance verified, not superseded/revoked, no PII/secret]
+    external_effect: none
+    retry: safe_resume
+    timeout: PT5M
+  - id: S02
+    name: Versioned change
+    executor: {type: agent, ref: eng-implementer}
+    depends_on: [S01]
+    outputs: [prompt/skill/knowledge diff in sandbox branch; candidate manifest]
+    handoff:
+      to: eng-verifier
+      accept_when: [diff limited to target artifact, authority wording unchanged or class E declared]
+      reject_codes: [scope_violation, authority_change_undeclared]
+      on_reject: {route: producer_retry, max_rounds: 2, after_max: escalate, escalate_to: owner, overrides: [{codes: [authority_change_undeclared], route: end_run, notify: owner}]}
+    external_effect: internal_only
+    retry: safe_resume
+    timeout: P2D
+  - id: S03
+    name: Independent holdout and regression
+    executor: {type: deterministic, ref: amt-verify}
+    depends_on: [S02]
+    outputs: [holdout + regression + invariant tests bound to manifest and evaluator revision]
+    external_effect: none
+    retry: safe_resume
+    timeout: P1D
+  - id: S04
+    name: Release gate
+    executor: {type: human, ref: owner}
+    depends_on: [S03]
+    outputs: [owner merge (HG-GIT-01); release_approvals record via /release approve <candidate_id> (HG-REL-01); owner-signed release tag on the same manifest commit]
+    approval: {policy_action: upgrade_release, never_auto: true}
+    external_effect: none
+    retry: never
+    timeout: P7D
+  - id: S05
+    name: Release
+    executor: {type: deterministic, ref: amt-release}
+    depends_on: [S04]
+    outputs: [knowledge/skill bundle active with ACK]
+    external_effect: irreversible
+    retry: new_attempt_after_reconcile
+    timeout: PT1H
+  - id: S06
+    name: Result
+    executor: {type: deterministic, ref: sync-worker}
+    depends_on: [S05]
+    emits: [regression_detected]
+    outputs: [observed quality/regression metrics; verdict recorded by owner]
+    external_effect: none
+    retry: safe_resume
+    timeout: readiness:evolution.outcome_policy
+limits:
+  max_duration: P30D
+  max_attempts_per_step: 3
+  cost: {budget_account: engineering, max_minor: null, max_minor_ref: 'readiness:engineering.budget', currency: USD, readiness_ref: engineering.budget}
+  concurrency: {per_correlation_key: 1, global: 2}
+  escalation:
+    - {after: P2D, to: owner, channel: ops-bot}
+  owner_absent: Agents keep the current released prompt/skill/knowledge revision.
+continuation:
+  checkpoint: after_every_step_transition
+  timers: [observation_window_max]
+  signals: [verification_complete, owner_decision, lesson_revoked, regression_detected]
+  lease_ttl: PT10M
+  cancel: Owner cancel or lesson revocation closes the branch
+  compensation: previous released bundle
+  uncertain_external_effect: not_applicable
+completion:
+  technical_done: released revision observed without regression
+  end_steps: [S06]
+  required_evidence: [lesson id, diff, holdout/regression results, release_id, observation]
+  observation: per evolution.outcome_policy
+  business_acceptance: holdout/golden metrics for the affected role; inconclusive keeps the previous revision
+failure_paths:
+  missing_input: Lesson without provenance or with verdict rejected/inconclusive → rejected at S01.
+  cancel_or_escalate: Holdout regression or invariant test fail → rejected; no partial release.
+  uncertain_external_effect: Bundle ACK missing → previous revision stays active.
+tests: [EVO-AT03, EVO-AT11, WF-TEST-E04-E2E, WF-TEST-E04-MISSING, WF-TEST-E04-CANCEL, WF-TEST-E04-UNCERTAIN]

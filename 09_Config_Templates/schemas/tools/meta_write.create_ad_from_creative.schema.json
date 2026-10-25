@@ -1,0 +1,43 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "https://wolter.uz/amt/schemas/tools/meta_write.create_ad_from_creative.schema.json",
+ "title": "meta_write.create_ad_from_creative arguments",
+ "description": "Gateway guard 4 argument schema; contract: GUARDRAIL_GATEWAY.md §8.",
+ "type": "object",
+ "additionalProperties": false,
+ "properties": {
+  "adset_id": {
+   "$ref": "_common.schema.json#/$defs/meta_id"
+  },
+  "creative_id": {
+   "$ref": "_common.schema.json#/$defs/ref"
+  },
+  "creative_revision": {
+   "type": "integer",
+   "minimum": 1
+  },
+  "pipeline": {
+   "$ref": "_common.schema.json#/$defs/pipeline_single"
+  },
+  "expected_effect": {
+   "$ref": "_common.schema.json#/$defs/expected_effect",
+   "not": {
+    "properties": {
+     "scope": {
+      "const": "entity"
+     }
+    },
+    "required": [
+     "scope"
+    ]
+   }
+  }
+ },
+ "required": [
+  "adset_id",
+  "creative_id",
+  "creative_revision",
+  "pipeline",
+  "expected_effect"
+ ]
+}

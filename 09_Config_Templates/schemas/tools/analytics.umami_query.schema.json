@@ -1,0 +1,37 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "https://wolter.uz/amt/schemas/tools/analytics.umami_query.schema.json",
+ "title": "analytics.umami_query arguments",
+ "description": "Gateway guard 4 argument schema; contract: GUARDRAIL_GATEWAY.md §9.1; TRACKING_CAPI.md §7.",
+ "type": "object",
+ "additionalProperties": false,
+ "properties": {
+  "metrics": {
+   "type": "array",
+   "items": {
+    "$ref": "_common.schema.json#/$defs/slug"
+   },
+   "maxItems": 10,
+   "minItems": 1
+  },
+  "date_from": {
+   "$ref": "_common.schema.json#/$defs/date"
+  },
+  "date_to": {
+   "$ref": "_common.schema.json#/$defs/date"
+  },
+  "variant_id": {
+   "$ref": "_common.schema.json#/$defs/ref"
+  },
+  "url_path_prefix": {
+   "type": "string",
+   "maxLength": 200,
+   "pattern": "^/[A-Za-z0-9_./-]*$"
+  }
+ },
+ "required": [
+  "metrics",
+  "date_from",
+  "date_to"
+ ]
+}

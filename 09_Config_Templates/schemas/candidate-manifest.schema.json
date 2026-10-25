@@ -1,0 +1,548 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wolter.uz/amt/schemas/candidate-manifest.schema.json",
+  "title": "AMT candidate / release manifest",
+  "description": "Immutable set of exact revisions that a verification result, approval and release bind to (EVOLUTION_CONTRACT §7). manifest_digest = sha256 of the canonical JSON without the digest field. Any change produces a new manifest; evidence and approvals of the old manifest do not transfer. The same manifest carries the readiness_snapshot and capabilities_enabled, so the owner's release approval (bound to manifest_digest) covers them; a readiness-only candidate has no proposal or evaluator (both null).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "manifest_digest",
+    "created_at",
+    "base_release_id",
+    "code",
+    "workflows",
+    "prompts",
+    "skills",
+    "models",
+    "adapters",
+    "config",
+    "schema",
+    "dependencies",
+    "affected",
+    "release_class",
+    "target_profile",
+    "capabilities_enabled",
+    "readiness_snapshot",
+    "deployment"
+  ],
+  "properties": {
+    "manifest_digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "proposal_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "proposal_revision": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 1
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "base_release_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "null only for the one-time deployment.kind initial; every update names its current active base release"
+    },
+    "code": {
+      "type": "object",
+      "required": [
+        "repo",
+        "commit"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "repo": {
+          "type": "string"
+        },
+        "commit": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40}$"
+        },
+        "branch": {
+          "type": "string"
+        }
+      }
+    },
+    "workflows": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "workflow_id",
+          "definition_version",
+          "definition_digest"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "workflow_id": {
+            "type": "string"
+          },
+          "definition_version": {
+            "type": "integer"
+          },
+          "definition_digest": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "prompts": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/artifact"
+      }
+    },
+    "skills": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/artifact"
+      }
+    },
+    "models": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "role",
+          "provider",
+          "model_id",
+          "pricing_revision"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "role": {
+            "type": "string"
+          },
+          "provider": {
+            "type": "string"
+          },
+          "model_id": {
+            "type": "string"
+          },
+          "pricing_revision": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "adapters": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/artifact"
+      }
+    },
+    "config": {
+      "type": "object",
+      "required": [
+        "config_sha"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "config_sha": {
+          "type": "string"
+        },
+        "policy_revisions": {
+          "type": "object"
+        }
+      }
+    },
+    "schema": {
+      "type": "object",
+      "required": [
+        "schema_version",
+        "migration_kind"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": {
+          "type": "integer"
+        },
+        "migration_kind": {
+          "enum": [
+            "none",
+            "expand_contract",
+            "forward_repair",
+            "restore_required",
+            "workflow_state_migration"
+          ]
+        },
+        "min_compatible_code": {
+          "type": "string"
+        },
+        "max_compatible_code": {
+          "type": "string"
+        }
+      }
+    },
+    "dependencies": {
+      "type": "object",
+      "required": [
+        "lock_sha"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "lock_sha": {
+          "type": "string"
+        },
+        "versions_lock_sha": {
+          "type": "string"
+        }
+      }
+    },
+    "evaluator": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": [
+            "suite_digest",
+            "holdout_digest",
+            "evaluator_revision"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "suite_digest": {
+              "type": "string"
+            },
+            "holdout_digest": {
+              "type": "string"
+            },
+            "evaluator_revision": {
+              "type": "string"
+            }
+          }
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "affected": {
+      "type": "object",
+      "required": [
+        "tests",
+        "runs"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "tests": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "runs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "invariants": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "release_class": {
+      "enum": [
+        "normal",
+        "recovery"
+      ],
+      "description": "release-policy.yaml#release_classes"
+    },
+    "target_profile": {
+      "type": "string",
+      "description": "Highest readiness profile this release targets (informational; gates follow capabilities_enabled)"
+    },
+    "capabilities_enabled": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "llm.billable",
+          "workflow.runtime",
+          "intake.live_traffic",
+          "shadow.real_data",
+          "meta.remote_test",
+          "agents.run",
+          "creative.publish",
+          "sandbox.candidate",
+          "release.manifest",
+          "release.auto",
+          "review.pre_screen"
+        ]
+      },
+      "uniqueItems": true,
+      "description": "execution-policy.yaml#capability_enablement.release_enabled entries this release enables; a capability's gate is the release in which it first enters this list, and leaving the list disables it"
+    },
+    "readiness_snapshot": {
+      "type": "object",
+      "required": [
+        "keys",
+        "capabilities"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "keys": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "required": [
+              "record_revision",
+              "value_hash",
+              "status",
+              "evidence_at"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "record_revision": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "value_hash": {
+                "type": "string"
+              },
+              "status": {
+                "enum": [
+                  "pending",
+                  "evidenced",
+                  "approved",
+                  "not_applicable"
+                ]
+              },
+              "evidence_at": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "format": "date-time"
+              },
+              "valid_until": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "format": "date-time"
+              }
+            }
+          },
+          "description": "Pinned effective approval per key (bundle-bound keys are pinned here; live keys are recorded for audit)"
+        },
+        "capabilities": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "required": [
+              "profile",
+              "gate_result"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "profile": {
+                "type": "string"
+              },
+              "gate_result": {
+                "enum": [
+                  "pass",
+                  "carried",
+                  "fail"
+                ]
+              },
+              "evaluation_digest": {
+                "type": "string"
+              }
+            }
+          },
+          "description": "Per capability in capabilities_enabled: pass (gate passed in this release), carried (passed earlier, operational_validity holds) or fail (not enabled)"
+        }
+      }
+    },
+    "deployment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "phase",
+        "services",
+        "required_acks"
+      ],
+      "properties": {
+        "kind": {
+          "enum": [
+            "initial",
+            "update"
+          ]
+        },
+        "phase": {
+          "enum": [
+            "F1",
+            "F2",
+            "F3",
+            "F4",
+            "F5",
+            "F6",
+            "F7"
+          ]
+        },
+        "services": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 30,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/service_id"
+          }
+        },
+        "required_acks": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 12,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/ack_service_id"
+          }
+        }
+      },
+      "description": "Immutable complete deployed inventory and derived ACK set. Semantic validator recomputes cumulative phase floors, prior inventory, capability service closure and exact ACK classes from release-policy and runtime-isolation."
+    }
+  },
+  "$defs": {
+    "artifact": {
+      "type": "object",
+      "required": [
+        "path",
+        "sha256"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      }
+    },
+    "service_id": {
+      "type": "string",
+      "enum": [
+        "caddy",
+        "cloudflared",
+        "tailscaled",
+        "sshd",
+        "tg-auth",
+        "ops-bot",
+        "telegram-bot-api",
+        "paperclip",
+        "hermes",
+        "managed-runner",
+        "gateway",
+        "executor",
+        "amt-control",
+        "meta-ads-mcp",
+        "amocrm-mcp",
+        "quota-coordinator",
+        "llm-proxy",
+        "stt-local",
+        "capi-bridge",
+        "sync-worker",
+        "render-worker",
+        "cost-watchdog",
+        "postgres",
+        "langfuse",
+        "amt-workflow",
+        "amt-release",
+        "amt-verify",
+        "amt-sandbox",
+        "amt-eng-proxy",
+        "amt-backup"
+      ]
+    },
+    "ack_service_id": {
+      "type": "string",
+      "enum": [
+        "tg-auth",
+        "ops-bot",
+        "gateway",
+        "executor",
+        "amt-control",
+        "amocrm-mcp",
+        "quota-coordinator",
+        "llm-proxy",
+        "capi-bridge",
+        "sync-worker",
+        "cost-watchdog",
+        "amt-workflow"
+      ]
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "deployment": {
+            "properties": {
+              "kind": {
+                "const": "initial"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          }
+        },
+        "required": [
+          "deployment"
+        ]
+      },
+      "then": {
+        "properties": {
+          "base_release_id": {
+            "const": null
+          },
+          "deployment": {
+            "properties": {
+              "phase": {
+                "const": "F1"
+              }
+            }
+          },
+          "capabilities_enabled": {
+            "maxItems": 0
+          },
+          "readiness_snapshot": {
+            "properties": {
+              "capabilities": {
+                "maxProperties": 0
+              }
+            }
+          },
+          "release_class": {
+            "const": "normal"
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "base_release_id": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    }
+  ]
+}

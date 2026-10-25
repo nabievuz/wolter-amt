@@ -1,0 +1,104 @@
+# Project OS workflow definition template; unresolved readiness blocks the relevant live profile.
+schema_version: 1
+bundle_state: template
+workflow_id: WF-O01
+definition_version: 1
+title: Readiness update (fleet, sale readiness, business sources and gate evidence)
+category: operations
+purpose: >-
+  Fresh, attested fleet, sale-readiness and business-source data exist before the decisions that depend on them;
+  when they do not, the dependent action is held immediately and the overdue owner is escalated. Before a gate it also produces the
+  short-lived gate evidence only production can see - the spend-cap read-back and headroom (budget.ads_fresh_check), handback-roster
+  ACK probes (ops.ads_handback_roster, ops.sale_handback_roster) and the same-day sale readiness package (sale.readiness) - and submits it
+  through readiness_evidence for the accountable person to sign.
+accountable: owner
+requirement_refs: [FR-ADS-05, FR-BIZ-02, FR-GOV-08, EVO-R01, EVO-R02]
+trigger:
+  kinds: [schedule, signal, manual]
+  source: amt-workflow scheduler per readiness key (fleet_ask 08:00, sale_ready 09:00 - operations.schedule), source freshness expiry signals, and the gate_refresh_requested signal that ops-bot raises when a gate attempt finds a stale gate-evidence key (or an owner manual start)
+  source_refs: [amt-workflow, fleet_ask, sale_ready, ops-bot, owner]
+  schedule: "0 8 * * *"
+  schedules_by_key: {fleet: "0 8 * * *", sale_readiness: "0 9 * * *"}
+  dedup_key: readiness_key+business_date
+  correlation_key: readiness_key+business_date
+authorization:
+  may_start: [amt-workflow, owner]
+  may_cancel: [owner]
+  preconditions: []
+input:
+  schema_ref: capacity-policy.yaml required_fields; sale-readiness.yaml required_fields
+  required_fields: [readiness_key, business_date, attestation_deadline]   # deadline: fleet 14:00 hold time; sale readiness its valid_until cutoff
+  freshness: []
+steps:
+  - id: S01
+    name: Request
+    executor: {type: deterministic, ref: ops-bot}
+    depends_on: []
+    outputs: [Telegram request to the responsible role (fleet_operator / sales_lead / finance_owner)]
+    external_effect: internal_only
+    retry: safe_resume
+    timeout: PT5M
+  - id: S02
+    name: Attestation
+    executor: {type: human, ref: snapshot_provider}
+    depends_on: [S01]
+    outputs: [append-only snapshot with observed_at, reporter, supersedes]
+    external_effect: none
+    retry: safe_resume
+    timeout: input:attestation_deadline
+    completes_on: [snapshot_submitted]
+  - id: S03
+    name: Validation
+    executor: {type: deterministic, ref: ops-bot}
+    depends_on: [S02]
+    outputs: [valid | invalid (balance/TTL/conflict) with reason]
+    external_effect: none
+    retry: safe_resume
+    timeout: PT5M
+  - id: S04
+    name: Hold or allow
+    executor: {type: deterministic, ref: gateway}
+    depends_on: [S03]
+    emits: [fleet_snapshot_accepted, sale_readiness_accepted]   # one per readiness key, when a valid snapshot becomes effective
+    outputs: [capacity hold active/cleared; sale readiness valid/blocked; effective until valid_until]
+    external_effect: internal_only
+    retry: safe_resume
+    timeout: PT5M
+  - id: S05
+    name: Gate evidence submission
+    executor: {type: deterministic, ref: amt-workflow}
+    depends_on: [S03]
+    outputs: ["gate-evidence keys only: readiness_evidence submission (evidence_prepared_by system:amt-workflow) with the read-back, ACK-probe or snapshot result; the accountable owner or sales_lead is asked to sign with /readiness approve"]
+    external_effect: internal_only
+    retry: safe_resume
+    timeout: PT10M
+limits:
+  max_duration: P1D
+  max_attempts_per_step: 3
+  cost: {budget_account: none, max_minor: null, currency: null, readiness_ref: null}
+  concurrency: {per_correlation_key: 1, global: null}
+  escalation:   # per key, measured from that key's schedules_by_key start (validator T08 against operations.yaml#schedule)
+    - {key: fleet, after: PT1H, to: fleet_operator, channel: ops-bot (fleet_remind 09:00)}
+    - {key: fleet, after: PT6H, to: owner, channel: ops-bot (fleet_escalate 14:00)}
+    - {key: sale_readiness, after: PT30M, to: sales_lead, channel: ops-bot ALERT_SALE_READINESS_STALE (sale_ready_cutoff 09:30)}
+    - {key: sale_readiness, after: PT30M, to: owner, channel: ops-bot ALERT_SALE_READINESS_STALE (sale_ready_cutoff 09:30)}
+  owner_absent: Hold stays in force; reminders continue; no stale value is ever used as today's value.
+continuation:
+  checkpoint: after_every_step_transition
+  timers: [fleet_reminder_09_00, fleet_escalation_14_00, sale_ready_cutoff_09_30, valid_until_expiry]
+  signals: [snapshot_submitted, snapshot_superseded]
+  lease_ttl: PT2M
+  cancel: Not cancellable except by owner for a business_date that is closed; hold semantics unaffected
+  compensation: none
+  uncertain_external_effect: not_applicable
+completion:
+  technical_done: a valid snapshot is effective for the business date, or the hold is recorded with reason and escalation evidence
+  end_steps: [S04, S05]
+  required_evidence: [snapshot ids, validation result, hold/allow event]
+  observation: null
+  business_acceptance: "not_applicable: data-readiness workflow"
+failure_paths:
+  missing_input: "Fleet: no valid snapshot → no ordinary rent change is proposed or dispatched from the start of the business day; without a valid snapshot by 14:00 the whole day is held; the 09:00 reminder and 14:00 escalation only notify. Sale readiness: no valid snapshot by 09:30 → sale budget increase and rent→sale shift stay blocked (ALERT_SALE_READINESS_STALE). Protective controls are unaffected."
+  cancel_or_escalate: Conflicting snapshots → invalid; fleet_operator asked to supersede; hold remains.
+  uncertain_external_effect: Telegram delivery failure → durable outbox retry and independent monitor alert.
+tests: [UAT-01, UAT-02, EVO-AT01, WF-TEST-O01-E2E, WF-TEST-O01-MISSING, WF-TEST-O01-CANCEL, WF-TEST-O01-UNCERTAIN]

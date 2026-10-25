@@ -1,0 +1,188 @@
+# Project OS workflow definition template; unresolved readiness blocks the relevant live profile.
+schema_version: 1
+bundle_state: template
+workflow_id: WF-B04
+definition_version: 2
+title: Offer and landing release
+category: business
+purpose: >-
+  An offer or landing need becomes an owner-merged revision whose landing snapshot and config bundle are ACKed in
+  production; every artifact that still references the superseded revision is found and resolved, and the result is
+  judged pre/post against a comparable baseline.
+accountable: owner
+requirement_refs: [FR-CRO-01, FR-CRO-02, FR-CRO-03, FR-CRO-04, FR-CRV-02, EVO-R01, EVO-R03]
+trigger:
+  kinds: [manual, parent_run, signal]
+  source: owner request, CRO/CMO offer idea, WF-B06 plan item, offer expiry watch
+  source_refs: [owner, cro, cmo, WF-B06, offer_valid_to_watch]
+  schedule: null
+  dedup_key: change_request_id
+  correlation_key: offer_id_or_landing_route
+  parent_workflows: [WF-B05, WF-B06]
+authorization:
+  may_start: [owner, cro, cmo, amt-workflow]
+  may_cancel: [owner, amt-workflow]
+  preconditions:
+    - landing changes only through the separate landing repository and owner merge
+    - "a parent_run start by amt-workflow happens only on behalf of a parent run step that lists this workflow in starts (parent_run_id and parent step recorded)"
+input:
+  schema_ref: schemas/handoff.schema.json (payload_kind offer_or_landing_request)
+  required_fields: [change_request_id, pipeline, kind(offer|landing_content|tracking), rationale, evidence_refs]
+  freshness: [offers.propagation]
+steps:
+  - id: S01
+    name: Validate and route the request kind
+    executor: {type: deterministic, ref: amt-workflow}
+    depends_on: []
+    outputs: ["kind: exactly one of offer, landing_content or tracking from the validated immutable run input; reject mixed or unknown kinds; record the affected artifacts and the route before assigning an author"]
+    output_fields: [kind]
+    external_effect: none
+    retry: safe_resume
+    timeout: PT5M
+  - id: S02
+    name: CRO proposal and pull request
+    executor: {type: agent, ref: cro}
+    depends_on: [S01]
+    when: {step: S01, output: kind, in: [offer, landing_content]}
+    inputs: [validated request and evidence; active offer and landing revisions]
+    outputs: ["offer proposal through offers.propose_pr for kind offer, or landing.open_pr for kind landing_content limited to content/** and excluding generated content/offers.snapshot.json; exact repository, PR number, head commit SHA, diff hash, author identity and affected-artifact list; tracking/** is outside CRO authority"]
+    external_effect: internal_only
+    retry: safe_resume
+    timeout: P2D
+  - id: S10
+    name: Analyst tracking proposal and pull request
+    executor: {type: agent, ref: funnel-analyst}
+    depends_on: [S01]
+    when: {step: S01, output: kind, in: [tracking]}
+    inputs: [validated tracking request and evidence; current consent and tracking contract]
+    outputs: ["landing.open_pr limited to tracking/**; exact repository, PR number, head commit SHA, diff hash, author identity and a measurement/rollback plan; content/** is outside funnel-analyst authority; changed consent text or form fields require the owner's decision before merge"]
+    external_effect: internal_only
+    retry: safe_resume
+    timeout: P2D
+  - id: S03
+    name: CI checks on the selected PR revision
+    executor: {type: deterministic, ref: github-ci}
+    depends_on: [S02, S10]
+    inputs: [PR from the one applicable author branch; the other branch is skipped condition_false]
+    outputs: ["schema/claims/special-category/consent/tracking check report bound to repository, PR number, head commit SHA and diff hash; CI never supplies or replaces an agent review verdict"]
+    external_effect: none
+    retry: safe_resume
+    timeout: PT2H
+  - id: S11
+    name: Analyst tracking impact review of the CRO landing PR
+    executor: {type: agent, ref: funnel-analyst}
+    depends_on: [S03]
+    when: {step: S01, output: kind, in: [landing_content]}
+    inputs: [exact CRO PR revision from S02 and CI evidence from S03; consent, fbc/fbp/event_id, Pixel, Umami and Clarity contract]
+    outputs: ["tracking impact pass/fail with evidence, bound to the exact repository, PR number, head commit SHA and diff hash; a fresh analyst session receives the immutable diff and contracts, not the CRO author's reasoning; the analyst is not the PR author"]
+    handoff:
+      to: gateway
+      accept_when: ["tracking impact pass for the current exact PR head and diff, with a reviewer identity distinct from the author"]
+      reject_codes: [tracking_review_fail, revision_changed, self_review, needs_owner]
+      on_reject: {route: escalate, escalate_to: owner}
+    external_effect: internal_only
+    retry: safe_resume
+    timeout: P1D
+  - id: S12
+    name: Independent Reviewer of the exact offer or landing PR
+    executor: {type: agent, ref: reviewer}
+    depends_on: [S03, S11]
+    inputs: [selected PR reference and immutable subject hash; CI report; S11 tracking review when kind is landing_content]
+    outputs: ["review_verdict(pass|fail|needs_owner) from review.get_subject and review.submit_verdict for subject_type offer_pr or landing_pr, bound to the current exact commit SHA, diff/subject hash, offer revisions and policy revision; every review is a fresh isolated Reviewer session, separate from the author; landing_pr includes tracking_impact, including kind tracking where the analyst is the author and cannot self-review"]
+    handoff:
+      to: gateway
+      accept_when: ["review_verdicts row with verdict pass bound to the exact current PR subject_hash, commit SHA, offer and policy revisions; matching passing CI and required S11 tracking review; author and Reviewer identities differ (checked deterministically)"]
+      reject_codes: [review_fail, revision_changed, self_review, needs_owner]
+      on_reject: {route: escalate, escalate_to: owner}
+    external_effect: internal_only
+    retry: safe_resume
+    timeout: P1D
+  - id: S04
+    name: Owner merge and release approval
+    executor: {type: human, ref: owner}
+    depends_on: [S12]
+    inputs: ["current PR head commit SHA equals the CI, S11 when applicable, and S12 accepted revisions; the gateway rechecks freshness and exact hashes immediately before accepting the owner merge decision"]
+    outputs: [merge commit bound to checked revision; for the AMT config bundle (offers) a release_approvals record via /release approve <candidate_id> (HG-REL-01) and an owner-signed release tag; landing changes are deployed by the owner in Dokploy]
+    approval:
+      never_auto: true
+      by_cause:
+      - {cause: offer_change, policy_actions: [offer_change, upgrade_release], requires: ["S01 kind offer; passing S03 CI and S12 independent Reviewer on the exact current head; no unresolved needs_owner"]}
+      - {cause: landing_content_or_tracking, policy_actions: [landing_pr_merge], requires: ["S01 kind landing_content or tracking; passing S03 CI and S12 independent Reviewer on the exact current head; S11 analyst tracking pass for landing_content; no unresolved needs_owner"]}
+    external_effect: internal_only
+    retry: never
+    timeout: P7D
+  - id: S05
+    name: Config bundle release and ACK
+    executor: {type: deterministic, ref: amt-release}
+    depends_on: [S04]
+    when: {step: S04, output: cause, in: [offer_change]}
+    outputs: [config bundle active ACK (offers) for the owner-signed release tag (HG-REL-01); amt-release publishes only the AMT config bundle and never deploys the landing]
+    external_effect: irreversible
+    retry: new_attempt_after_reconcile
+    timeout: P1D
+  - id: S08
+    name: Landing deploy in Dokploy
+    executor: {type: human, ref: owner}
+    depends_on: [S04]
+    outputs: ["the owner deploys the exact landing artifact of the merged landing commit in production Dokploy (Q46.4); its expected deployment tuple comes from the merge-commit CI build evidence; S09 must read back and match the landing commit, build digest, content/tracking artifact hashes and offer snapshot hash before landing_snapshot_matched closes this task; no AMT service holds production deployment credentials"]
+    external_effect: irreversible
+    retry: never
+    timeout: P1D
+    completes_on: [landing_snapshot_matched]
+  - id: S09
+    name: Exact published landing deployment verification
+    executor: {type: deterministic, ref: sync-worker}
+    depends_on: [S04]
+    inputs: ["expected deployment tuple from trusted CI build evidence for the owner-merged landing commit (same approved PR tree), including the generated snapshot build for kind offer; absent expected evidence blocks, and CI never replaces S11/S12 independent review"]
+    outputs: ["read-only same-origin HTTPS GET /.well-known/amt-deployment.json on go.wolter.uz per F2_Landing_Tracking published deployment evidence contract; match every expected field: landing_merge_commit, build_digest, content_artifact_hashes, tracking_artifact_hashes and offer_snapshot_hash; record expected/observed tuple, observed_at and response digest; emit landing_snapshot_matched only on the complete exact match, never from an unchanged offer hash alone; metadata is generated and co-deployed with the same immutable landing artifact; until then S08/S09 stay open, the previous trusted revision stays active and S06 waits"]
+    emits: [landing_snapshot_matched]
+    external_effect: none
+    retry: safe_resume
+    timeout: readiness:offers.propagation
+  - id: S06
+    name: Resolve superseded artifacts
+    executor: {type: deterministic, ref: gateway}
+    depends_on: [S05, S09]
+    outputs: [dependency_invalidations; invalidated pending approvals; replacement items as WF-B02 runs and urgent entity_pause items registered with the gateway (urgent_item_submitted), each its own WF-B03 urgent round inside the offers.propagation SLA (dispatch_ownership.urgent_entry); this step dispatches no command]
+    starts:
+    - {workflow: WF-B02, key: brief_id, input: [brief_id, pipeline, hypothesis, offer_revision_refs, formats, languages], await: none, on_parent_end: continue, condition: "a live ad references a superseded offer or landing revision and needs a replacement creative"}
+    external_effect: reversible
+    retry: new_attempt_after_reconcile
+    timeout: readiness:offers.propagation
+  - id: S07
+    name: Pre/post outcome
+    executor: {type: agent, ref: funnel-analyst}
+    depends_on: [S06]
+    outputs: [pre/post analysis with baseline and maturity; inconclusive allowed]
+    external_effect: internal_only
+    retry: safe_resume
+    timeout: readiness:business.acceptance
+limits:
+  max_duration: readiness:business.acceptance
+  max_attempts_per_step: 3
+  cost: {budget_account: ai_runtime, max_minor: null, max_minor_ref: 'readiness:budget.request_bounds', currency: USD, readiness_ref: budget.request_bounds}
+  concurrency: {per_correlation_key: 1, global: null}
+  escalation:
+    - {after: P2D, to: owner, channel: ops-bot}
+  owner_absent: PR waits; live landing and ads keep the currently approved revision; expiring offers trigger the pre-approved safe action only.
+continuation:
+  checkpoint: after_every_step_transition
+  timers: [offer_valid_to_watch, propagation_deadline]
+  signals: [pr_merged, pr_closed, deploy_ack, offer_revoked, landing_snapshot_matched, kill]
+  lease_ttl: PT5M
+  cancel: "Closing the PR cancels the run; nothing reaches production without merge; amt-workflow cancels only under workflow-policy.yaml#child_lifecycle.on_parent_end (cancel_open, no external effect yet)"
+  compensation: revert PR + release of the previous immutable bundle; landing rollback via Dokploy previous release
+  uncertain_external_effect: reconcile_via_source_system
+completion:
+  technical_done: "the applicable kind author branch, passing CI and required independent reviews all bind the owner-merged revision; active ACK proves the new revision on landing/config and no live artifact references a superseded revision without an owner disposition"
+  end_steps: [S07, S08]
+  required_evidence: [validated kind and author route, exact PR head commit SHA and diff hash, matching passing CI, S11 analyst tracking review for landing_content or not_applicable, S12 independent Reviewer verdict and subject hash, merge commit, release_id, service ACKs, expected and observed exact landing deployment tuple with response digest and observation time, landing snapshot hash, dependency_invalidations dispositions]
+  observation: pre/post window with comparable baseline
+  business_acceptance: business.acceptance; landing auto-deploy stays disabled until traffic sufficiency is proven
+failure_paths:
+  missing_input: "Unknown or mixed kind → S01 blocks; no verified price/terms or special category decision → S03 fails; missing, failed, stale or self-authored review → S11/S12 blocks; owner task; no PR merge."
+  cancel_or_escalate: Owner rejects/closes PR → run cancelled; expiring or revoked offer without replacement → dependent live artefacts identified, new dispatch blocked, pending approvals invalidated, ALERT_OFFER_REVOKED, urgent entity_pause items for managed entities (owner or ads_approver) and a landing PR within the offers.propagation SLA; protective_pause is not used for offer revocation.
+  uncertain_external_effect: "Expected deployment evidence absent, or metadata GET missing, stale, malformed, timed out or mismatched → no landing_snapshot_matched; S08/S09 stay open, old trusted revision stays active, dependent dispatch blocked, technical_operator alerted; unchanged offer snapshot hash alone never confirms a content/tracking deploy."
+  other:
+    - "Any PR head/diff, offer or policy revision change invalidates the old CI/reviews and merge eligibility; the old run blocks and an authorized starter must cancel it and start a corrected run whose revision passes S03, S11 when applicable and S12 before S04 can accept an owner merge. An issue status, mention, CI pass alone, author claim or old pass never substitutes for review. A rejected review escalates with its exact revision; the owner can cancel or restart a corrected run, never reuse its pass."
+tests: [UAT-26, UAT-31, EVO-AT08, WF-TEST-B04-E2E, WF-TEST-B04-MISSING, WF-TEST-B04-CANCEL, WF-TEST-B04-UNCERTAIN]

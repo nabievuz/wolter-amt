@@ -1,0 +1,38 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "https://wolter.uz/amt/schemas/tools/amo.write_fields.schema.json",
+ "title": "amo.write_fields arguments",
+ "description": "Gateway guard 4 argument schema; contract: GUARDRAIL_GATEWAY.md §9.1; TRACKING_CAPI.md §3.",
+ "type": "object",
+ "additionalProperties": false,
+ "properties": {
+  "lead_id": {
+   "$ref": "_common.schema.json#/$defs/amo_id"
+  },
+  "fields": {
+   "type": "object",
+   "additionalProperties": false,
+   "properties": {
+    "amt_creative_id": {
+     "$ref": "_common.schema.json#/$defs/ref"
+    },
+    "amt_quality_flag": {
+     "enum": [
+      "ok",
+      "suspect",
+      "spam",
+      "duplicate"
+     ]
+    },
+    "amt_lead_score": {
+     "type": "number",
+     "description": "bounded by the approved range and definition (TRACKING_CAPI §3); the gateway sanitizer enforces it"
+    }
+   }
+  }
+ },
+ "required": [
+  "lead_id",
+  "fields"
+ ]
+}

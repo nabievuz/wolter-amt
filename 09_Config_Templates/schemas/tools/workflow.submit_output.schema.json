@@ -1,0 +1,42 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "https://wolter.uz/amt/schemas/tools/workflow.submit_output.schema.json",
+ "title": "workflow.submit_output arguments",
+ "description": "Gateway guard 4 argument schema; contract: WORKFLOW_RUNTIME.md §2. the artifact content is validated against its payload_kind schema by the workflow runtime (handoff.schema.json)",
+ "type": "object",
+ "additionalProperties": false,
+ "properties": {
+  "run_id": {
+   "$ref": "_common.schema.json#/$defs/uuid"
+  },
+  "step_id": {
+   "$ref": "_common.schema.json#/$defs/step_id"
+  },
+  "lease_fence": {
+   "type": "integer",
+   "minimum": 0
+  },
+  "payload_kind": {
+   "$ref": "../handoff.schema.json#/properties/payload_kind"
+  },
+  "artifact_refs": {
+   "type": "array",
+   "items": {
+    "$ref": "_common.schema.json#/$defs/ref"
+   },
+   "maxItems": 50,
+   "minItems": 1
+  },
+  "artifact_digest": {
+   "$ref": "_common.schema.json#/$defs/sha256"
+  }
+ },
+ "required": [
+  "run_id",
+  "step_id",
+  "lease_fence",
+  "payload_kind",
+  "artifact_refs",
+  "artifact_digest"
+ ]
+}

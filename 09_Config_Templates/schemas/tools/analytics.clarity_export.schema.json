@@ -1,0 +1,25 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "https://wolter.uz/amt/schemas/tools/analytics.clarity_export.schema.json",
+ "title": "analytics.clarity_export arguments",
+ "description": "Gateway guard 4 argument schema; contract: GUARDRAIL_GATEWAY.md §9.1; TRACKING_CAPI.md §7.",
+ "type": "object",
+ "additionalProperties": false,
+ "properties": {
+  "num_days": {
+   "type": "integer",
+   "minimum": 1,
+   "description": "the Data Export API window; the vendor limit is checked in F3 [?]"
+  },
+  "dimensions": {
+   "type": "array",
+   "items": {
+    "$ref": "_common.schema.json#/$defs/slug"
+   },
+   "maxItems": 3
+  }
+ },
+ "required": [
+  "num_days"
+ ]
+}

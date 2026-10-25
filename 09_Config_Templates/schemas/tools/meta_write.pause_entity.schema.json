@@ -1,0 +1,28 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "https://wolter.uz/amt/schemas/tools/meta_write.pause_entity.schema.json",
+ "title": "meta_write.pause_entity arguments",
+ "description": "Gateway guard 4 argument schema; contract: GUARDRAIL_GATEWAY.md §8.",
+ "type": "object",
+ "additionalProperties": false,
+ "properties": {
+  "entity_type": {
+   "$ref": "_common.schema.json#/$defs/meta_entity_type"
+  },
+  "entity_id": {
+   "$ref": "_common.schema.json#/$defs/meta_id"
+  },
+  "pipeline": {
+   "$ref": "_common.schema.json#/$defs/pipeline"
+  },
+  "reason": {
+   "$ref": "_common.schema.json#/$defs/free_text"
+  }
+ },
+ "required": [
+  "entity_type",
+  "entity_id",
+  "pipeline",
+  "reason"
+ ]
+}

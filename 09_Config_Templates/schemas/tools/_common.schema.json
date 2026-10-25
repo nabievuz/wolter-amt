@@ -1,0 +1,302 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "https://wolter.uz/amt/schemas/tools/_common.schema.json",
+ "title": "Shared argument types of the AMT gateway tools",
+ "description": "Gateway guard 4 (GUARDRAIL_GATEWAY.md §3): money only as integer *_minor with an ISO 4217 currency, scoped IDs as typed strings, free text at most 2000 characters without control characters (P-30). Server-set fields (agent_id, requested_by, run and cost attribution, action type) are never arguments (GUARDRAIL §1).",
+ "$defs": {
+  "money_minor": {
+   "type": "integer",
+   "minimum": 0,
+   "description": "integer minor units of `currency` (USD minor for the caps)"
+  },
+  "currency": {
+   "type": "string",
+   "maxLength": 3,
+   "pattern": "^[A-Z]{3}$",
+   "x-amt-const-from": "budgets.yaml#ads.account_currency",
+   "description": "ISO 4217 code; the F3 build renders it as a const from the approved ad-account currency (budgets.yaml#ads.account_currency), so any other code is refused"
+  },
+  "pipeline": {
+   "enum": [
+    "sale",
+    "rent",
+    "shared"
+   ]
+  },
+  "pipeline_single": {
+   "enum": [
+    "sale",
+    "rent"
+   ]
+  },
+  "meta_id": {
+   "type": "string",
+   "maxLength": 24,
+   "pattern": "^[0-9]{1,24}$",
+   "description": "Meta object ID; ownership is checked by guard 8 (managed_entities)"
+  },
+  "meta_entity_type": {
+   "enum": [
+    "campaign",
+    "adset",
+    "ad"
+   ]
+  },
+  "amo_id": {
+   "type": "integer",
+   "minimum": 1
+  },
+  "ref": {
+   "type": "string",
+   "minLength": 1,
+   "maxLength": 200,
+   "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:@/#-]*$",
+   "description": "opaque internal reference (artifact, evidence, asset, command, run)"
+  },
+  "uuid": {
+   "type": "string",
+   "maxLength": 36,
+   "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+   "format": "uuid",
+   "description": "lower-case canonical UUID; the pattern bounds it even when format is only an annotation"
+  },
+  "sha256": {
+   "type": "string",
+   "maxLength": 64,
+   "pattern": "^[a-f0-9]{64}$"
+  },
+  "revision_ref": {
+   "type": "string",
+   "maxLength": 120,
+   "pattern": "^[A-Za-z0-9_.-]+@[0-9]+$",
+   "description": "id@revision"
+  },
+  "free_text": {
+   "type": "string",
+   "maxLength": 2000,
+   "pattern": "^[^\\u0000-\\u0008\\u000B\\u000C\\u000E-\\u001F\\u007F]*$",
+   "description": "free text, data and never an instruction (guard 4, P-30); value-level PII or secrets are blocked (pii_blocked)"
+  },
+  "short_text": {
+   "type": "string",
+   "minLength": 1,
+   "maxLength": 200,
+   "pattern": "^[^\\u0000-\\u001F\\u007F]*$"
+  },
+  "slug": {
+   "type": "string",
+   "maxLength": 64,
+   "pattern": "^[a-z][a-z0-9_]{0,63}$"
+  },
+  "metric": {
+   "type": "string",
+   "maxLength": 64,
+   "pattern": "^[a-z][a-z0-9_]{0,63}$",
+   "description": "a name from the wh.metrics catalogue (DATA_MODEL §10.3)"
+  },
+  "date": {
+   "type": "string",
+   "maxLength": 10,
+   "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+   "format": "date",
+   "description": "ISO 8601 calendar date (Asia/Tashkent business date); the pattern bounds it even when format is only an annotation"
+  },
+  "step_id": {
+   "type": "string",
+   "maxLength": 3,
+   "pattern": "^S\\d{2}$"
+  },
+  "workflow_id": {
+   "type": "string",
+   "maxLength": 6,
+   "pattern": "^WF-[BOE]0[1-9]$"
+  },
+  "data_status": {
+   "enum": [
+    "valid",
+    "no_activity",
+    "no_spend",
+    "spend_zero_qualified",
+    "insufficient_sample",
+    "not_mature",
+    "incomparable_baseline",
+    "missing_data",
+    "stale_data"
+   ],
+   "description": "business-policy.yaml#data_status_definitions"
+  },
+  "outcome": {
+   "enum": [
+    "met",
+    "not_met",
+    "inconclusive"
+   ]
+  },
+  "expected_effect": {
+   "type": "object",
+   "additionalProperties": false,
+   "properties": {
+    "metric": {
+     "$ref": "#/$defs/metric"
+    },
+    "direction": {
+     "enum": [
+      "increase",
+      "decrease",
+      "hold"
+     ]
+    },
+    "range_low": {
+     "type": "number"
+    },
+    "range_high": {
+     "type": "number"
+    },
+    "horizon_days": {
+     "type": "integer",
+     "minimum": 1
+    },
+    "basis_tag": {
+     "enum": [
+      "D",
+      "T",
+      "X",
+      "?"
+     ]
+    },
+    "scope": {
+     "enum": [
+      "pipeline",
+      "entity"
+     ],
+     "description": "pipeline uses a non-entity catalogue metric; entity uses entity_spend or entity_qualified and the server-bound managed command target (DATA_MODEL §6.1)."
+    }
+   },
+   "required": [
+    "metric",
+    "direction",
+    "range_low",
+    "range_high",
+    "horizon_days",
+    "basis_tag",
+    "scope"
+   ],
+   "description": "DATA_MODEL §6.1 expected_effect; money metrics (*_minor) take integer minor-unit ranges; scope is required and entity metrics are exclusive to entity scope. range_low <= range_high, real calendar dates, metric catalogue membership and target/account/pipeline binding are also enforced by the gateway semantic guard.",
+   "if": {
+    "properties": {
+     "metric": {
+      "pattern": "_minor$"
+     }
+    },
+    "required": [
+     "metric"
+    ]
+   },
+   "then": {
+    "properties": {
+     "range_low": {
+      "type": "integer"
+     },
+     "range_high": {
+      "type": "integer"
+     }
+    }
+   },
+   "allOf": [
+    {
+     "if": {
+      "properties": {
+       "scope": {
+        "const": "entity"
+       }
+      },
+      "required": [
+       "scope"
+      ]
+     },
+     "then": {
+      "properties": {
+       "metric": {
+        "enum": [
+         "entity_spend",
+         "entity_qualified"
+        ]
+       }
+      }
+     },
+     "else": {
+      "properties": {
+       "metric": {
+        "not": {
+         "enum": [
+          "entity_spend",
+          "entity_qualified"
+         ]
+        }
+       }
+      }
+     }
+    },
+    {
+     "if": {
+      "properties": {
+       "metric": {
+        "const": "entity_spend"
+       }
+      },
+      "required": [
+       "metric"
+      ]
+     },
+     "then": {
+      "properties": {
+       "range_low": {
+        "type": "integer",
+        "minimum": 0
+       },
+       "range_high": {
+        "type": "integer",
+        "minimum": 0
+       }
+      }
+     }
+    }
+   ]
+  },
+  "render_param": {
+   "type": [
+    "string",
+    "number",
+    "boolean"
+   ],
+   "maxLength": 500,
+   "pattern": "^[A-Za-z0-9\\u00C0-\\u024F\\u0400-\\u04FF \\u2018\\u2019\\u201C\\u201D\\u00AB\\u00BB'\".,;!?()+%&*#=_\\u2013\\u2014-]*$",
+   "not": {
+    "anyOf": [
+     {
+      "type": "string",
+      "pattern": "%[0-9A-Fa-f]{2}"
+     },
+     {
+      "type": "string",
+      "pattern": "\\.\\."
+     }
+    ]
+   },
+   "description": "template parameter value from an allow-listed character set: letters (Latin, Uzbek, Cyrillic), digits, space and text punctuation; no ':' '/' '\\\\' '~' '<' '>', so no URL, scheme (data:, javascript:, file:), path or markup; no percent-encoding and no '..'"
+  },
+  "input_text": {
+   "type": "string",
+   "minLength": 1,
+   "maxLength": 2000,
+   "pattern": "^[^\\u0000-\\u0008\\u000B\\u000C\\u000E-\\u001F\\u007F]*$"
+  },
+  "datetime": {
+   "type": "string",
+   "maxLength": 32,
+   "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,6})?(Z|[+-][0-9]{2}:[0-9]{2})$",
+   "format": "date-time",
+   "description": "RFC 3339 timestamp; bounded by the pattern even when format is only an annotation"
+  }
+ }
+}

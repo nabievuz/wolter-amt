@@ -1,0 +1,202 @@
+# Project OS configuration template; unresolved readiness blocks the relevant live profile.
+schema_version: 1
+bundle_state: template
+loop:
+- signal
+- triage
+- proposal
+- criteria_and_design
+- isolated_implementation
+- independent_verification
+- release_decision
+- release
+- observation
+- verdict
+- memory
+signal_sources:
+- incident_aar
+- owner_request
+- regression
+- cost_drift
+- latency_drift
+- vendor_advisory
+- retro_c12
+- eval_drift
+- agent_signal   # evo.signal.submit from business agents (internal, audited, PII-free)
+dedup:
+  key: problem_fingerprint
+  open_proposal_absorbs_duplicates: true
+  reopen_requires_new_evidence: true
+change_classes:
+  A_content:
+    covers: [docs, prompt, skill, knowledge, golden_copy_library]
+    gates: [independent_verification, upgrade_release]
+  B_code:
+    covers: [service code not listed as protected]
+    gates: [independent_verification, upgrade_release]
+  C_workflow_harness:
+    covers: [workflow definitions, amt-workflow, orchestration adapters, managed runner mapping]
+    gates: [independent_verification, harness_handover, upgrade_release]
+    workflow: WF-E02
+  D_schema_migration:
+    covers: [db migrations, workflow state migrations]
+    gates: [independent_verification, migration_drill, upgrade_release]
+  E_protected_surface:
+    covers: protected_surfaces
+    gates: [independent_verification, protected_surface_change, upgrade_release]
+initial_build_review:
+  decision_ref: Q66
+  sequencing_decision_ref: Q67
+  author: initial_builder_only
+  scope: owner-supervised first build before FE_RELEASE and before F6_STEP1; Q67 places FE_RELEASE before formal F5 eval and real shadow; never restore or a post-baseline engineering candidate
+  checks: fresh independent AI context without the author's session plus owner review of exact evidence, merge and release
+  production_permission: false
+  guardrail_relaxation: forbidden without a separate explicit superseding owner decision
+  ends: at the earlier of the FE_RELEASE human signoff or F6_STEP1; the independent technical human must review the exact baseline manifest before either gate passes, and Q67 requires that FE_RELEASE signoff before any formal F5 eval or real shadow starts
+  engineering_candidates: protected-surface engineering candidates always retain class E independent human review; no exemption
+  after_end: normal I20 independent-human review and owner release for protected surfaces
+protected_surfaces:
+- services/release-controller/**
+- services/verify/** and evals/protected/** (suites, holdout, evaluator config)
+- config/approval-policy.yaml
+- config/evolution-policy.yaml
+- config/execution-policy.yaml
+- config/release-policy.yaml
+- config/runtime-isolation.yaml
+- config/budgets.yaml
+- config/prompt-manifest.yaml (per-role eager prompt and its ceiling)
+- config/engineering-budget.yaml
+- config/resource-policy.yaml
+- services/control/** (kill, latch, epoch)
+- services/gateway/** policy, guard and allowlist enforcement
+- config/schemas/tools/** (gateway guard 4 argument schemas)
+- services/executor/** (dispatch barrier, pause-only path)
+- services/llm-proxy/** admission, reservation and kill gate
+- services/workflow/** controller, lease/fence and handoff acceptance
+- secrets/** and credential renderers
+- config/roles.yaml (RBAC)
+- config/agent-hiring.yaml (Q68 autonomous agent hire envelope)
+- config/kill-criteria.yaml
+- "config/decision-statistics.yaml (shared statistical decision rules: KC, Step 2, Trust Ramp, shadow, experiments, Q29.1)"
+- config/workflow-policy.yaml
+- config/operations.yaml (protective_controls and schedule)
+- config/readiness.yaml (rules and profiles; values change only through the readiness process)
+- config/tracking-health.yaml (Q37 gate rules)
+- config/pipelines.yaml (Q16/Q17 pipeline and qualified definitions)
+- config/business-policy.yaml (Q24/Q29.1 and business acceptance rules)
+- config/capacity-policy.yaml (Q43 capacity rules)
+- config/privacy-policy.yaml
+- config/sale-readiness.yaml
+- config/environments.yaml (production isolation)
+- 11_Production_Contracts/INVARIANTS.md, WORKFLOW_CONTRACT.md, EVOLUTION_CONTRACT.md
+- 00_Decisions/DECISION_LOG.md
+- 12_Acceptance/validate_bundle.py, 12_Acceptance/handoff_checks.py, 12_Acceptance/preflight_server.py, 12_Acceptance/fixtures/** and tests marked protected
+engineering_may_not_change:
+- config/offers.yaml   # commercial terms change only through WF-B04 (offer_change, owner merge and release approval), never as an engineering candidate
+config_coverage_rule: every config template is a protected surface (class E) or listed in engineering_may_not_change; no config change is class A or B
+roles:
+  eng-planner:
+    may: [read_evolution_backlog, read_sanitized_metrics, draft_proposal]
+    may_not: [write_code, verify, merge, release, read_holdout]
+  eng-architect:
+    may: [read_repo_snapshot, draft_design, draft_disposition_plan]
+    may_not: [verify_own_design_as_pass, merge, release, read_holdout]
+  eng-implementer:
+    may: [write_in_assigned_sandbox_branch, run_public_tests_in_sandbox]
+    may_not: [read_holdout, edit_protected_suite_without_class_E, merge, release, production_access]
+  eng-verifier:
+    may: [run_protected_suites_and_holdout_via_amt_verify, write_review_report]
+    may_not: [modify_candidate, merge, release, production_write]
+separation_of_duties:
+  author_can_verify_own_candidate: false
+  author_can_release: false
+  verifier_can_modify_candidate: false
+  release_controller_type: deterministic
+  engineering_roles_extend_business_authority: false
+gates:
+  upgrade_proposal_approval:
+    approvers: [owner]
+    never_auto: true
+  upgrade_release:
+    approvers: [owner]
+    never_auto: true
+    binds_ref: release-policy.yaml#release_approval.bound_to
+  harness_handover:
+    approvers: [owner]
+    never_auto: true
+  migration_drill:
+    approvers: [owner]
+    never_auto: true
+  protected_surface_change:
+    approvers: [owner]
+    two_step: typed_code
+    independent_human_review_required: true
+    never_auto: true
+  engineering_budget_change:
+    approvers: [owner]
+    two_step: typed_code
+    never_auto: true
+promotion:
+  default: owner_release_approval_record_and_signed_release_tag
+  release_approval_ref: release-policy.yaml#release_approval
+  artifact_identity: build_once_promote
+  kill_interaction: only recovery releases while global mode is killed
+  auto_release:
+    enabled: false
+    decision_ref: OD-03
+    blocked_until:
+    - owner decision amending Q11 recorded in DECISION_LOG (readiness auto_release.decision_ref)
+    - readiness release.scope_observation approved
+    - FE phase technically_accepted and EVO-AT14 pass
+    policy:
+      allowed_classes: []
+      allowed_paths: []
+      max_risk: low
+      max_engineering_minor: 0
+      ttl_days: 0
+      required_evidence: [verification pass on exact manifest, observation plan, recovery tested]
+      stop_rules: []
+  always_human:
+  - money limits and budget accounts
+  - secrets and permissions
+  - protected verifier, publisher, kill and policy surfaces
+  - destructive migrations
+  - the auto-release policy itself
+revalidate_on:
+- approval_revoked_or_expired
+- source_or_dependency_changed
+- offer_role_or_policy_changed
+- evaluator_changed
+observation:
+  first_scope: isolated_or_read_only
+  dual_active_controllers: false
+  parallel_old_new_external_writers: false
+outcome:
+  lifecycle:
+  - specified
+  - implemented
+  - verified_in_staging
+  - merged
+  - released
+  - deployed
+  - observed
+  - technically_accepted
+  - business_accepted
+  terminal:
+  - rejected
+  - inconclusive
+  - rolled_back
+  - cancelled
+  - not_applicable
+  verdicts:
+  - accepted
+  - rejected
+  - inconclusive
+  inconclusive_allows_scale_or_autonomy: false
+  outcome_policy_readiness_ref: evolution.outcome_policy
+memory:
+  schema: schemas/improvement-memory-record.schema.json
+  guidance_requires_verdict: accepted
+  raw_logs_or_external_docs_become_instructions: false
+  supersede_and_revoke: true
+  pii_and_secret_separation: true

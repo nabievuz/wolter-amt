@@ -1,0 +1,95 @@
+# Project OS workflow definition template; unresolved readiness blocks the relevant live profile.
+schema_version: 1
+bundle_state: template
+workflow_id: WF-O05
+definition_version: 1
+title: Monthly retro (C12)
+category: operations
+purpose: >-
+  On day 1 of every month the Funnel Analyst and the CMO review the previous month with recipe C12 and publish an L3
+  retro to the owner; every lesson leaves the retro only as an evo.signal.submit signal (source retro_c12), so a change
+  of guidance, policy, model or autonomy still goes through WF-E01/WF-E04 or the owner's own action (FR-PLN-03).
+accountable: owner
+requirement_refs: [FR-PLN-03]
+trigger:
+  kinds: [schedule, manual]
+  source: amt-workflow scheduler at the start of day 1 of the month (retro); the owner may start a run by hand
+  source_refs: [amt-workflow, retro, owner]
+  schedule: "0 0 1 * *"
+  dedup_key: business_month
+  correlation_key: business_month
+authorization:
+  may_start: [amt-workflow, owner]
+  may_cancel: [owner]
+  preconditions: []
+input:
+  schema_ref: THINKING_MODELS C12 recipe; DATA_MODEL cohort_metrics, command_outcomes, kill_criteria_evaluations, incidents and AARs of the month
+  required_fields: [business_month]
+  freshness: []   # the retro always runs; stale month data is stated as data_status (failure_paths.missing_input)
+steps:
+  - id: S01
+    name: Month data freeze
+    executor: {type: deterministic, ref: sync-worker}
+    depends_on: []
+    outputs: ['frozen dataset reference for the previous business month (cohort metrics, command_outcomes, kill_criteria_evaluations, Trust Ramp state, incidents and AARs, AI and Meta spend against their caps)']
+    external_effect: internal_only
+    retry: safe_resume
+    timeout: PT30M
+  - id: S02
+    name: Data part and Trust Ramp evidence
+    executor: {type: agent, ref: funnel-analyst}
+    depends_on: [S01]
+    outputs: [C12 data part with every number bound to the frozen dataset and its data_status; command_outcomes evidence per action_type x pipeline for Trust Ramp]
+    handoff:
+      to: cmo
+      accept_when: [every number source/time referenced, data_status explicit, no PII]
+      reject_codes: [unsourced_number, missing_data_status, pii_detected]
+      on_reject: {route: producer_retry, max_rounds: 2, after_max: escalate, escalate_to: owner}
+    external_effect: internal_only
+    retry: safe_resume
+    timeout: P1D
+  - id: S03
+    name: C12 retro synthesis
+    executor: {type: agent, ref: cmo}
+    depends_on: [S02]
+    outputs: ["L3 retro (C12: IMP-03 → DGN-02 → SYS-02 → MTA-02 → PRI-01): lessons with evidence, SOP proposals, Trust Ramp graduation proposals only with command_outcomes evidence, memory diff audit; every lesson submitted with evo.signal.submit (source retro_c12) or dropped with a reason"]
+    external_effect: internal_only
+    retry: safe_resume
+    timeout: P2D
+  - id: S04
+    name: Publication to the owner
+    executor: {type: deterministic, ref: ops-bot}
+    depends_on: [S03]
+    outputs: [L3 retro in Paperclip and a Telegram BLUF to the owner; graduation proposals listed in /decisions for the owner trust_graduation action (HG-L2-01); nothing is approved in this workflow]
+    external_effect: internal_only
+    retry: safe_resume
+    timeout: PT30M
+limits:
+  max_duration: P5D
+  max_attempts_per_step: 3
+  cost: {budget_account: ai_runtime, max_minor: null, max_minor_ref: 'readiness:budget.request_bounds', currency: USD, readiness_ref: budget.request_bounds}
+  concurrency: {per_correlation_key: 1, global: 1}
+  escalation:
+    - {after: P4D, to: owner, channel: ops-bot}
+  owner_absent: >-
+    The retro is still written and published; nothing in it changes guidance, autonomy or money without the owner's own
+    action in its workflow (WF-E01/WF-E04 release, trust_graduation).
+continuation:
+  checkpoint: after_every_step_transition
+  timers: []
+  signals: [kill]
+  lease_ttl: PT5M
+  cancel: Owner may cancel; evolution signals already submitted stay in the WF-E01 intake
+  compensation: none
+  uncertain_external_effect: not_applicable
+completion:
+  technical_done: L3 retro published to the owner and every lesson submitted as an evolution signal or dropped with a recorded reason
+  end_steps: [S04]
+  required_evidence: [frozen dataset ref, retro document id, evolution signal ids, BLUF delivery id]
+  observation: null
+  business_acceptance: "not_applicable: review workflow; changes are judged in WF-E01/WF-E04"
+failure_paths:
+  missing_input: Stale or missing month data → the retro states data_status and gaps; no invented numbers; lessons that depend on them are marked inconclusive.
+  cancel_or_escalate: Analyst handoff rejected → funnel-analyst resubmits a corrected revision, at most 2 rounds (handoff.on_reject), then the run is blocked and escalated to the owner; no published retro after P4D → owner alerted; owner cancel keeps submitted signals.
+  uncertain_external_effect: Telegram delivery failure → durable outbox retry; the Paperclip copy remains the source.
+tests: [WF-TEST-O05-E2E, WF-TEST-O05-MISSING, WF-TEST-O05-CANCEL, WF-TEST-O05-UNCERTAIN]

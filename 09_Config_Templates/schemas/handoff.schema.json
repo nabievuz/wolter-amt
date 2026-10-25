@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wolter.uz/amt/schemas/handoff.schema.json",
+  "title": "AMT step handoff envelope",
+  "description": "Every agent-to-agent or agent-to-human handoff inside a workflow run. The receiver validates it and records accepted/rejected (WORKFLOW_CONTRACT §6). Issue assignment or a text mention is never acceptance. Wraps the thinking-library JSON envelope (THINKING_MODELS §3.4) in `analysis`.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["handoff_id", "run_id", "step_id", "round", "workflow_id", "definition_version", "definition_digest", "release_id", "from", "to", "created_at", "expires_at", "payload_kind", "inputs", "revisions", "done_when", "blockers", "status"],
+  "properties": {
+    "handoff_id": {"type": "string", "format": "uuid"},
+    "run_id": {"type": "string", "format": "uuid"},
+    "step_id": {"type": "string", "pattern": "^S\\d{2}$"},
+    "round": {"type": "integer", "minimum": 1, "maximum": 10, "description": "Submission round of this step output: 1 for the first submission, +1 for each resubmission after a rejection; bounded by the definition handoff.on_reject.max_rounds (workflow-policy.yaml#handoff_rejection)"},
+    "workflow_id": {"type": "string", "pattern": "^WF-[BOE]0[1-9]$"},
+    "definition_version": {"type": "integer", "minimum": 1},
+    "definition_digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "release_id": {"type": "string"},
+    "from": {"type": "string"},
+    "to": {"type": "string"},
+    "created_at": {"type": "string", "format": "date-time"},
+    "expires_at": {"type": "string", "format": "date-time"},
+    "payload_kind": {"enum": ["creative_brief", "creative_revision", "review_request", "change_set_proposal", "offer_or_landing_request", "c07_report", "plan", "experiment_verdict", "upgrade_proposal", "design", "candidate", "verification_request", "disposition_plan", "other"]},
+    "pipeline": {"enum": ["sale", "rent", "shared", null]},
+    "inputs": {"type": "array", "maxItems": 50, "items": {"type": "object", "required": ["ref", "as_of"], "properties": {"ref": {"type": "string"}, "as_of": {"type": ["string", "null"], "format": "date-time"}}, "additionalProperties": false}},
+    "revisions": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "measurement_revision": {"type": ["string", "null"]},
+        "offer_revision_refs": {"type": "array", "items": {"type": "string"}},
+        "creative_revision_refs": {"type": "array", "items": {"type": "string"}},
+        "asset_manifest_shas": {"type": "array", "items": {"type": "string"}},
+        "review_revision_refs": {"type": "array", "items": {"type": "string"}},
+        "policy_revision": {"type": ["string", "null"]},
+        "manifest_digest": {"type": ["string", "null"]}
+      }
+    },
+    "analysis": {"oneOf": [{"type": "null"}, {"$ref": "analysis-envelope.schema.json"}], "description": "Thinking-library §3.4 JSON envelope (analysis-envelope.schema.json); kernel_ref is the digest of the loaded Kernel text; validated by the gateway on workflow.submit_output (workflow-policy.yaml#handoff_validation)"},
+    "next_action": {"type": "string", "maxLength": 500},
+    "done_when": {"type": "array", "minItems": 1, "maxItems": 7, "items": {"type": "string", "maxLength": 300}},
+    "blockers": {"type": "array", "maxItems": 7, "items": {"type": "string", "maxLength": 300}},
+    "status": {"enum": ["offered", "accepted", "rejected", "expired"]},
+    "decision": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "properties": {
+        "by": {"type": "string"},
+        "at": {"type": "string", "format": "date-time"},
+        "reason_code": {"type": ["string", "null"]},
+        "checks": {"type": "array", "items": {"type": "string"}}
+      }
+    }
+  }
+}

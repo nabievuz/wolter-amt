@@ -1,0 +1,108 @@
+# Project OS workflow definition template; unresolved readiness blocks the relevant live profile.
+schema_version: 1
+bundle_state: template
+workflow_id: WF-E03
+definition_version: 1
+title: Dependency, model and adapter upgrade
+category: engineering
+purpose: >-
+  A dependency, model, provider route or adapter change is adopted only from an official source at an exact version,
+  after impact/license review, compatibility and eval evidence, and an exact owner release followed by observation.
+accountable: owner
+requirement_refs: [EVO-R07, EVO-R08, EVO-R11, FR-OBS-01]
+trigger:
+  kinds: [signal, schedule, manual]
+  source: VERSIONS.lock.md watcher, official release/advisory feeds, provider deprecation notice, owner request
+  source_refs: [amt-workflow, dependency_check, owner]
+  schedule: "0 15 * * 3"
+  dedup_key: component+target_version
+  correlation_key: component
+authorization:
+  may_start: [amt-workflow, owner]
+  may_cancel: [owner]
+  preconditions:
+    - FE_SANDBOX profile approved for paid engineering steps
+input:
+  schema_ref: schemas/upgrade-proposal.schema.json
+  required_fields: [component, current_version, target_version, official_source_ref]
+  optional_fields: [advisory_id, advisory_deadline]   # present for a security advisory; advisory_deadline drives the advisory_deadline timer
+  freshness: []
+steps:
+  - id: S01
+    name: Source intake
+    executor: {type: deterministic, ref: amt-workflow}
+    depends_on: []
+    outputs: [exact version, source commit/image digest, advisory references]
+    external_effect: none
+    retry: safe_resume
+    timeout: PT30M
+  - id: S02
+    name: Impact and license review
+    executor: {type: agent, ref: eng-architect}
+    depends_on: [S01]
+    outputs: ['impact note (APIs, schema, security)', license/provenance check, affected runs/tests]
+    external_effect: internal_only
+    retry: safe_resume
+    timeout: P2D
+  - id: S03
+    name: Compatibility and eval
+    executor: {type: deterministic, ref: amt-verify}
+    depends_on: [S02]
+    outputs: [regression + per-role tool-use eval + golden copy (if language model) + holdout results bound to manifest]
+    external_effect: none
+    retry: safe_resume
+    timeout: P2D
+  - id: S04
+    name: Release decision
+    executor: {type: human, ref: owner}
+    depends_on: [S03]
+    outputs: [owner approval bound to exact version and manifest]
+    approval: {policy_action: upgrade_release, never_auto: true}
+    external_effect: none
+    retry: never
+    timeout: P7D
+  - id: S05
+    name: Exact release
+    executor: {type: deterministic, ref: amt-release}
+    depends_on: [S04]
+    outputs: [VERSIONS.lock.md updated; release active with ACKs]
+    external_effect: irreversible
+    retry: new_attempt_after_reconcile
+    timeout: PT2H
+  - id: S06
+    name: Observation and acceptance
+    executor: {type: deterministic, ref: sync-worker}
+    depends_on: [S05]
+    emits: [regression_detected]
+    outputs: [observation report; verdict accepted|rejected|inconclusive recorded by owner]
+    external_effect: none
+    retry: safe_resume
+    timeout: readiness:evolution.outcome_policy
+limits:
+  max_duration: P30D
+  max_attempts_per_step: 3
+  cost: {budget_account: engineering, max_minor: null, max_minor_ref: 'readiness:engineering.budget', currency: USD, readiness_ref: engineering.budget}
+  concurrency: {per_correlation_key: 1, global: 2, on_limit: queue}   # dedup component+target_version attaches repeated weekly triggers; a queued advisory still raises WF-O02 containment
+  escalation:
+    - {after: P1D, to: technical_operator, channel: ops-bot}
+    - {after: P3D, to: owner, channel: ops-bot}
+  owner_absent: Current pinned versions stay; a security advisory raises an incident (WF-O02) for containment, not an unreviewed upgrade.
+continuation:
+  checkpoint: after_every_step_transition
+  timers: [advisory_deadline, observation_window_max]
+  signals: [advisory_update, verification_complete, owner_decision, regression_detected]
+  lease_ttl: PT10M
+  cancel: Owner cancel keeps the current pin
+  compensation: previous pinned release; no automatic model/provider fallback
+  uncertain_external_effect: not_applicable
+completion:
+  technical_done: exact version active with ACKs and clean observation
+  end_steps: [S06]
+  required_evidence: [source ref, license check, eval results, release_id, observation]
+  observation: per evolution.outcome_policy
+  business_acceptance: "not_applicable unless the change alters agent output quality; then holdout + golden copy basis"
+failure_paths:
+  missing_input: No official source or exact version → rejected; `latest` is never a release source.
+  cancel_or_escalate: Unsupported model/tool schema → explicit failure and hold; no silent fallback.
+  uncertain_external_effect: Partial service ACK → old release stays active for dispatch; reconcile ACKs first.
+tests: [EVO-AT08, EVO-AT11, UAT-30, WF-TEST-E03-E2E, WF-TEST-E03-MISSING, WF-TEST-E03-CANCEL, WF-TEST-E03-UNCERTAIN]

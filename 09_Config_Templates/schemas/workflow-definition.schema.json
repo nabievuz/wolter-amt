@@ -1,0 +1,1058 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wolter.uz/amt/schemas/workflow-definition.schema.json",
+  "title": "AMT workflow definition",
+  "description": "Contract for every business, operations and engineering workflow (11_Production_Contracts/WORKFLOW_CONTRACT.md §2). Runtime computes definition_digest = sha256(canonical JSON of this document) at publish; runs pin workflow_id + definition_version + definition_digest.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "workflow_id",
+    "definition_version",
+    "title",
+    "category",
+    "purpose",
+    "accountable",
+    "trigger",
+    "authorization",
+    "input",
+    "steps",
+    "limits",
+    "continuation",
+    "completion",
+    "failure_paths",
+    "tests"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "bundle_state": {
+      "enum": [
+        "template",
+        "live"
+      ]
+    },
+    "workflow_id": {
+      "type": "string",
+      "pattern": "^WF-(B0[1-9]|O0[1-9]|E0[1-9])$"
+    },
+    "definition_version": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Monotonic revision of this definition. A new value never changes runs that already pinned an older one."
+    },
+    "title": {
+      "type": "string",
+      "minLength": 3
+    },
+    "category": {
+      "enum": [
+        "business",
+        "operations",
+        "engineering"
+      ]
+    },
+    "purpose": {
+      "type": "string",
+      "minLength": 10,
+      "description": "Business or operational outcome this workflow is accountable for."
+    },
+    "accountable": {
+      "$ref": "#/$defs/human_role"
+    },
+    "requirement_refs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "trigger": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kinds",
+        "source",
+        "source_refs",
+        "dedup_key",
+        "correlation_key"
+      ],
+      "properties": {
+        "kinds": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "enum": [
+              "schedule",
+              "event",
+              "webhook",
+              "signal",
+              "manual",
+              "parent_run",
+              "threshold"
+            ]
+          }
+        },
+        "source": {
+          "type": "string"
+        },
+        "source_refs": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          },
+          "description": "Registry ids behind trigger.source: service_id, agent, human role or alias, external participant, workflow id, operations.yaml#schedule id, signal kind, timer id, or a <config>.yaml#<path> reference (validator W08)"
+        },
+        "schedule": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Cron in Asia/Tashkent, or null"
+        },
+        "dedup_key": {
+          "type": "string",
+          "description": "Expression over trigger input; duplicate trigger with an open run attaches to it"
+        },
+        "correlation_key": {
+          "type": "string"
+        },
+        "parent_workflows": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^WF-[BOE]0[1-9]$"
+          }
+        },
+        "schedules_by_key": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "Cron per input key (Asia/Tashkent) when one definition serves several scheduled keys; `schedule` stays the primary key's cron"
+        },
+        "signals_by_key": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "Signal kind per input key when a definition starts a run on a signal (workflow-policy.yaml#signals.catalog; validator W10)"
+        },
+        "signal_windows": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "Per key: when a signal may start a run and what a late signal does"
+        }
+      }
+    },
+    "authorization": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "may_start",
+        "may_cancel"
+      ],
+      "properties": {
+        "may_start": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          }
+        },
+        "may_cancel": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          }
+        },
+        "preconditions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "input": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_ref",
+        "required_fields"
+      ],
+      "properties": {
+        "schema_ref": {
+          "type": "string"
+        },
+        "required_fields": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "optional_fields": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Fields that may be absent at start; failure_paths.missing_input states what the run does without them"
+        },
+        "freshness": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Readiness keys whose runtime freshness rule (snapshot TTL, data cutoff, valid_until) must hold at start AND again before any external effect; this is not the key's own max_evidence_age, which is checked at signing and at the profile gate"
+        }
+      }
+    },
+    "steps": {
+      "type": "array",
+      "minItems": 2,
+      "items": {
+        "$ref": "#/$defs/step"
+      }
+    },
+    "limits": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "max_duration",
+        "max_attempts_per_step",
+        "cost",
+        "concurrency",
+        "escalation",
+        "owner_absent"
+      ],
+      "properties": {
+        "max_duration": {
+          "type": "string",
+          "pattern": "^(P[0-9TDHMSW]+|readiness:[a-z_.]+)$",
+          "description": "ISO-8601 duration, or readiness:<key> when the bound is a business value still to be approved"
+        },
+        "max_attempts_per_step": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10
+        },
+        "cost": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "budget_account"
+          ],
+          "properties": {
+            "budget_account": {
+              "enum": [
+                "ai_runtime",
+                "engineering",
+                "ads",
+                "none"
+              ]
+            },
+            "max_minor": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 0
+            },
+            "currency": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "pattern": "^[A-Z]{3}$"
+            },
+            "readiness_ref": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "max_minor_ref": {
+              "type": "string",
+              "pattern": "^readiness:[a-z_.]+$",
+              "description": "Per-run cap held in a readiness value (budget.request_bounds run_caps_minor per workflow; engineering.budget per_proposal_max_minor): required with max_minor null whenever the definition has an agent step (workflow-policy.yaml#cost_caps; validator M09)"
+            },
+            "extra_bound_refs": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "pattern": "^readiness:[a-z_.]+$"
+              },
+              "description": "Other bounds on what the run may consume or cause (media jobs: budget.media; experiment ad exposure: business.exposure); they never replace the per-run LLM cap"
+            }
+          },
+          "description": "budget_account is where the run's LLM and media requests are charged (ai_runtime for a definition with a runtime agent step, engineering for engineering roles); ads spend caused by its commands is bounded per command by budgets.yaml ads, not by this run cap"
+        },
+        "concurrency": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "per_correlation_key",
+            "global"
+          ],
+          "properties": {
+            "per_correlation_key": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "global": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 1
+            },
+            "on_limit": {
+              "enum": [
+                "queue",
+                "skip_with_audit",
+                "reject_with_alert"
+              ],
+              "description": "What a trigger does while a limit is reached (workflow-policy.yaml#concurrency_semantics); absent means on_limit_default"
+            }
+          }
+        },
+        "escalation": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "after",
+              "to"
+            ],
+            "properties": {
+              "key": {
+                "type": "string",
+                "description": "Trigger key (trigger.schedules_by_key) this escalation applies to; absent means every key"
+              },
+              "after": {
+                "type": "string",
+                "pattern": "^(P[0-9TDHMSW]+|readiness:[a-z_.]+)$"
+              },
+              "to": {
+                "type": "string"
+              },
+              "channel": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "owner_absent": {
+          "type": "string",
+          "minLength": 10
+        }
+      }
+    },
+    "continuation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "checkpoint",
+        "timers",
+        "signals",
+        "lease_ttl",
+        "cancel",
+        "uncertain_external_effect"
+      ],
+      "properties": {
+        "checkpoint": {
+          "const": "after_every_step_transition"
+        },
+        "timers": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "signals": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "lease_ttl": {
+          "type": "string",
+          "pattern": "^P[0-9TDHMSW]+$"
+        },
+        "cancel": {
+          "type": "string"
+        },
+        "compensation": {
+          "type": "string"
+        },
+        "uncertain_external_effect": {
+          "enum": [
+            "reconcile_via_command_ledger",
+            "reconcile_via_source_system",
+            "not_applicable"
+          ]
+        }
+      }
+    },
+    "completion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "technical_done",
+        "required_evidence",
+        "business_acceptance",
+        "end_steps"
+      ],
+      "properties": {
+        "technical_done": {
+          "type": "string"
+        },
+        "end_steps": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "pattern": "^S\\d{2}$"
+          },
+          "description": "Steps whose outputs no later step consumes (the run's end events); every other step feeds a later step (validator W16)"
+        },
+        "required_evidence": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          }
+        },
+        "observation": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "business_acceptance": {
+          "type": "string",
+          "description": "Criterion reference (readiness/business contract) or 'not_applicable: <reason>'"
+        }
+      }
+    },
+    "failure_paths": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "missing_input",
+        "cancel_or_escalate",
+        "uncertain_external_effect"
+      ],
+      "properties": {
+        "missing_input": {
+          "type": "string",
+          "minLength": 10
+        },
+        "cancel_or_escalate": {
+          "type": "string",
+          "minLength": 10
+        },
+        "uncertain_external_effect": {
+          "type": "string",
+          "minLength": 10
+        },
+        "other": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "tests": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "pattern": "^(EVO-AT\\d{2}|UAT-\\d{2}|F[0-7E]-AT-[A-Za-z0-9]+|WF-TEST-[A-Z0-9-]+)$"
+      }
+    }
+  },
+  "$defs": {
+    "human_role": {
+      "enum": [
+        "owner",
+        "ads_approver",
+        "sales_lead",
+        "fleet_operator",
+        "content_contributor",
+        "technical_operator",
+        "finance_owner",
+        "privacy_owner"
+      ]
+    },
+    "step": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name",
+        "executor",
+        "depends_on",
+        "outputs",
+        "external_effect",
+        "retry",
+        "timeout"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^S\\d{2}$"
+        },
+        "name": {
+          "type": "string"
+        },
+        "executor": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "ref"
+          ],
+          "description": "Who performs the step. deterministic: a runtime-isolation.yaml#services service_id or a workflow-policy.yaml#external_participants entry with executes_steps: true; agent: a runtime-isolation.yaml agents or engineering_roles id; human: a role (roles.yaml roles or responsibility_assignments) or a workflow-policy.yaml#human_aliases name (validator W08)",
+          "properties": {
+            "type": {
+              "enum": [
+                "agent",
+                "deterministic",
+                "human"
+              ]
+            },
+            "ref": {
+              "type": "string"
+            },
+            "requires_flag": {
+              "type": "string",
+              "description": "roles.yaml#flags flag the performing person must hold (human executors only; required when the alias says flag: from_executor)"
+            }
+          }
+        },
+        "depends_on": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^S\\d{2}$"
+          }
+        },
+        "when": {
+          "description": "Condition on an upstream step's named output. When it is false the step is recorded skipped with reason condition_false and its dependants continue; it is never retried (validator W15). `any_of` opens the step when at least one condition holds; a step that collects `acks` must list a `handback_triggers` condition, so a handback-only incident never skips it (FR-GOV-10, ✅ Q31)",
+          "oneOf": [
+            {
+              "$ref": "#/$defs/condition"
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "any_of"
+              ],
+              "properties": {
+                "any_of": {
+                  "type": "array",
+                  "minItems": 2,
+                  "items": {
+                    "$ref": "#/$defs/condition"
+                  }
+                }
+              }
+            }
+          ]
+        },
+        "inputs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "outputs": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          }
+        },
+        "output_fields": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]*$"
+          },
+          "description": "Named, machine-readable fields of this step's result that a later step's `when` may test (validator W15)"
+        },
+        "schedule_refs": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]*$"
+          },
+          "description": "operations.yaml#schedule ids whose slot this step follows although the slot does not start the run (validator T11, two-way with workflow-policy.yaml#schedule_execution)"
+        },
+        "handoff": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "to",
+            "accept_when",
+            "on_reject"
+          ],
+          "properties": {
+            "to": {
+              "type": "string"
+            },
+            "accept_when": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "string"
+              }
+            },
+            "reject_codes": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "minItems": 1
+            },
+            "on_reject": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "route"
+              ],
+              "description": "What a rejection of this handoff does (workflow-policy.yaml#handoff_rejection; validator W17): producer_retry re-runs the producer step with the rejection codes and a new revision, bounded by max_rounds (<= handoff_rejection.max_rounds_cap; rounds of every handoff naming the same producer share its max_attempts_per_step, so 1 + max_rounds <= max_attempts_per_step); escalate blocks the run with a blocker for escalate_to, a principal in may_cancel or may_start that can act; end_run ends the run failed with the rejection reason and is allowed only when no earlier step had an external effect or started children; compensate_then_end runs continuation.compensation first, keeps the run's locks until every compensation command is terminal with remote evidence, then ends the run failed. overrides send listed codes to another route; security codes end the run and notify the owner.",
+              "properties": {
+                "route": {
+                  "enum": [
+                    "producer_retry",
+                    "escalate",
+                    "end_run",
+                    "compensate_then_end"
+                  ]
+                },
+                "producer_step": {
+                  "type": "string",
+                  "pattern": "^S\\d{2}$",
+                  "description": "Step that produces the corrected revision: this step (default) or an upstream step"
+                },
+                "max_rounds": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 9,
+                  "description": "Resubmissions after rejections (the first submission is round 1)"
+                },
+                "after_max": {
+                  "enum": [
+                    "escalate",
+                    "end_run",
+                    "compensate_then_end"
+                  ]
+                },
+                "escalate_to": {
+                  "type": "string",
+                  "description": "A roles.yaml role or assignment, a workflow-policy.yaml#human_aliases name or an agent id"
+                },
+                "overrides": {
+                  "type": "array",
+                  "minItems": 1,
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "codes",
+                      "route"
+                    ],
+                    "properties": {
+                      "codes": {
+                        "type": "array",
+                        "minItems": 1,
+                        "items": {
+                          "type": "string"
+                        }
+                      },
+                      "route": {
+                        "enum": [
+                          "producer_retry",
+                          "escalate",
+                          "end_run",
+                          "compensate_then_end"
+                        ]
+                      },
+                      "escalate_to": {
+                        "type": "string"
+                      },
+                      "producer_step": {
+                        "type": "string",
+                        "pattern": "^S\\d{2}$",
+                        "description": "For a producer_retry override: the upstream step that re-runs for these codes (for example the input snapshot for stale_input); it shares the handoff's max_rounds"
+                      },
+                      "notify": {
+                        "type": "string",
+                        "description": "Human role that receives a blocker notice with the code when this override ends the run (security codes: owner)"
+                      }
+                    }
+                  }
+                }
+              },
+              "if": {
+                "properties": {
+                  "route": {
+                    "const": "producer_retry"
+                  }
+                }
+              },
+              "then": {
+                "required": [
+                  "max_rounds",
+                  "after_max"
+                ]
+              },
+              "else": {
+                "not": {
+                  "anyOf": [
+                    {
+                      "required": [
+                        "max_rounds"
+                      ]
+                    },
+                    {
+                      "required": [
+                        "after_max"
+                      ]
+                    },
+                    {
+                      "required": [
+                        "producer_step"
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "approval": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Human decision for this step: one policy action, or one per cause when the authorized action depends on the case (each case names its own action and preconditions).",
+          "properties": {
+            "policy_action": {
+              "type": "string",
+              "description": "Key in approval-policy.yaml actions or evolution-policy.yaml gates"
+            },
+            "by_cause": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "cause",
+                  "policy_actions"
+                ],
+                "properties": {
+                  "cause": {
+                    "type": "string"
+                  },
+                  "policy_actions": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                      "type": "string"
+                    },
+                    "description": "Ordered human decisions required for this cause; each is a key in approval-policy.yaml actions"
+                  },
+                  "requires": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "effect": {
+                    "type": "string"
+                  },
+                  "never_auto": {
+                    "type": "boolean",
+                    "description": "Defaults to the step-level never_auto"
+                  },
+                  "approved_in": {
+                    "type": "string",
+                    "pattern": "^WF-[BOE]0[1-9]$",
+                    "description": "The approval of these command actions is taken in this owner workflow's human approval step (workflow-policy.yaml#dispatch_ownership); this step records the cause and does not approve or dispatch the action itself (validator W11)"
+                  },
+                  "approvers": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                      "type": "string"
+                    },
+                    "description": "Narrows approval-policy.yaml actions.<action>.approvers for this case (never widens); the gateway routes the item only to these roles (validator W11)"
+                  },
+                  "approved_case": {
+                    "type": "string",
+                    "description": "The cause of the case in the approved_in workflow's human approval step that takes this decision; that case must be at least as strict (never_auto, approvers) as this one (validator W11)"
+                  }
+                }
+              }
+            },
+            "never_auto": {
+              "type": "boolean"
+            }
+          },
+          "oneOf": [
+            {
+              "required": [
+                "policy_action"
+              ]
+            },
+            {
+              "required": [
+                "by_cause"
+              ]
+            }
+          ]
+        },
+        "acks": {
+          "type": "array",
+          "minItems": 1,
+          "description": "Human ACKs this step must collect before it completes (DATA_MODEL handback_acks): one accepted row per active trigger, by a person on the pipeline's handback roster; an alert alone never completes the step (FR-GOV-10, ✅ Q31; validator W15)",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "trigger",
+              "record"
+            ],
+            "properties": {
+              "trigger": {
+                "enum": [
+                  "kill_criteria",
+                  "zero_qualified_exposure",
+                  "kill_b",
+                  "protective_pause",
+                  "foreign_spend",
+                  "incident"
+                ]
+              },
+              "record": {
+                "const": "handback_acks"
+              },
+              "by": {
+                "type": "string",
+                "description": "Roster readiness key whose persons may ACK (ops.ads_handback_roster, ops.sale_handback_roster)"
+              }
+            }
+          }
+        },
+        "command_action": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Canonical command action_type when this step dispatches through the command ledger"
+        },
+        "external_effect": {
+          "enum": [
+            "none",
+            "internal_only",
+            "reversible",
+            "irreversible"
+          ]
+        },
+        "retry": {
+          "enum": [
+            "safe_resume",
+            "new_attempt_after_reconcile",
+            "never"
+          ]
+        },
+        "timeout": {
+          "type": "string",
+          "pattern": "^(P[0-9TDHMSW]+|readiness:[a-z_.]+|input:[a-z_.]+)$",
+          "description": "ISO-8601 duration, readiness:<key>, or input:<field> (bound approved in the run input)"
+        },
+        "on_timeout": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "action",
+            "safe_state"
+          ],
+          "description": "What the step's timeout means for the run (human steps; validator W20). wait_and_escalate keeps the step open while limits.escalation runs, so a deputy or owner who acts later still completes it; fail_step_safe ends the step in the stated safe state; expire_item_and_close expires the pending item; auto_not_applicable records not_applicable",
+          "properties": {
+            "action": {
+              "enum": [
+                "wait_and_escalate",
+                "fail_step_safe",
+                "expire_item_and_close",
+                "auto_not_applicable"
+              ]
+            },
+            "safe_state": {
+              "type": "string",
+              "minLength": 10
+            },
+            "max_reasks": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        },
+        "completes_on": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          },
+          "description": "Signal kinds that complete a human task step that has no approval block (each in continuation.signals and signals.catalog); a completing signal may not come only from a step that waits for this one (validator W21)"
+        },
+        "compensation": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "command_actions": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          },
+          "description": "Every command action_type this step may dispatch; the gateway sets the actual action_type per command and routes each to its own approvers (owner-only actions stay owner-only)"
+        },
+        "serves_cases": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "For a command action whose dispatch is split by case (workflow-policy.yaml#dispatch_ownership.actions.<action>.cases or .case), the case this dispatch step serves (validator W11)"
+        },
+        "emits": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Signal kinds this step produces (workflow-policy.yaml#signals.catalog lists the step as a producer; validator W10)"
+        },
+        "starts": {
+          "type": "array",
+          "minItems": 1,
+          "description": "Child workflow runs this step starts through amt-workflow on behalf of the run (parent_run_id and parent step recorded). The child lists this workflow in trigger.parent_workflows, has parent_run in trigger.kinds and amt-workflow in authorization.may_start; input names every required field of the child; await child_completed needs child_run_completed in continuation.signals (validator W13)",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "workflow",
+              "key",
+              "input",
+              "await",
+              "on_parent_end"
+            ],
+            "properties": {
+              "workflow": {
+                "type": "string",
+                "pattern": "^WF-[BOE]0[1-9]$"
+              },
+              "key": {
+                "type": "string",
+                "description": "Child correlation or dedup key value taken from this step's output"
+              },
+              "input": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "type": "string"
+                },
+                "description": "Child input fields this step supplies (all of the child's input.required_fields)"
+              },
+              "await": {
+                "enum": [
+                  "none",
+                  "started",
+                  "child_completed"
+                ],
+                "description": "none: the parent step does not wait; started: it completes when each child run is created, and a refused start blocks the step with a blocker (never counts as done); child_completed: it waits for child_run_completed"
+              },
+              "condition": {
+                "type": "string",
+                "description": "When a child is started (text over this step's outputs); absent means for every item the outputs name"
+              },
+              "on_parent_end": {
+                "enum": [
+                  "cancel_open",
+                  "continue"
+                ],
+                "description": "What amt-workflow does with this child when the parent run is cancelled, fails or is killed (workflow-policy.yaml#child_lifecycle): cancel_open cancels a child that has no external effect yet; continue leaves it under its own rules"
+              },
+              "input_values": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "description": "Fixed child input values this start sets (for example round: experiment:<experiment_id>)"
+              }
+            }
+          }
+        },
+        "decision_rule": {
+          "type": "string",
+          "description": "Shared statistical decision rule id this step applies (decision-statistics.yaml#decision_rules, validator K04)"
+        }
+      }
+    },
+    "condition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "step",
+        "output"
+      ],
+      "properties": {
+        "step": {
+          "type": "string",
+          "pattern": "^S\\d{2}$",
+          "description": "Upstream step (in the transitive depends_on of this step)"
+        },
+        "output": {
+          "type": "string",
+          "description": "Named output of that step: cause (one of its approval.by_cause causes), severity (operations.yaml#severities) or a field the step declares in its outputs text"
+        },
+        "in": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          }
+        },
+        "non_empty": {
+          "const": true
+        }
+      },
+      "oneOf": [
+        {
+          "required": [
+            "in"
+          ]
+        },
+        {
+          "required": [
+            "non_empty"
+          ]
+        }
+      ],
+      "description": "One condition on an upstream step's named output (validator W15)"
+    }
+  }
+}

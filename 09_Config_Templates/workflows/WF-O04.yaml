@@ -1,0 +1,91 @@
+# Project OS workflow definition template; unresolved readiness blocks the relevant live profile.
+schema_version: 1
+bundle_state: template
+workflow_id: WF-O04
+definition_version: 1
+title: Monthly spend-cap update
+category: operations
+purpose: >-
+  On day 1 of every business month the Ads Manager account spending limit is moved to the cap_update_formula value
+  (P-02) by the owner (owner-only, Q37; HG-OPS-01) and proven by an API read-back, so the provider cap keeps holding the
+  USD 1 500 business cap independently of AMT, and a late or wrong update is visible on the same day instead of
+  surfacing as stopped delivery or a read_only state.
+accountable: owner
+requirement_refs: [FR-ADS-03]
+trigger:
+  kinds: [schedule, manual]
+  source: amt-workflow scheduler at the start of day 1 of the business month (Asia/Tashkent, spend_cap_update); the owner may start a run after an account or currency change
+  source_refs: [amt-workflow, spend_cap_update, owner]
+  schedule: "0 0 1 * *"
+  dedup_key: business_month
+  correlation_key: business_month
+authorization:
+  may_start: [amt-workflow, owner]
+  may_cancel: [owner]
+  preconditions:
+    - vendor.meta_cap approved (HG-F3-02 set the first limit and its read-back matched)
+input:
+  schema_ref: budgets.yaml#ads (cap_update_formula, cap_update_rounding, expected_cap_switch) and DATA_MODEL ads_spend_snapshots / account_snapshots
+  required_fields: [business_month, provider_counter_now_native, verified_mtd_minor]
+  freshness: []   # S01 waits for fresh spend data itself (budget.ads_fresh_check); the run always starts so the month change is never silent
+steps:
+  - id: S01
+    name: Cap computation
+    executor: {type: deterministic, ref: gateway}
+    depends_on: []
+    outputs: ["expected_cap_native = provider_counter_now_native + to_native(max(0, monthly_cap_minor - verified_mtd_minor - safety_margin_minor)), rounded down to the provider minor unit (budgets.yaml#ads.cap_update_formula); stored as the pending expected value with its inputs and their freshness; S01 waits until budget.ads_fresh_check holds for the provider counter and verified MTD; the active expected value is not changed"]
+    external_effect: none
+    retry: safe_resume
+    timeout: PT30M
+  - id: S02
+    name: Owner sets the spending limit in Ads Manager (HG-OPS-01)
+    executor: {type: human, ref: owner}
+    depends_on: [S01]
+    outputs: ["the owner sets the account spending limit to expected_cap_native in Ads Manager and presses [Qo‘ydim] on REMINDER_SPEND_CAP_RESET (owner-only, Q37; no AMT tool can change the limit, ADR-005); a value set before the callback is accepted by S03 when the read-back matches"]
+    external_effect: reversible
+    retry: never
+    timeout: P1D
+    on_timeout: {action: wait_and_escalate, safe_state: "the previous provider limit keeps holding; S02 stays open after the day-end escalation and completes on the owner callback or on a matching read-back"}
+    completes_on: [spend_cap_set, provider_cap_readback_matched]
+  - id: S03
+    name: API read-back and expected-cap switch
+    executor: {type: deterministic, ref: sync-worker}
+    depends_on: [S01]
+    emits: [provider_cap_readback_matched]
+    outputs: ["read-back of the account spending limit on every sync cycle from S01 until the run ends, with or without the owner callback; equal to expected_cap_native → vendor.meta_cap read-back evidence for the month, the expected cap switches to the new value (budgets.yaml#ads.expected_cap_switch) and provider_cap_readback_matched completes S02; a value equal to neither the previous nor the new expected cap → provider_limit_read_only (operations.yaml#protective_controls) and ALERT_SPEND_CAP_HEADROOM (INC-12)"]
+    external_effect: internal_only
+    retry: safe_resume
+    timeout: P2D
+limits:
+  max_duration: P3D
+  max_attempts_per_step: 3
+  cost: {budget_account: none, max_minor: null, currency: null, readiness_ref: null}
+  concurrency: {per_correlation_key: 1, global: 1}
+  escalation:
+    - {after: PT10H, to: owner, channel: "ops-bot REMINDER_SPEND_CAP_RESET repeated with the day-1 change set (change_set 10:00)"}
+    - {after: P1D, to: owner, channel: "ops-bot ALERT_SPEND_CAP_HEADROOM critical, only while no read-back has matched (day end)"}
+  owner_absent: >-
+    The previous cumulative provider limit keeps holding: Meta stops delivery when it is reached, the gateway admission
+    and headroom checks keep using the previous expected cap, protective_pause still acts on low headroom, and nothing
+    in AMT can change the provider limit; the month change alone never raises read_only.
+continuation:
+  checkpoint: after_every_step_transition
+  timers: [change_set_10_00, spend_cap_day_end]
+  signals: [spend_cap_set, provider_cap_readback_matched, kill]
+  lease_ttl: PT5M
+  cancel: Owner cancel keeps the previous expected cap and the provider limit unchanged; the reason is recorded and the next run is the next business month or a manual start
+  compensation: none; a wrong limit is corrected by the owner in Ads Manager and proven by a new read-back
+  uncertain_external_effect: reconcile_via_source_system
+completion:
+  technical_done: the read-back of the account spending limit equals the month's expected_cap_native and the expected cap has switched, or the run ended with a recorded mismatch (provider_limit_read_only) or owner cancel
+  end_steps: [S02, S03]
+  required_evidence: [business_month, formula inputs and their freshness, expected_cap_native, owner callback or its absence, read-back value and time, expected-cap switch record]
+  observation: null
+  business_acceptance: "not_applicable: money-control workflow; the cap itself is ✅ Q37 and the formula ◇ P-02"
+failure_paths:
+  missing_input: Provider counter or verified MTD stale (budget.ads_fresh_check) → S01 waits for fresh spend data and the owner reminder says the value is not ready; no estimated cap is shown.
+  cancel_or_escalate: No matching read-back by day end → ALERT_SPEND_CAP_HEADROOM critical to the owner on the alternate channel; the previous cap keeps holding and headroom guards stay active; owner cancel keeps everything unchanged.
+  uncertain_external_effect: Read-back unavailable (Meta API error) → no switch and no read_only from the error alone; S03 keeps reading on the next sync cycles and the previous expected value stays active.
+  other:
+    - A read-back equal to the new value before the [Qo‘ydim] callback is accepted and switches the expected cap; a value equal to neither the previous nor the new expected cap is a mismatch and raises provider_limit_read_only, lifted only by the owner after a matching read-back (WF-O02 S06 provider_limit_read_only)
+tests: [UAT-18, WF-TEST-O04-E2E, WF-TEST-O04-MISSING, WF-TEST-O04-CANCEL, WF-TEST-O04-UNCERTAIN, WF-TEST-O04-LATE]

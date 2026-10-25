@@ -1,0 +1,29 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "https://wolter.uz/amt/schemas/tools/meta_write.upload_creative_asset.schema.json",
+ "title": "meta_write.upload_creative_asset arguments",
+ "description": "Gateway guard 4 argument schema; contract: GUARDRAIL_GATEWAY.md §8.",
+ "type": "object",
+ "additionalProperties": false,
+ "properties": {
+  "asset_id": {
+   "$ref": "_common.schema.json#/$defs/ref"
+  },
+  "asset_version": {
+   "type": "integer",
+   "minimum": 1
+  },
+  "asset_manifest_sha": {
+   "$ref": "_common.schema.json#/$defs/sha256"
+  },
+  "pipeline": {
+   "$ref": "_common.schema.json#/$defs/pipeline_single"
+  }
+ },
+ "required": [
+  "asset_id",
+  "asset_version",
+  "asset_manifest_sha",
+  "pipeline"
+ ]
+}

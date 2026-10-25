@@ -1,0 +1,227 @@
+# Project OS workflow definition template; unresolved readiness blocks the relevant live profile.
+schema_version: 1
+bundle_state: template
+workflow_id: WF-B02
+definition_version: 2
+title: Creative and campaign lifecycle
+category: business
+purpose: >-
+  A brief becomes an approved, rights-cleared creative revision that is independently reviewed, created PAUSED in
+  Meta, activated only by the authorized role, then monitored until a recorded keep/iterate/pause decision.
+accountable: owner
+requirement_refs: [FR-CRV-01, FR-CRV-02, FR-CRV-03, FR-ADS-02, EVO-R01, EVO-R03]
+trigger:
+  kinds: [parent_run, manual, signal]
+  source: WF-B06 plan item, WF-B05 experiment arm, or owner/ads_approver request via ops-bot
+  source_refs: [WF-B06, WF-B05, owner, ads_approver, ops-bot]
+  schedule: null
+  dedup_key: brief_id
+  correlation_key: brief_id
+  parent_workflows: [WF-B04, WF-B05, WF-B06]
+authorization:
+  may_start: [cmo, owner, ads_approver, amt-workflow]
+  may_cancel: [owner, ads_approver, amt-workflow]
+  preconditions:
+    - F4_CONTENT profile approved (offers.initial, offers.asset_rights)
+    - pipeline mode allows proposals (L0 proposals stay shadow intents)
+    - "a parent_run start by amt-workflow happens only on behalf of a parent run step that lists this workflow in starts (parent_run_id and parent step recorded)"
+input:
+  schema_ref: schemas/handoff.schema.json (payload_kind creative_brief)
+  required_fields: [brief_id, pipeline, hypothesis, offer_revision_refs, formats, languages]
+  freshness: [offers.propagation]
+steps:
+  - id: S01
+    name: Brief
+    executor: {type: agent, ref: cmo}
+    depends_on: []
+    outputs: [creative_brief]
+    handoff:
+      to: creative-studio
+      accept_when: [offer revision active and unexpired, asset rights known, brief schema valid, pipeline enum valid]
+      reject_codes: [offer_expired, rights_unknown, schema_invalid, out_of_scope]
+      on_reject: {route: producer_retry, max_rounds: 2, after_max: escalate, escalate_to: owner, overrides: [{codes: [offer_expired, rights_unknown], route: escalate, escalate_to: owner}]}
+    external_effect: none
+    retry: safe_resume
+    timeout: P1D
+  - id: S02
+    name: Offer and rights validation
+    executor: {type: deterministic, ref: gateway}
+    depends_on: [S01]
+    outputs: [validated offer_revision, rights_state=cleared]
+    external_effect: none
+    retry: safe_resume
+    timeout: PT5M
+  - id: S03
+    name: Produce and register creative revision
+    executor: {type: agent, ref: creative-studio}
+    depends_on: [S02]
+    outputs: [creative_revision, asset_manifest_sha, copy_artifact_id]
+    handoff:
+      to: reviewer
+      accept_when: [creative.register succeeded, manifest hash matches bytes, offer revision unchanged since S02]
+      reject_codes: [manifest_mismatch, offer_changed, missing_source_manifest]
+      on_reject: {route: producer_retry, max_rounds: 2, after_max: escalate, escalate_to: cmo, overrides: [{codes: [offer_changed], route: end_run}]}
+    external_effect: internal_only
+    retry: safe_resume
+    timeout: P2D
+  - id: S04
+    name: Independent review
+    executor: {type: agent, ref: reviewer}
+    depends_on: [S03]
+    outputs: [review_verdict(pass|fail|needs_owner) bound to exact revision]
+    handoff:
+      to: gateway
+      accept_when: ["review_verdicts row with verdict pass bound to the exact creative revision, its offer revision and policy revision (checked deterministically, not by an agent)"]
+      reject_codes: [review_fail, needs_owner]
+      on_reject: {route: producer_retry, producer_step: S03, max_rounds: 2, after_max: escalate, escalate_to: cmo, overrides: [{codes: [needs_owner], route: escalate, escalate_to: owner}]}
+    external_effect: internal_only
+    retry: safe_resume
+    timeout: P1D
+  - id: S05
+    name: Human language check (first 20 live-eligible copy artifacts and their revisions; shadow, eval and test copy excluded)
+    executor: {type: human, ref: flag_holder, requires_flag: language_checker}
+    depends_on: [S04]
+    outputs: [human_checks record bound to the exact revision, or not_required reason (count_scope live_eligible_copy_artifacts)]
+    external_effect: internal_only
+    retry: safe_resume
+    timeout: PT12H
+    on_timeout: {action: wait_and_escalate, safe_state: "nothing is created; the copy waits for a person holding language_checker (Q42); the escalation tells ads_approver and then the owner that the check is pending"}
+    completes_on: [human_check]
+  - id: S06
+    name: Creation proposal
+    executor: {type: agent, ref: media-buyer}
+    depends_on: [S04, S05]
+    outputs: ["change_set_items (immutable command revisions) for asset_upload, ad_create, campaign_create or adset_duplicate, every entity created PAUSED, each with expected_effect; the gateway sets each action_type"]
+    external_effect: internal_only
+    retry: safe_resume
+    timeout: PT12H
+  - id: S12
+    name: Independent review of creation command payloads
+    executor: {type: agent, ref: reviewer}
+    depends_on: [S06]
+    inputs: [exact change_set_item command revisions from S06; creative pass S04 and required human check S05 as separate dependencies]
+    outputs: ["for every command whose gateway-set review_required is true, a fresh independent Reviewer session fetches subject_type change_set_item and submits a pass/fail/needs_owner verdict for the exact command_id, command_revision, payload_hash, offer/policy dependencies and issued subject_hash; gateway bind_command_review records the pass before pending_review becomes pending_approval; review_required false has a deterministic review_not_required reason; S04 creative pass never substitutes for command payload review"]
+    handoff:
+      to: gateway
+      accept_when: ["every review_required command has a current independent exact command_review_bindings pass; other commands have review_not_required; no missing, stale, failed, self-authored or needs_owner verdict is approval-eligible"]
+      reject_codes: [review_fail, stale_command, needs_owner]
+      on_reject: {route: producer_retry, producer_step: S06, max_rounds: 2, after_max: escalate, escalate_to: cmo, overrides: [{codes: [needs_owner], route: escalate, escalate_to: owner}]}
+    external_effect: internal_only
+    retry: safe_resume
+    timeout: PT1H
+  - id: S09
+    name: Creation approval
+    executor: {type: human, ref: approver_per_policy}
+    depends_on: [S12]
+    outputs: [approvals bound to payload, review, offer, policy and role revisions and control_epoch; each item routed to its own approvers by its gateway-set action_type]
+    approval:
+      by_cause:
+      - {cause: asset_upload, policy_actions: [asset_upload]}
+      - {cause: ad_create, policy_actions: [ad_create]}
+      - {cause: campaign_create, policy_actions: [campaign_create], never_auto: true}
+      - {cause: adset_duplicate, policy_actions: [adset_duplicate], never_auto: true}
+    external_effect: none
+    retry: never
+    timeout: PT12H
+    on_timeout: {action: expire_item_and_close, safe_state: "each unapproved item expires at its 12 h TTL (Q32); nothing is created; a new item needs a new approval"}
+  - id: S10
+    name: Create PAUSED
+    executor: {type: deterministic, ref: executor}
+    depends_on: [S09]
+    outputs: [execution_attempts; command state succeeded | failed_confirmed | uncertain; remote entity ids of the PAUSED entities, "per-item dispositions (workflow-policy.yaml#command_aggregation); S07 asks activation only for entities created with remote evidence"]
+    output_fields: [created_entity_ids]
+    command_actions: [asset_upload, ad_create, campaign_create, adset_duplicate]
+    external_effect: reversible
+    retry: new_attempt_after_reconcile
+    timeout: PT30M
+  - id: S13
+    name: Propose first activation commands for proven PAUSED entities
+    executor: {type: agent, ref: media-buyer}
+    depends_on: [S10]
+    when: {step: S10, output: created_entity_ids, non_empty: true}
+    inputs: [only created_entity_ids with remote PAUSED evidence from S10; current entity state and creative/offer/policy dependencies]
+    outputs: ["new immutable activation change_set_items through existing meta_write.activate_entity proposal tool; gateway assigns creative_activate for a new ad in an active ad set or campaign_activate for a newly created campaign/ad set; explicit command_id, command_revision, payload_hash, expected_effect and rollback_spec; no command targets an uncertain creation or an unproven entity; this step proposes and never dispatches"]
+    external_effect: internal_only
+    retry: safe_resume
+    timeout: PT30M
+  - id: S14
+    name: Independent review of activation command payloads
+    executor: {type: agent, ref: reviewer}
+    depends_on: [S13]
+    when: {step: S10, output: created_entity_ids, non_empty: true}
+    inputs: [exact activation command revisions from S13 and their observed remote entity state]
+    outputs: ["a fresh independent change_set_item review for every review_required activation command; issued subject_hash and command_id/revision/payload_hash match the new activation intent, never the earlier creation command or creative pass; gateway bind_command_review records current command_review_bindings before pending_approval; review_not_required only when the gateway action policy says false"]
+    handoff:
+      to: gateway
+      accept_when: ["every review_required activation command has its own current independent exact command_review_bindings pass; no creative verdict or creation command verdict is reused"]
+      reject_codes: [review_fail, stale_command, needs_owner]
+      on_reject: {route: producer_retry, producer_step: S13, max_rounds: 2, after_max: escalate, escalate_to: cmo, overrides: [{codes: [needs_owner], route: escalate, escalate_to: owner}]}
+    external_effect: internal_only
+    retry: safe_resume
+    timeout: PT1H
+  - id: S07
+    name: Activation approval
+    executor: {type: human, ref: approver_per_policy}
+    depends_on: [S14]
+    when: {step: S10, output: created_entity_ids, non_empty: true}
+    outputs: ["first activation approvals: creative_activate (owner or ads_approver) for a new ad in an active ad set, campaign_activate (owner only, never_auto) for a created campaign or ad set; re-activation after a pause is WF-B03 (dispatch_ownership)"]
+    approval:
+      by_cause:
+      - {cause: ad_in_active_ad_set, policy_actions: [creative_activate]}
+      - {cause: first_activation_of_created_campaign_or_ad_set, policy_actions: [campaign_activate], never_auto: true}
+    external_effect: none
+    retry: never
+    timeout: PT12H
+    on_timeout: {action: expire_item_and_close, safe_state: "each unapproved activation expires at its 12 h TTL (Q32); the created entities stay PAUSED"}
+  - id: S11
+    name: Activation dispatch
+    executor: {type: deterministic, ref: executor}
+    depends_on: [S07]
+    when: {step: S10, output: created_entity_ids, non_empty: true}
+    outputs: [activation command succeeded with remote evidence, or failed_confirmed | uncertain with reconciliation, "per-item dispositions (workflow-policy.yaml#command_aggregation)"]
+    command_actions: [creative_activate, campaign_activate]
+    serves_cases: {creative_activate: first_activation, campaign_activate: first_activation}
+    external_effect: irreversible
+    retry: new_attempt_after_reconcile
+    timeout: PT30M
+  - id: S08
+    name: Monitoring and decision
+    executor: {type: agent, ref: media-buyer}
+    depends_on: [S11]
+    inputs: [ad_insights_daily, cohort_metrics, review/offer validity]
+    outputs: ["decision(keep|iterate|pause) with evidence; iterate → a creative_iteration_request to cmo (workflow.report_blocker), who may start a new WF-B02 run (authorization.may_start); pause → an urgent entity_pause item (dispatch_ownership.urgent_entry); this agent step never starts a run"]
+    external_effect: none
+    retry: safe_resume
+    timeout: readiness:business.acceptance
+limits:
+  # Approved exposure duration must cover the full critical path (including S12/S13/S14) plus S08 business.acceptance; F4 PLAN computes it from these timeouts, without inventing an owner value.
+  max_duration: readiness:business.exposure
+  max_attempts_per_step: 3
+  cost: {budget_account: ai_runtime, max_minor: null, max_minor_ref: 'readiness:budget.request_bounds', currency: USD, readiness_ref: budget.request_bounds, extra_bound_refs: ['readiness:budget.media']}
+  concurrency: {per_correlation_key: 1, global: null}
+  escalation:
+    - {after: PT12H, to: ads_approver, channel: ops-bot}
+    - {after: P1D, to: owner, channel: ops-bot}
+  owner_absent: >-
+    Owner-only steps (campaign_create, adset_duplicate, campaign_activate) wait and expire after 12h; nothing is
+    auto-approved; reviewed artifacts stay registered but unpublished.
+continuation:
+  checkpoint: after_every_step_transition
+  timers: [approval_ttl_12h, review_expiry, offer_expiry_watch]
+  signals: [review_verdict, human_check, approval_callback, offer_revoked, rights_revoked, meta_rejection, kill]
+  lease_ttl: PT5M
+  cancel: "Cancels pending commands (cancelled) and invalidates approvals; live ads are paused only through a new authorized command; amt-workflow cancels only under workflow-policy.yaml#child_lifecycle.on_parent_end (cancel_open, no external effect yet)"
+  compensation: pause command via entity_pause; never delete history
+  uncertain_external_effect: reconcile_via_command_ledger
+completion:
+  technical_done: activation command succeeded with remote evidence, or the run ended with a recorded reject/cancel reason
+  end_steps: [S08]
+  required_evidence: [creative_revision, creative review verdict S04, human_check or not_required, creation command ids and exact command review bindings S12 or review_not_required, activation command ids S13 and exact command review bindings S14 or review_not_required, remote entity ids]
+  observation: learning/rejection and early delivery monitored; result judged only with sample/maturity
+  business_acceptance: business.acceptance per pipeline; low N is inconclusive, never a winner
+failure_paths:
+  missing_input: No active offer revision or unknown rights → S01 handoff rejected (offer_expired/rights_unknown); content_contributor/owner task; nothing produced.
+  cancel_or_escalate: Offer expiry/revocation → dependency_invalidations; pending approvals invalid; live ad remediation (replacement or pause) owned by owner with deadline.
+  uncertain_external_effect: Meta create/activate timeout → command uncertain → read-only reconcile; no second create/activate until resolved.
+  other: ["S12 or S14 command review fail/stale_command → Media Buyer corrects S06 or S13 with a new command revision and fresh exact review, at most 2 resubmissions shared with the producer step attempts, then CMO blocker; needs_owner → owner immediately. S09/S07 cannot present, freeze approval or accept a decision before current command_review_bindings pass; edits invalidate old review and approval. No S13/S14/S07/S11 when created_entity_ids is empty; proven PAUSED creations stay PAUSED during review repair", "Reviewer fail → Creative Studio repairs with a new revision (S03; at most 2 rounds, shared with S03 handoff rejections), then the run is blocked and escalated to CMO (workflow.report_blocker); needs_owner → owner at once; no S06 without a pass; a human check cannot replace the Reviewer", "Approval expired or rejected at S09 or S07 → nothing is created or activated; the run ends with the recorded reason"]
+tests: [UAT-13, UAT-26, UAT-31, EVO-AT13, WF-TEST-B02-E2E, WF-TEST-B02-MISSING, WF-TEST-B02-CANCEL, WF-TEST-B02-UNCERTAIN, WF-TEST-B02-REPAIR-BOUND]

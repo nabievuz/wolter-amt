@@ -1,0 +1,34 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "https://wolter.uz/amt/schemas/tools/render.html_to_png.schema.json",
+ "title": "render.html_to_png arguments",
+ "description": "Gateway guard 4 argument schema; contract: GUARDRAIL_GATEWAY.md §9.1.",
+ "type": "object",
+ "additionalProperties": false,
+ "properties": {
+  "template_id": {
+   "$ref": "_common.schema.json#/$defs/slug"
+  },
+  "params": {
+   "type": "object",
+   "maxProperties": 30,
+   "propertyNames": {
+    "$ref": "_common.schema.json#/$defs/slug"
+   },
+   "additionalProperties": {
+    "$ref": "_common.schema.json#/$defs/render_param"
+   }
+  },
+  "asset_refs": {
+   "type": "array",
+   "items": {
+    "$ref": "_common.schema.json#/$defs/ref"
+   },
+   "maxItems": 20
+  }
+ },
+ "required": [
+  "template_id",
+  "params"
+ ]
+}

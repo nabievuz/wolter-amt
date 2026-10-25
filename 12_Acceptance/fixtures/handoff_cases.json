@@ -1,0 +1,4226 @@
+{
+  "description": "Static JSON schema regression probes from D06/D07 handoff repair; these do not exercise runtime services.",
+  "schema_cases": [
+    {
+      "id": "HC-01",
+      "name": "pipeline effect with required scope",
+      "schema": "meta_write.update_budget.schema.json",
+      "instance": {
+        "entity_type": "adset",
+        "entity_id": "123",
+        "pipeline": "rent",
+        "daily_budget_minor": 1000,
+        "currency": "USD",
+        "reason": "synthetic evidence",
+        "expected_effect": {
+          "metric": "qualified_leads",
+          "direction": "increase",
+          "range_low": 1,
+          "range_high": 5,
+          "horizon_days": 14,
+          "basis_tag": "T",
+          "scope": "pipeline"
+        }
+      },
+      "valid": true
+    },
+    {
+      "id": "HC-02",
+      "name": "entity-qualified effect on managed-target-shaped args",
+      "schema": "meta_write.update_budget.schema.json",
+      "instance": {
+        "entity_type": "adset",
+        "entity_id": "123",
+        "pipeline": "rent",
+        "daily_budget_minor": 1000,
+        "currency": "USD",
+        "reason": "synthetic evidence",
+        "expected_effect": {
+          "metric": "entity_qualified",
+          "direction": "increase",
+          "range_low": 1,
+          "range_high": 5,
+          "horizon_days": 14,
+          "basis_tag": "T",
+          "scope": "entity"
+        }
+      },
+      "valid": true
+    },
+    {
+      "id": "HC-03",
+      "name": "entity-spend integer minor band",
+      "schema": "meta_write.update_budget.schema.json",
+      "instance": {
+        "entity_type": "adset",
+        "entity_id": "123",
+        "pipeline": "rent",
+        "daily_budget_minor": 1000,
+        "currency": "USD",
+        "reason": "synthetic evidence",
+        "expected_effect": {
+          "metric": "entity_spend",
+          "direction": "increase",
+          "range_low": 1,
+          "range_high": 5,
+          "horizon_days": 14,
+          "basis_tag": "T",
+          "scope": "entity"
+        }
+      },
+      "valid": true
+    },
+    {
+      "id": "HC-04",
+      "name": "entity-spend fractional money rejected",
+      "schema": "meta_write.update_budget.schema.json",
+      "instance": {
+        "entity_type": "adset",
+        "entity_id": "123",
+        "pipeline": "rent",
+        "daily_budget_minor": 1000,
+        "currency": "USD",
+        "reason": "synthetic evidence",
+        "expected_effect": {
+          "metric": "entity_spend",
+          "direction": "increase",
+          "range_low": 1,
+          "range_high": 5.5,
+          "horizon_days": 14,
+          "basis_tag": "T",
+          "scope": "entity"
+        }
+      },
+      "valid": false
+    },
+    {
+      "id": "HC-05",
+      "name": "missing effect scope rejected",
+      "schema": "meta_write.update_budget.schema.json",
+      "instance": {
+        "entity_type": "adset",
+        "entity_id": "123",
+        "pipeline": "rent",
+        "daily_budget_minor": 1000,
+        "currency": "USD",
+        "reason": "synthetic evidence",
+        "expected_effect": {
+          "metric": "qualified_leads",
+          "direction": "increase",
+          "range_low": 1,
+          "range_high": 5,
+          "horizon_days": 14,
+          "basis_tag": "T"
+        }
+      },
+      "valid": false
+    },
+    {
+      "id": "HC-06",
+      "name": "unknown effect scope rejected",
+      "schema": "meta_write.update_budget.schema.json",
+      "instance": {
+        "entity_type": "adset",
+        "entity_id": "123",
+        "pipeline": "rent",
+        "daily_budget_minor": 1000,
+        "currency": "USD",
+        "reason": "synthetic evidence",
+        "expected_effect": {
+          "metric": "qualified_leads",
+          "direction": "increase",
+          "range_low": 1,
+          "range_high": 5,
+          "horizon_days": 14,
+          "basis_tag": "T",
+          "scope": "global"
+        }
+      },
+      "valid": false
+    },
+    {
+      "id": "HC-07",
+      "name": "pipeline metric in entity scope rejected",
+      "schema": "meta_write.update_budget.schema.json",
+      "instance": {
+        "entity_type": "adset",
+        "entity_id": "123",
+        "pipeline": "rent",
+        "daily_budget_minor": 1000,
+        "currency": "USD",
+        "reason": "synthetic evidence",
+        "expected_effect": {
+          "metric": "qualified_leads",
+          "direction": "increase",
+          "range_low": 1,
+          "range_high": 5,
+          "horizon_days": 14,
+          "basis_tag": "T",
+          "scope": "entity"
+        }
+      },
+      "valid": false
+    },
+    {
+      "id": "HC-08",
+      "name": "entity metric in pipeline scope rejected",
+      "schema": "meta_write.update_budget.schema.json",
+      "instance": {
+        "entity_type": "adset",
+        "entity_id": "123",
+        "pipeline": "rent",
+        "daily_budget_minor": 1000,
+        "currency": "USD",
+        "reason": "synthetic evidence",
+        "expected_effect": {
+          "metric": "entity_qualified",
+          "direction": "increase",
+          "range_low": 1,
+          "range_high": 5,
+          "horizon_days": 14,
+          "basis_tag": "T",
+          "scope": "pipeline"
+        }
+      },
+      "valid": false
+    },
+    {
+      "id": "HC-09",
+      "name": "effect cannot replace server-selected target",
+      "schema": "meta_write.update_budget.schema.json",
+      "instance": {
+        "entity_type": "adset",
+        "entity_id": "123",
+        "pipeline": "rent",
+        "daily_budget_minor": 1000,
+        "currency": "USD",
+        "reason": "synthetic evidence",
+        "expected_effect": {
+          "metric": "qualified_leads",
+          "direction": "increase",
+          "range_low": 1,
+          "range_high": 5,
+          "horizon_days": 14,
+          "basis_tag": "T",
+          "scope": "pipeline",
+          "entity_id": "999"
+        }
+      },
+      "valid": false
+    },
+    {
+      "id": "HC-10",
+      "name": "ad activation has no entity outcome endpoint",
+      "schema": "meta_write.activate_entity.schema.json",
+      "instance": {
+        "entity_type": "ad",
+        "entity_id": "123",
+        "pipeline": "rent",
+        "reason": "test",
+        "expected_effect": {
+          "metric": "entity_qualified",
+          "direction": "increase",
+          "range_low": 1,
+          "range_high": 5,
+          "horizon_days": 14,
+          "basis_tag": "T",
+          "scope": "entity"
+        }
+      },
+      "valid": false
+    },
+    {
+      "id": "HC-11",
+      "name": "adset activation entity outcome supported",
+      "schema": "meta_write.activate_entity.schema.json",
+      "instance": {
+        "entity_type": "adset",
+        "entity_id": "123",
+        "pipeline": "rent",
+        "reason": "test",
+        "expected_effect": {
+          "metric": "entity_qualified",
+          "direction": "increase",
+          "range_low": 1,
+          "range_high": 5,
+          "horizon_days": 14,
+          "basis_tag": "T",
+          "scope": "entity"
+        }
+      },
+      "valid": true
+    },
+    {
+      "id": "HC-12",
+      "name": "manual control cannot select unrelated entity",
+      "schema": "change_set.propose_manual.schema.json",
+      "instance": {
+        "action_type": "events_manager_change",
+        "pipeline": "rent",
+        "steps": [
+          "test"
+        ],
+        "rollback": "test",
+        "expected_effect": {
+          "metric": "entity_qualified",
+          "direction": "increase",
+          "range_low": 1,
+          "range_high": 5,
+          "horizon_days": 14,
+          "basis_tag": "T",
+          "scope": "entity"
+        }
+      },
+      "valid": false
+    },
+    {
+      "id": "HC-13",
+      "name": "new ad has no entity outcome endpoint",
+      "schema": "meta_write.create_ad_from_creative.schema.json",
+      "instance": {
+        "adset_id": "123",
+        "creative_id": "CR-123",
+        "creative_revision": 1,
+        "pipeline": "rent",
+        "expected_effect": {
+          "metric": "entity_qualified",
+          "direction": "increase",
+          "range_low": 1,
+          "range_high": 5,
+          "horizon_days": 14,
+          "basis_tag": "T",
+          "scope": "entity"
+        }
+      },
+      "valid": false
+    },
+    {
+      "id": "HC-14",
+      "name": "bounded entity metrics selector accepted",
+      "schema": "wh.metrics.schema.json",
+      "instance": {
+        "metrics": [
+          "entity_spend",
+          "entity_qualified"
+        ],
+        "date_from": "2026-10-01",
+        "date_to": "2026-10-25",
+        "grain": "day",
+        "entity_type": "adset",
+        "entity_id": "123"
+      },
+      "valid": true
+    },
+    {
+      "id": "HC-15",
+      "name": "entity metrics require entity_id",
+      "schema": "wh.metrics.schema.json",
+      "instance": {
+        "metrics": [
+          "entity_spend",
+          "entity_qualified"
+        ],
+        "date_from": "2026-10-01",
+        "date_to": "2026-10-25",
+        "grain": "day",
+        "entity_type": "adset"
+      },
+      "valid": false
+    },
+    {
+      "id": "HC-16",
+      "name": "entity metrics require entity_type",
+      "schema": "wh.metrics.schema.json",
+      "instance": {
+        "metrics": [
+          "entity_spend",
+          "entity_qualified"
+        ],
+        "date_from": "2026-10-01",
+        "date_to": "2026-10-25",
+        "grain": "day",
+        "entity_id": "123"
+      },
+      "valid": false
+    },
+    {
+      "id": "HC-17",
+      "name": "unsupported ad metric selector rejected",
+      "schema": "wh.metrics.schema.json",
+      "instance": {
+        "metrics": [
+          "entity_spend",
+          "entity_qualified"
+        ],
+        "date_from": "2026-10-01",
+        "date_to": "2026-10-25",
+        "grain": "day",
+        "entity_type": "ad",
+        "entity_id": "123"
+      },
+      "valid": false
+    },
+    {
+      "id": "HC-18",
+      "name": "entity ID longer than 24 rejected",
+      "schema": "wh.metrics.schema.json",
+      "instance": {
+        "metrics": [
+          "entity_spend",
+          "entity_qualified"
+        ],
+        "date_from": "2026-10-01",
+        "date_to": "2026-10-25",
+        "grain": "day",
+        "entity_type": "adset",
+        "entity_id": "1111111111111111111111111"
+      },
+      "valid": false
+    },
+    {
+      "id": "HC-19",
+      "name": "non-numeric entity ID rejected",
+      "schema": "wh.metrics.schema.json",
+      "instance": {
+        "metrics": [
+          "entity_spend",
+          "entity_qualified"
+        ],
+        "date_from": "2026-10-01",
+        "date_to": "2026-10-25",
+        "grain": "day",
+        "entity_type": "adset",
+        "entity_id": "123; DROP TABLE"
+      },
+      "valid": false
+    },
+    {
+      "id": "HC-20",
+      "name": "mixed pipeline and entity metric request rejected",
+      "schema": "wh.metrics.schema.json",
+      "instance": {
+        "metrics": [
+          "entity_spend",
+          "entity_qualified",
+          "qualified_leads"
+        ],
+        "date_from": "2026-10-01",
+        "date_to": "2026-10-25",
+        "grain": "day",
+        "entity_type": "adset",
+        "entity_id": "123"
+      },
+      "valid": false
+    },
+    {
+      "id": "HC-21",
+      "name": "non-entity metric cannot carry entity selector",
+      "schema": "wh.metrics.schema.json",
+      "instance": {
+        "metrics": [
+          "qualified_leads"
+        ],
+        "date_from": "2026-10-01",
+        "date_to": "2026-10-25",
+        "grain": "day",
+        "entity_type": "adset",
+        "entity_id": "123"
+      },
+      "valid": false
+    },
+    {
+      "id": "HC-22",
+      "name": "pipeline metric existing request accepted",
+      "schema": "wh.metrics.schema.json",
+      "instance": {
+        "metrics": [
+          "qualified_leads"
+        ],
+        "date_from": "2026-10-01",
+        "date_to": "2026-10-25",
+        "grain": "day"
+      },
+      "valid": true
+    },
+    {
+      "id": "HC-23",
+      "name": "metric request remains closed to unexpected scope",
+      "schema": "wh.metrics.schema.json",
+      "instance": {
+        "metrics": [
+          "qualified_leads"
+        ],
+        "date_from": "2026-10-01",
+        "date_to": "2026-10-25",
+        "grain": "day",
+        "scope": "entity"
+      },
+      "valid": false
+    },
+    {
+      "id": "HC-24",
+      "name": "metric array bound retained",
+      "schema": "wh.metrics.schema.json",
+      "instance": {
+        "metrics": [
+          "entity_spend",
+          "entity_qualified",
+          "entity_spend",
+          "entity_qualified",
+          "entity_spend",
+          "entity_qualified",
+          "entity_spend",
+          "entity_qualified",
+          "entity_spend",
+          "entity_qualified",
+          "entity_spend",
+          "entity_qualified",
+          "entity_spend",
+          "entity_qualified",
+          "entity_spend",
+          "entity_qualified",
+          "entity_spend",
+          "entity_qualified",
+          "entity_spend",
+          "entity_qualified",
+          "entity_spend",
+          "entity_qualified"
+        ],
+        "date_from": "2026-10-01",
+        "date_to": "2026-10-25",
+        "grain": "day",
+        "entity_type": "adset",
+        "entity_id": "123"
+      },
+      "valid": false
+    },
+    {
+      "id": "HC-25",
+      "name": "duplicate metrics rejected",
+      "schema": "wh.metrics.schema.json",
+      "instance": {
+        "metrics": [
+          "entity_spend",
+          "entity_spend"
+        ],
+        "date_from": "2026-10-01",
+        "date_to": "2026-10-25",
+        "grain": "day",
+        "entity_type": "adset",
+        "entity_id": "123"
+      },
+      "valid": false
+    },
+    {
+      "id": "HC-26",
+      "name": "analyst tracking path shape accepted",
+      "schema": "landing.open_pr.schema.json",
+      "instance": {
+        "title": "Tracking fix",
+        "body": "synthetic test",
+        "changes": [
+          {
+            "path": "tracking/pixel.ts",
+            "artifact_ref": "artifact:test",
+            "artifact_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          }
+        ]
+      },
+      "valid": true
+    },
+    {
+      "id": "HC-27",
+      "name": "allowed path content/copy/offer.md",
+      "schema": "landing.open_pr.schema.json",
+      "instance": {
+        "title": "Tracking fix",
+        "body": "synthetic test",
+        "changes": [
+          {
+            "path": "content/copy/offer.md",
+            "artifact_ref": "artifact:test",
+            "artifact_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          }
+        ]
+      },
+      "valid": true
+    },
+    {
+      "id": "HC-28",
+      "name": "allowed path tracking/consent/index.ts",
+      "schema": "landing.open_pr.schema.json",
+      "instance": {
+        "title": "Tracking fix",
+        "body": "synthetic test",
+        "changes": [
+          {
+            "path": "tracking/consent/index.ts",
+            "artifact_ref": "artifact:test",
+            "artifact_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          }
+        ]
+      },
+      "valid": true
+    },
+    {
+      "id": "HC-29",
+      "name": "invalid path tracking/../content/x.ts",
+      "schema": "landing.open_pr.schema.json",
+      "instance": {
+        "title": "Tracking fix",
+        "body": "synthetic test",
+        "changes": [
+          {
+            "path": "tracking/../content/x.ts",
+            "artifact_ref": "artifact:test",
+            "artifact_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          }
+        ]
+      },
+      "valid": false
+    },
+    {
+      "id": "HC-30",
+      "name": "invalid path tracking/a/../../x.ts",
+      "schema": "landing.open_pr.schema.json",
+      "instance": {
+        "title": "Tracking fix",
+        "body": "synthetic test",
+        "changes": [
+          {
+            "path": "tracking/a/../../x.ts",
+            "artifact_ref": "artifact:test",
+            "artifact_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          }
+        ]
+      },
+      "valid": false
+    },
+    {
+      "id": "HC-31",
+      "name": "invalid path ../tracking/x.ts",
+      "schema": "landing.open_pr.schema.json",
+      "instance": {
+        "title": "Tracking fix",
+        "body": "synthetic test",
+        "changes": [
+          {
+            "path": "../tracking/x.ts",
+            "artifact_ref": "artifact:test",
+            "artifact_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          }
+        ]
+      },
+      "valid": false
+    },
+    {
+      "id": "HC-32",
+      "name": "invalid path /tracking/x.ts",
+      "schema": "landing.open_pr.schema.json",
+      "instance": {
+        "title": "Tracking fix",
+        "body": "synthetic test",
+        "changes": [
+          {
+            "path": "/tracking/x.ts",
+            "artifact_ref": "artifact:test",
+            "artifact_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          }
+        ]
+      },
+      "valid": false
+    },
+    {
+      "id": "HC-33",
+      "name": "invalid path tracking//x.ts",
+      "schema": "landing.open_pr.schema.json",
+      "instance": {
+        "title": "Tracking fix",
+        "body": "synthetic test",
+        "changes": [
+          {
+            "path": "tracking//x.ts",
+            "artifact_ref": "artifact:test",
+            "artifact_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          }
+        ]
+      },
+      "valid": false
+    },
+    {
+      "id": "HC-34",
+      "name": "invalid path tracking/./x.ts",
+      "schema": "landing.open_pr.schema.json",
+      "instance": {
+        "title": "Tracking fix",
+        "body": "synthetic test",
+        "changes": [
+          {
+            "path": "tracking/./x.ts",
+            "artifact_ref": "artifact:test",
+            "artifact_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          }
+        ]
+      },
+      "valid": false
+    },
+    {
+      "id": "HC-35",
+      "name": "invalid path tracking/a/..",
+      "schema": "landing.open_pr.schema.json",
+      "instance": {
+        "title": "Tracking fix",
+        "body": "synthetic test",
+        "changes": [
+          {
+            "path": "tracking/a/..",
+            "artifact_ref": "artifact:test",
+            "artifact_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          }
+        ]
+      },
+      "valid": false
+    },
+    {
+      "id": "HC-36",
+      "name": "invalid path tracking/a/../x.ts",
+      "schema": "landing.open_pr.schema.json",
+      "instance": {
+        "title": "Tracking fix",
+        "body": "synthetic test",
+        "changes": [
+          {
+            "path": "tracking/a/../x.ts",
+            "artifact_ref": "artifact:test",
+            "artifact_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          }
+        ]
+      },
+      "valid": false
+    },
+    {
+      "id": "HC-37",
+      "name": "invalid path tracking/a%2f..%2fx.ts",
+      "schema": "landing.open_pr.schema.json",
+      "instance": {
+        "title": "Tracking fix",
+        "body": "synthetic test",
+        "changes": [
+          {
+            "path": "tracking/a%2f..%2fx.ts",
+            "artifact_ref": "artifact:test",
+            "artifact_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          }
+        ]
+      },
+      "valid": false
+    },
+    {
+      "id": "HC-38",
+      "name": "invalid path tracking/a\\..\\x.ts",
+      "schema": "landing.open_pr.schema.json",
+      "instance": {
+        "title": "Tracking fix",
+        "body": "synthetic test",
+        "changes": [
+          {
+            "path": "tracking/a\\..\\x.ts",
+            "artifact_ref": "artifact:test",
+            "artifact_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          }
+        ]
+      },
+      "valid": false
+    },
+    {
+      "id": "HC-39",
+      "name": "invalid path tracking/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "schema": "landing.open_pr.schema.json",
+      "instance": {
+        "title": "Tracking fix",
+        "body": "synthetic test",
+        "changes": [
+          {
+            "path": "tracking/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+            "artifact_ref": "artifact:test",
+            "artifact_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          }
+        ]
+      },
+      "valid": false
+    },
+    {
+      "id": "HC-60",
+      "rule": "H03",
+      "name": "initial F1 minimal denied-capability manifest accepted",
+      "schema": "candidate-manifest.schema.json",
+      "instance": {
+        "manifest_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "created_at": "2026-10-25T12:00:00Z",
+        "base_release_id": null,
+        "code": {
+          "repo": "synthetic:test",
+          "commit": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        },
+        "workflows": [],
+        "prompts": [],
+        "skills": [],
+        "models": [],
+        "adapters": [],
+        "config": {
+          "config_sha": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+        },
+        "schema": {
+          "schema_version": 1,
+          "migration_kind": "none"
+        },
+        "dependencies": {
+          "lock_sha": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+        },
+        "affected": {
+          "tests": [],
+          "runs": []
+        },
+        "release_class": "normal",
+        "target_profile": "F1_WORKFLOW",
+        "capabilities_enabled": [],
+        "readiness_snapshot": {
+          "keys": {},
+          "capabilities": {}
+        },
+        "deployment": {
+          "kind": "initial",
+          "phase": "F1",
+          "services": [
+            "caddy",
+            "cloudflared",
+            "tailscaled",
+            "sshd",
+            "postgres",
+            "telegram-bot-api",
+            "paperclip",
+            "langfuse",
+            "managed-runner",
+            "amt-release",
+            "amt-backup",
+            "amt-control",
+            "ops-bot",
+            "llm-proxy",
+            "quota-coordinator",
+            "amt-workflow",
+            "tg-auth",
+            "cost-watchdog"
+          ],
+          "required_acks": [
+            "amt-control",
+            "ops-bot",
+            "llm-proxy",
+            "quota-coordinator",
+            "amt-workflow",
+            "tg-auth",
+            "cost-watchdog"
+          ]
+        }
+      },
+      "valid": true
+    },
+    {
+      "id": "HC-61",
+      "rule": "H03",
+      "name": "initial manifest cannot name existing base",
+      "schema": "candidate-manifest.schema.json",
+      "instance": {
+        "manifest_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "created_at": "2026-10-25T12:00:00Z",
+        "base_release_id": "release-existing",
+        "code": {
+          "repo": "synthetic:test",
+          "commit": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        },
+        "workflows": [],
+        "prompts": [],
+        "skills": [],
+        "models": [],
+        "adapters": [],
+        "config": {
+          "config_sha": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+        },
+        "schema": {
+          "schema_version": 1,
+          "migration_kind": "none"
+        },
+        "dependencies": {
+          "lock_sha": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+        },
+        "affected": {
+          "tests": [],
+          "runs": []
+        },
+        "release_class": "normal",
+        "target_profile": "F1_WORKFLOW",
+        "capabilities_enabled": [],
+        "readiness_snapshot": {
+          "keys": {},
+          "capabilities": {}
+        },
+        "deployment": {
+          "kind": "initial",
+          "phase": "F1",
+          "services": [
+            "caddy",
+            "cloudflared",
+            "tailscaled",
+            "sshd",
+            "postgres",
+            "telegram-bot-api",
+            "paperclip",
+            "langfuse",
+            "managed-runner",
+            "amt-release",
+            "amt-backup",
+            "amt-control",
+            "ops-bot",
+            "llm-proxy",
+            "quota-coordinator",
+            "amt-workflow",
+            "tg-auth",
+            "cost-watchdog"
+          ],
+          "required_acks": [
+            "amt-control",
+            "ops-bot",
+            "llm-proxy",
+            "quota-coordinator",
+            "amt-workflow",
+            "tg-auth",
+            "cost-watchdog"
+          ]
+        }
+      },
+      "valid": false
+    },
+    {
+      "id": "HC-62",
+      "rule": "H03",
+      "name": "update cannot use null base",
+      "schema": "candidate-manifest.schema.json",
+      "instance": {
+        "manifest_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "created_at": "2026-10-25T12:00:00Z",
+        "base_release_id": null,
+        "code": {
+          "repo": "synthetic:test",
+          "commit": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        },
+        "workflows": [],
+        "prompts": [],
+        "skills": [],
+        "models": [],
+        "adapters": [],
+        "config": {
+          "config_sha": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+        },
+        "schema": {
+          "schema_version": 1,
+          "migration_kind": "none"
+        },
+        "dependencies": {
+          "lock_sha": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+        },
+        "affected": {
+          "tests": [],
+          "runs": []
+        },
+        "release_class": "normal",
+        "target_profile": "F1_WORKFLOW",
+        "capabilities_enabled": [],
+        "readiness_snapshot": {
+          "keys": {},
+          "capabilities": {}
+        },
+        "deployment": {
+          "kind": "update",
+          "phase": "F1",
+          "services": [
+            "caddy",
+            "cloudflared",
+            "tailscaled",
+            "sshd",
+            "postgres",
+            "telegram-bot-api",
+            "paperclip",
+            "langfuse",
+            "managed-runner",
+            "amt-release",
+            "amt-backup",
+            "amt-control",
+            "ops-bot",
+            "llm-proxy",
+            "quota-coordinator",
+            "amt-workflow",
+            "tg-auth",
+            "cost-watchdog"
+          ],
+          "required_acks": [
+            "amt-control",
+            "ops-bot",
+            "llm-proxy",
+            "quota-coordinator",
+            "amt-workflow",
+            "tg-auth",
+            "cost-watchdog"
+          ]
+        }
+      },
+      "valid": false
+    },
+    {
+      "id": "HC-63",
+      "rule": "H03",
+      "name": "initial cannot enable billable capability",
+      "schema": "candidate-manifest.schema.json",
+      "instance": {
+        "manifest_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "created_at": "2026-10-25T12:00:00Z",
+        "base_release_id": null,
+        "code": {
+          "repo": "synthetic:test",
+          "commit": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        },
+        "workflows": [],
+        "prompts": [],
+        "skills": [],
+        "models": [],
+        "adapters": [],
+        "config": {
+          "config_sha": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+        },
+        "schema": {
+          "schema_version": 1,
+          "migration_kind": "none"
+        },
+        "dependencies": {
+          "lock_sha": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+        },
+        "affected": {
+          "tests": [],
+          "runs": []
+        },
+        "release_class": "normal",
+        "target_profile": "F1_WORKFLOW",
+        "capabilities_enabled": [
+          "llm.billable"
+        ],
+        "readiness_snapshot": {
+          "keys": {},
+          "capabilities": {}
+        },
+        "deployment": {
+          "kind": "initial",
+          "phase": "F1",
+          "services": [
+            "caddy",
+            "cloudflared",
+            "tailscaled",
+            "sshd",
+            "postgres",
+            "telegram-bot-api",
+            "paperclip",
+            "langfuse",
+            "managed-runner",
+            "amt-release",
+            "amt-backup",
+            "amt-control",
+            "ops-bot",
+            "llm-proxy",
+            "quota-coordinator",
+            "amt-workflow",
+            "tg-auth",
+            "cost-watchdog"
+          ],
+          "required_acks": [
+            "amt-control",
+            "ops-bot",
+            "llm-proxy",
+            "quota-coordinator",
+            "amt-workflow",
+            "tg-auth",
+            "cost-watchdog"
+          ]
+        }
+      },
+      "valid": false
+    },
+    {
+      "id": "HC-64",
+      "rule": "H03",
+      "name": "initial cannot skip to later phase",
+      "schema": "candidate-manifest.schema.json",
+      "instance": {
+        "manifest_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "created_at": "2026-10-25T12:00:00Z",
+        "base_release_id": null,
+        "code": {
+          "repo": "synthetic:test",
+          "commit": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        },
+        "workflows": [],
+        "prompts": [],
+        "skills": [],
+        "models": [],
+        "adapters": [],
+        "config": {
+          "config_sha": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+        },
+        "schema": {
+          "schema_version": 1,
+          "migration_kind": "none"
+        },
+        "dependencies": {
+          "lock_sha": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+        },
+        "affected": {
+          "tests": [],
+          "runs": []
+        },
+        "release_class": "normal",
+        "target_profile": "F1_WORKFLOW",
+        "capabilities_enabled": [],
+        "readiness_snapshot": {
+          "keys": {},
+          "capabilities": {}
+        },
+        "deployment": {
+          "kind": "initial",
+          "phase": "F2",
+          "services": [
+            "caddy",
+            "cloudflared",
+            "tailscaled",
+            "sshd",
+            "postgres",
+            "telegram-bot-api",
+            "paperclip",
+            "langfuse",
+            "managed-runner",
+            "amt-release",
+            "amt-backup",
+            "amt-control",
+            "ops-bot",
+            "llm-proxy",
+            "quota-coordinator",
+            "amt-workflow",
+            "tg-auth",
+            "cost-watchdog"
+          ],
+          "required_acks": [
+            "amt-control",
+            "ops-bot",
+            "llm-proxy",
+            "quota-coordinator",
+            "amt-workflow",
+            "tg-auth",
+            "cost-watchdog"
+          ]
+        }
+      },
+      "valid": false
+    },
+    {
+      "id": "HC-65",
+      "rule": "H03",
+      "name": "initial cannot use recovery class",
+      "schema": "candidate-manifest.schema.json",
+      "instance": {
+        "manifest_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "created_at": "2026-10-25T12:00:00Z",
+        "base_release_id": null,
+        "code": {
+          "repo": "synthetic:test",
+          "commit": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        },
+        "workflows": [],
+        "prompts": [],
+        "skills": [],
+        "models": [],
+        "adapters": [],
+        "config": {
+          "config_sha": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+        },
+        "schema": {
+          "schema_version": 1,
+          "migration_kind": "none"
+        },
+        "dependencies": {
+          "lock_sha": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+        },
+        "affected": {
+          "tests": [],
+          "runs": []
+        },
+        "release_class": "recovery",
+        "target_profile": "F1_WORKFLOW",
+        "capabilities_enabled": [],
+        "readiness_snapshot": {
+          "keys": {},
+          "capabilities": {}
+        },
+        "deployment": {
+          "kind": "initial",
+          "phase": "F1",
+          "services": [
+            "caddy",
+            "cloudflared",
+            "tailscaled",
+            "sshd",
+            "postgres",
+            "telegram-bot-api",
+            "paperclip",
+            "langfuse",
+            "managed-runner",
+            "amt-release",
+            "amt-backup",
+            "amt-control",
+            "ops-bot",
+            "llm-proxy",
+            "quota-coordinator",
+            "amt-workflow",
+            "tg-auth",
+            "cost-watchdog"
+          ],
+          "required_acks": [
+            "amt-control",
+            "ops-bot",
+            "llm-proxy",
+            "quota-coordinator",
+            "amt-workflow",
+            "tg-auth",
+            "cost-watchdog"
+          ]
+        }
+      },
+      "valid": false
+    },
+    {
+      "id": "HC-66",
+      "rule": "H03",
+      "name": "initial cannot smuggle capability snapshot",
+      "schema": "candidate-manifest.schema.json",
+      "instance": {
+        "manifest_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "created_at": "2026-10-25T12:00:00Z",
+        "base_release_id": null,
+        "code": {
+          "repo": "synthetic:test",
+          "commit": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        },
+        "workflows": [],
+        "prompts": [],
+        "skills": [],
+        "models": [],
+        "adapters": [],
+        "config": {
+          "config_sha": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+        },
+        "schema": {
+          "schema_version": 1,
+          "migration_kind": "none"
+        },
+        "dependencies": {
+          "lock_sha": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+        },
+        "affected": {
+          "tests": [],
+          "runs": []
+        },
+        "release_class": "normal",
+        "target_profile": "F1_WORKFLOW",
+        "capabilities_enabled": [],
+        "readiness_snapshot": {
+          "keys": {},
+          "capabilities": {
+            "llm.billable": {
+              "profile": "F1_COST_RUNTIME",
+              "gate_result": "pass"
+            }
+          }
+        },
+        "deployment": {
+          "kind": "initial",
+          "phase": "F1",
+          "services": [
+            "caddy",
+            "cloudflared",
+            "tailscaled",
+            "sshd",
+            "postgres",
+            "telegram-bot-api",
+            "paperclip",
+            "langfuse",
+            "managed-runner",
+            "amt-release",
+            "amt-backup",
+            "amt-control",
+            "ops-bot",
+            "llm-proxy",
+            "quota-coordinator",
+            "amt-workflow",
+            "tg-auth",
+            "cost-watchdog"
+          ],
+          "required_acks": [
+            "amt-control",
+            "ops-bot",
+            "llm-proxy",
+            "quota-coordinator",
+            "amt-workflow",
+            "tg-auth",
+            "cost-watchdog"
+          ]
+        }
+      },
+      "valid": false
+    },
+    {
+      "id": "HC-67",
+      "rule": "H03",
+      "name": "update with complete F3 deployment syntax accepted",
+      "schema": "candidate-manifest.schema.json",
+      "instance": {
+        "manifest_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "created_at": "2026-10-25T12:00:00Z",
+        "base_release_id": "release-test-active",
+        "code": {
+          "repo": "synthetic:test",
+          "commit": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        },
+        "workflows": [],
+        "prompts": [],
+        "skills": [],
+        "models": [],
+        "adapters": [],
+        "config": {
+          "config_sha": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+        },
+        "schema": {
+          "schema_version": 1,
+          "migration_kind": "none"
+        },
+        "dependencies": {
+          "lock_sha": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+        },
+        "affected": {
+          "tests": [],
+          "runs": []
+        },
+        "release_class": "normal",
+        "target_profile": "F1_WORKFLOW",
+        "capabilities_enabled": [],
+        "readiness_snapshot": {
+          "keys": {},
+          "capabilities": {}
+        },
+        "deployment": {
+          "kind": "update",
+          "phase": "F3",
+          "services": [
+            "caddy",
+            "cloudflared",
+            "tailscaled",
+            "sshd",
+            "postgres",
+            "telegram-bot-api",
+            "paperclip",
+            "langfuse",
+            "managed-runner",
+            "amt-release",
+            "amt-backup",
+            "amt-control",
+            "ops-bot",
+            "llm-proxy",
+            "quota-coordinator",
+            "amt-workflow",
+            "tg-auth",
+            "cost-watchdog",
+            "amocrm-mcp",
+            "capi-bridge",
+            "sync-worker",
+            "meta-ads-mcp",
+            "gateway",
+            "executor"
+          ],
+          "required_acks": [
+            "amt-control",
+            "ops-bot",
+            "llm-proxy",
+            "quota-coordinator",
+            "amt-workflow",
+            "tg-auth",
+            "cost-watchdog",
+            "amocrm-mcp",
+            "capi-bridge",
+            "sync-worker",
+            "gateway",
+            "executor"
+          ]
+        }
+      },
+      "valid": true
+    },
+    {
+      "id": "HC-68",
+      "rule": "H03",
+      "name": "unknown manifest service rejected",
+      "schema": "candidate-manifest.schema.json",
+      "instance": {
+        "manifest_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "created_at": "2026-10-25T12:00:00Z",
+        "base_release_id": null,
+        "code": {
+          "repo": "synthetic:test",
+          "commit": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        },
+        "workflows": [],
+        "prompts": [],
+        "skills": [],
+        "models": [],
+        "adapters": [],
+        "config": {
+          "config_sha": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+        },
+        "schema": {
+          "schema_version": 1,
+          "migration_kind": "none"
+        },
+        "dependencies": {
+          "lock_sha": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+        },
+        "affected": {
+          "tests": [],
+          "runs": []
+        },
+        "release_class": "normal",
+        "target_profile": "F1_WORKFLOW",
+        "capabilities_enabled": [],
+        "readiness_snapshot": {
+          "keys": {},
+          "capabilities": {}
+        },
+        "deployment": {
+          "kind": "initial",
+          "phase": "F1",
+          "services": [
+            "caddy",
+            "cloudflared",
+            "tailscaled",
+            "sshd",
+            "postgres",
+            "telegram-bot-api",
+            "paperclip",
+            "langfuse",
+            "managed-runner",
+            "amt-release",
+            "amt-backup",
+            "amt-control",
+            "ops-bot",
+            "llm-proxy",
+            "quota-coordinator",
+            "amt-workflow",
+            "tg-auth",
+            "cost-watchdog",
+            "fake-service"
+          ],
+          "required_acks": [
+            "amt-control",
+            "ops-bot",
+            "llm-proxy",
+            "quota-coordinator",
+            "amt-workflow",
+            "tg-auth",
+            "cost-watchdog"
+          ]
+        }
+      },
+      "valid": false
+    },
+    {
+      "id": "HC-69",
+      "rule": "H03",
+      "name": "unknown manifest ACK rejected",
+      "schema": "candidate-manifest.schema.json",
+      "instance": {
+        "manifest_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "created_at": "2026-10-25T12:00:00Z",
+        "base_release_id": null,
+        "code": {
+          "repo": "synthetic:test",
+          "commit": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        },
+        "workflows": [],
+        "prompts": [],
+        "skills": [],
+        "models": [],
+        "adapters": [],
+        "config": {
+          "config_sha": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+        },
+        "schema": {
+          "schema_version": 1,
+          "migration_kind": "none"
+        },
+        "dependencies": {
+          "lock_sha": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+        },
+        "affected": {
+          "tests": [],
+          "runs": []
+        },
+        "release_class": "normal",
+        "target_profile": "F1_WORKFLOW",
+        "capabilities_enabled": [],
+        "readiness_snapshot": {
+          "keys": {},
+          "capabilities": {}
+        },
+        "deployment": {
+          "kind": "initial",
+          "phase": "F1",
+          "services": [
+            "caddy",
+            "cloudflared",
+            "tailscaled",
+            "sshd",
+            "postgres",
+            "telegram-bot-api",
+            "paperclip",
+            "langfuse",
+            "managed-runner",
+            "amt-release",
+            "amt-backup",
+            "amt-control",
+            "ops-bot",
+            "llm-proxy",
+            "quota-coordinator",
+            "amt-workflow",
+            "tg-auth",
+            "cost-watchdog"
+          ],
+          "required_acks": [
+            "amt-control",
+            "ops-bot",
+            "llm-proxy",
+            "quota-coordinator",
+            "amt-workflow",
+            "tg-auth",
+            "cost-watchdog",
+            "fake-ack"
+          ]
+        }
+      },
+      "valid": false
+    },
+    {
+      "id": "HC-70",
+      "rule": "H03",
+      "name": "duplicate service rejected",
+      "schema": "candidate-manifest.schema.json",
+      "instance": {
+        "manifest_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "created_at": "2026-10-25T12:00:00Z",
+        "base_release_id": null,
+        "code": {
+          "repo": "synthetic:test",
+          "commit": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        },
+        "workflows": [],
+        "prompts": [],
+        "skills": [],
+        "models": [],
+        "adapters": [],
+        "config": {
+          "config_sha": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+        },
+        "schema": {
+          "schema_version": 1,
+          "migration_kind": "none"
+        },
+        "dependencies": {
+          "lock_sha": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+        },
+        "affected": {
+          "tests": [],
+          "runs": []
+        },
+        "release_class": "normal",
+        "target_profile": "F1_WORKFLOW",
+        "capabilities_enabled": [],
+        "readiness_snapshot": {
+          "keys": {},
+          "capabilities": {}
+        },
+        "deployment": {
+          "kind": "initial",
+          "phase": "F1",
+          "services": [
+            "caddy",
+            "cloudflared",
+            "tailscaled",
+            "sshd",
+            "postgres",
+            "telegram-bot-api",
+            "paperclip",
+            "langfuse",
+            "managed-runner",
+            "amt-release",
+            "amt-backup",
+            "amt-control",
+            "ops-bot",
+            "llm-proxy",
+            "quota-coordinator",
+            "amt-workflow",
+            "tg-auth",
+            "cost-watchdog",
+            "amt-control"
+          ],
+          "required_acks": [
+            "amt-control",
+            "ops-bot",
+            "llm-proxy",
+            "quota-coordinator",
+            "amt-workflow",
+            "tg-auth",
+            "cost-watchdog"
+          ]
+        }
+      },
+      "valid": false
+    },
+    {
+      "id": "HC-71",
+      "rule": "H03",
+      "name": "duplicate ACK rejected",
+      "schema": "candidate-manifest.schema.json",
+      "instance": {
+        "manifest_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "created_at": "2026-10-25T12:00:00Z",
+        "base_release_id": null,
+        "code": {
+          "repo": "synthetic:test",
+          "commit": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        },
+        "workflows": [],
+        "prompts": [],
+        "skills": [],
+        "models": [],
+        "adapters": [],
+        "config": {
+          "config_sha": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+        },
+        "schema": {
+          "schema_version": 1,
+          "migration_kind": "none"
+        },
+        "dependencies": {
+          "lock_sha": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+        },
+        "affected": {
+          "tests": [],
+          "runs": []
+        },
+        "release_class": "normal",
+        "target_profile": "F1_WORKFLOW",
+        "capabilities_enabled": [],
+        "readiness_snapshot": {
+          "keys": {},
+          "capabilities": {}
+        },
+        "deployment": {
+          "kind": "initial",
+          "phase": "F1",
+          "services": [
+            "caddy",
+            "cloudflared",
+            "tailscaled",
+            "sshd",
+            "postgres",
+            "telegram-bot-api",
+            "paperclip",
+            "langfuse",
+            "managed-runner",
+            "amt-release",
+            "amt-backup",
+            "amt-control",
+            "ops-bot",
+            "llm-proxy",
+            "quota-coordinator",
+            "amt-workflow",
+            "tg-auth",
+            "cost-watchdog"
+          ],
+          "required_acks": [
+            "amt-control",
+            "ops-bot",
+            "llm-proxy",
+            "quota-coordinator",
+            "amt-workflow",
+            "tg-auth",
+            "cost-watchdog",
+            "amt-control"
+          ]
+        }
+      },
+      "valid": false
+    },
+    {
+      "id": "HC-72",
+      "rule": "H03",
+      "name": "deployment cannot carry arbitrary exemption",
+      "schema": "candidate-manifest.schema.json",
+      "instance": {
+        "manifest_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "created_at": "2026-10-25T12:00:00Z",
+        "base_release_id": null,
+        "code": {
+          "repo": "synthetic:test",
+          "commit": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        },
+        "workflows": [],
+        "prompts": [],
+        "skills": [],
+        "models": [],
+        "adapters": [],
+        "config": {
+          "config_sha": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+        },
+        "schema": {
+          "schema_version": 1,
+          "migration_kind": "none"
+        },
+        "dependencies": {
+          "lock_sha": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+        },
+        "affected": {
+          "tests": [],
+          "runs": []
+        },
+        "release_class": "normal",
+        "target_profile": "F1_WORKFLOW",
+        "capabilities_enabled": [],
+        "readiness_snapshot": {
+          "keys": {},
+          "capabilities": {}
+        },
+        "deployment": {
+          "kind": "initial",
+          "phase": "F1",
+          "services": [
+            "caddy",
+            "cloudflared",
+            "tailscaled",
+            "sshd",
+            "postgres",
+            "telegram-bot-api",
+            "paperclip",
+            "langfuse",
+            "managed-runner",
+            "amt-release",
+            "amt-backup",
+            "amt-control",
+            "ops-bot",
+            "llm-proxy",
+            "quota-coordinator",
+            "amt-workflow",
+            "tg-auth",
+            "cost-watchdog"
+          ],
+          "required_acks": [
+            "amt-control",
+            "ops-bot",
+            "llm-proxy",
+            "quota-coordinator",
+            "amt-workflow",
+            "tg-auth",
+            "cost-watchdog"
+          ],
+          "skip_acks": true
+        }
+      },
+      "valid": false
+    },
+    {
+      "id": "HC-73",
+      "rule": "H03",
+      "name": "candidate deployment cannot be omitted",
+      "schema": "candidate-manifest.schema.json",
+      "instance": {
+        "manifest_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "created_at": "2026-10-25T12:00:00Z",
+        "base_release_id": null,
+        "code": {
+          "repo": "synthetic:test",
+          "commit": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        },
+        "workflows": [],
+        "prompts": [],
+        "skills": [],
+        "models": [],
+        "adapters": [],
+        "config": {
+          "config_sha": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+        },
+        "schema": {
+          "schema_version": 1,
+          "migration_kind": "none"
+        },
+        "dependencies": {
+          "lock_sha": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+        },
+        "affected": {
+          "tests": [],
+          "runs": []
+        },
+        "release_class": "normal",
+        "target_profile": "F1_WORKFLOW",
+        "capabilities_enabled": [],
+        "readiness_snapshot": {
+          "keys": {},
+          "capabilities": {}
+        }
+      },
+      "valid": false
+    },
+    {
+      "id": "HC-74",
+      "rule": "H03",
+      "name": "update nonempty base accepted",
+      "schema": "candidate-manifest.schema.json",
+      "instance": {
+        "manifest_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "created_at": "2026-10-25T12:00:00Z",
+        "base_release_id": "release-test-active",
+        "code": {
+          "repo": "synthetic:test",
+          "commit": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        },
+        "workflows": [],
+        "prompts": [],
+        "skills": [],
+        "models": [],
+        "adapters": [],
+        "config": {
+          "config_sha": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+        },
+        "schema": {
+          "schema_version": 1,
+          "migration_kind": "none"
+        },
+        "dependencies": {
+          "lock_sha": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+        },
+        "affected": {
+          "tests": [],
+          "runs": []
+        },
+        "release_class": "normal",
+        "target_profile": "F1_WORKFLOW",
+        "capabilities_enabled": [],
+        "readiness_snapshot": {
+          "keys": {},
+          "capabilities": {}
+        },
+        "deployment": {
+          "kind": "update",
+          "phase": "F1",
+          "services": [
+            "caddy",
+            "cloudflared",
+            "tailscaled",
+            "sshd",
+            "postgres",
+            "telegram-bot-api",
+            "paperclip",
+            "langfuse",
+            "managed-runner",
+            "amt-release",
+            "amt-backup",
+            "amt-control",
+            "ops-bot",
+            "llm-proxy",
+            "quota-coordinator",
+            "amt-workflow",
+            "tg-auth",
+            "cost-watchdog"
+          ],
+          "required_acks": [
+            "amt-control",
+            "ops-bot",
+            "llm-proxy",
+            "quota-coordinator",
+            "amt-workflow",
+            "tg-auth",
+            "cost-watchdog"
+          ]
+        }
+      },
+      "valid": true
+    },
+    {
+      "id": "HC-75",
+      "rule": "H03",
+      "name": "update empty base rejected",
+      "schema": "candidate-manifest.schema.json",
+      "instance": {
+        "manifest_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "created_at": "2026-10-25T12:00:00Z",
+        "base_release_id": "",
+        "code": {
+          "repo": "synthetic:test",
+          "commit": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        },
+        "workflows": [],
+        "prompts": [],
+        "skills": [],
+        "models": [],
+        "adapters": [],
+        "config": {
+          "config_sha": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+        },
+        "schema": {
+          "schema_version": 1,
+          "migration_kind": "none"
+        },
+        "dependencies": {
+          "lock_sha": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+        },
+        "affected": {
+          "tests": [],
+          "runs": []
+        },
+        "release_class": "normal",
+        "target_profile": "F1_WORKFLOW",
+        "capabilities_enabled": [],
+        "readiness_snapshot": {
+          "keys": {},
+          "capabilities": {}
+        },
+        "deployment": {
+          "kind": "update",
+          "phase": "F1",
+          "services": [
+            "caddy",
+            "cloudflared",
+            "tailscaled",
+            "sshd",
+            "postgres",
+            "telegram-bot-api",
+            "paperclip",
+            "langfuse",
+            "managed-runner",
+            "amt-release",
+            "amt-backup",
+            "amt-control",
+            "ops-bot",
+            "llm-proxy",
+            "quota-coordinator",
+            "amt-workflow",
+            "tg-auth",
+            "cost-watchdog"
+          ],
+          "required_acks": [
+            "amt-control",
+            "ops-bot",
+            "llm-proxy",
+            "quota-coordinator",
+            "amt-workflow",
+            "tg-auth",
+            "cost-watchdog"
+          ]
+        }
+      },
+      "valid": false
+    }
+  ],
+  "aggregation_cases": [
+    {
+      "id": "HC-40",
+      "name": "approval mixed decisions",
+      "role": "approval",
+      "items": [
+        {
+          "state": "approved"
+        },
+        {
+          "state": "rejected"
+        }
+      ],
+      "step": "completed"
+    },
+    {
+      "id": "HC-41",
+      "name": "approval incomplete item",
+      "role": "approval",
+      "items": [
+        {
+          "state": "approved"
+        },
+        {
+          "state": "pending_review"
+        }
+      ],
+      "step": "waiting"
+    },
+    {
+      "id": "HC-42",
+      "name": "all approvals expired",
+      "role": "approval",
+      "items": [
+        {
+          "state": "expired"
+        }
+      ],
+      "step": "failed"
+    },
+    {
+      "id": "HC-43",
+      "name": "dispatch hands uncertainty to reconciliation",
+      "role": "dispatch",
+      "items": [
+        {
+          "state": "succeeded"
+        },
+        {
+          "state": "uncertain"
+        }
+      ],
+      "step": "completed"
+    },
+    {
+      "id": "HC-44",
+      "name": "dispatch executing item blocks",
+      "role": "dispatch",
+      "items": [
+        {
+          "state": "succeeded"
+        },
+        {
+          "state": "executing"
+        }
+      ],
+      "step": "waiting"
+    },
+    {
+      "id": "HC-45",
+      "name": "reconcile uncertainty blocks",
+      "role": "reconciliation",
+      "items": [
+        {
+          "state": "succeeded"
+        },
+        {
+          "state": "uncertain"
+        }
+      ],
+      "step": "waiting"
+    },
+    {
+      "id": "HC-46",
+      "name": "reconcile plain manual task insufficient",
+      "role": "reconciliation",
+      "items": [
+        {
+          "state": "manual_resolution",
+          "owner_task": "task:1"
+        }
+      ],
+      "step": "waiting"
+    },
+    {
+      "id": "HC-47",
+      "name": "reconcile offered custody insufficient",
+      "role": "reconciliation",
+      "items": [
+        {
+          "state": "manual_resolution",
+          "handoff": {
+            "status": "offered",
+            "authorized_receiver": true,
+            "owner_task_durable": true,
+            "accepted_by": "person:test-owner",
+            "accepted_at": "2026-10-25T12:00:00Z",
+            "refs": {
+              "command_id_and_revision": "synthetic:command_id_and_revision",
+              "unresolved_attempt_and_evidence": "synthetic:unresolved_attempt_and_evidence",
+              "owner_task": "synthetic:owner_task",
+              "accepted_handoff_with_receiver_and_time": "synthetic:accepted_handoff_with_receiver_and_time",
+              "reservation_or_explicit_not_required": "synthetic:reservation_or_explicit_not_required",
+              "conflict_lock_or_explicit_not_required": "synthetic:conflict_lock_or_explicit_not_required"
+            }
+          }
+        }
+      ],
+      "step": "waiting"
+    },
+    {
+      "id": "HC-48",
+      "name": "reconcile rejected custody insufficient",
+      "role": "reconciliation",
+      "items": [
+        {
+          "state": "manual_resolution",
+          "handoff": {
+            "status": "rejected",
+            "authorized_receiver": true,
+            "owner_task_durable": true,
+            "accepted_by": "person:test-owner",
+            "accepted_at": "2026-10-25T12:00:00Z",
+            "refs": {
+              "command_id_and_revision": "synthetic:command_id_and_revision",
+              "unresolved_attempt_and_evidence": "synthetic:unresolved_attempt_and_evidence",
+              "owner_task": "synthetic:owner_task",
+              "accepted_handoff_with_receiver_and_time": "synthetic:accepted_handoff_with_receiver_and_time",
+              "reservation_or_explicit_not_required": "synthetic:reservation_or_explicit_not_required",
+              "conflict_lock_or_explicit_not_required": "synthetic:conflict_lock_or_explicit_not_required"
+            }
+          }
+        }
+      ],
+      "step": "waiting"
+    },
+    {
+      "id": "HC-49",
+      "name": "reconcile expired custody insufficient",
+      "role": "reconciliation",
+      "items": [
+        {
+          "state": "manual_resolution",
+          "handoff": {
+            "status": "expired",
+            "authorized_receiver": true,
+            "owner_task_durable": true,
+            "accepted_by": "person:test-owner",
+            "accepted_at": "2026-10-25T12:00:00Z",
+            "refs": {
+              "command_id_and_revision": "synthetic:command_id_and_revision",
+              "unresolved_attempt_and_evidence": "synthetic:unresolved_attempt_and_evidence",
+              "owner_task": "synthetic:owner_task",
+              "accepted_handoff_with_receiver_and_time": "synthetic:accepted_handoff_with_receiver_and_time",
+              "reservation_or_explicit_not_required": "synthetic:reservation_or_explicit_not_required",
+              "conflict_lock_or_explicit_not_required": "synthetic:conflict_lock_or_explicit_not_required"
+            }
+          }
+        }
+      ],
+      "step": "waiting"
+    },
+    {
+      "id": "HC-50",
+      "name": "reconcile unauthorized custody insufficient",
+      "role": "reconciliation",
+      "items": [
+        {
+          "state": "manual_resolution",
+          "handoff": {
+            "status": "accepted",
+            "authorized_receiver": false,
+            "owner_task_durable": true,
+            "accepted_by": "person:test-owner",
+            "accepted_at": "2026-10-25T12:00:00Z",
+            "refs": {
+              "command_id_and_revision": "synthetic:command_id_and_revision",
+              "unresolved_attempt_and_evidence": "synthetic:unresolved_attempt_and_evidence",
+              "owner_task": "synthetic:owner_task",
+              "accepted_handoff_with_receiver_and_time": "synthetic:accepted_handoff_with_receiver_and_time",
+              "reservation_or_explicit_not_required": "synthetic:reservation_or_explicit_not_required",
+              "conflict_lock_or_explicit_not_required": "synthetic:conflict_lock_or_explicit_not_required"
+            }
+          }
+        }
+      ],
+      "step": "waiting"
+    },
+    {
+      "id": "HC-51",
+      "name": "reconcile missing lock ref insufficient",
+      "role": "reconciliation",
+      "items": [
+        {
+          "state": "manual_resolution",
+          "handoff": {
+            "status": "accepted",
+            "authorized_receiver": true,
+            "owner_task_durable": true,
+            "accepted_by": "person:test-owner",
+            "accepted_at": "2026-10-25T12:00:00Z",
+            "refs": {
+              "command_id_and_revision": "synthetic:command_id_and_revision",
+              "unresolved_attempt_and_evidence": "synthetic:unresolved_attempt_and_evidence",
+              "owner_task": "synthetic:owner_task",
+              "accepted_handoff_with_receiver_and_time": "synthetic:accepted_handoff_with_receiver_and_time",
+              "reservation_or_explicit_not_required": "synthetic:reservation_or_explicit_not_required"
+            }
+          }
+        }
+      ],
+      "step": "waiting"
+    },
+    {
+      "id": "HC-52",
+      "name": "reconcile accepted exact custody",
+      "role": "reconciliation",
+      "items": [
+        {
+          "state": "succeeded"
+        },
+        {
+          "state": "manual_resolution",
+          "handoff": {
+            "status": "accepted",
+            "authorized_receiver": true,
+            "owner_task_durable": true,
+            "accepted_by": "person:test-owner",
+            "accepted_at": "2026-10-25T12:00:00Z",
+            "refs": {
+              "command_id_and_revision": "synthetic:command_id_and_revision",
+              "unresolved_attempt_and_evidence": "synthetic:unresolved_attempt_and_evidence",
+              "owner_task": "synthetic:owner_task",
+              "accepted_handoff_with_receiver_and_time": "synthetic:accepted_handoff_with_receiver_and_time",
+              "reservation_or_explicit_not_required": "synthetic:reservation_or_explicit_not_required",
+              "conflict_lock_or_explicit_not_required": "synthetic:conflict_lock_or_explicit_not_required"
+            }
+          }
+        }
+      ],
+      "step": "completed"
+    },
+    {
+      "id": "HC-53",
+      "name": "reconcile remote terminal no effect",
+      "role": "reconciliation",
+      "items": [
+        {
+          "state": "failed_confirmed"
+        }
+      ],
+      "step": "completed"
+    }
+  ],
+  "rpo_cases": [
+    {
+      "id": "HC-54",
+      "name": "daily interval plus completion delay exceeds ceiling",
+      "snapshots": [
+        {
+          "point_seconds": 0,
+          "complete_seconds": 1200,
+          "manifest_verified": true
+        },
+        {
+          "point_seconds": 86400,
+          "complete_seconds": 87600,
+          "manifest_verified": true
+        }
+      ],
+      "at_seconds": 86700,
+      "target_seconds": 86400,
+      "age_seconds": 86700,
+      "met": false
+    },
+    {
+      "id": "HC-55",
+      "name": "new snapshot usable after verification",
+      "snapshots": [
+        {
+          "point_seconds": 0,
+          "complete_seconds": 1200,
+          "manifest_verified": true
+        },
+        {
+          "point_seconds": 86400,
+          "complete_seconds": 87600,
+          "manifest_verified": true
+        }
+      ],
+      "at_seconds": 87600,
+      "target_seconds": 86400,
+      "age_seconds": 1200,
+      "met": true
+    },
+    {
+      "id": "HC-56",
+      "name": "unfinished run never replaces prior point",
+      "snapshots": [
+        {
+          "point_seconds": 0,
+          "complete_seconds": 1200,
+          "manifest_verified": true
+        },
+        {
+          "point_seconds": 86400,
+          "complete_seconds": null,
+          "manifest_verified": false
+        }
+      ],
+      "at_seconds": 90000,
+      "target_seconds": 86400,
+      "age_seconds": 90000,
+      "met": false
+    },
+    {
+      "id": "HC-57",
+      "name": "unverified manifest never replaces prior point",
+      "snapshots": [
+        {
+          "point_seconds": 0,
+          "complete_seconds": 1200,
+          "manifest_verified": true
+        },
+        {
+          "point_seconds": 86400,
+          "complete_seconds": 87000,
+          "manifest_verified": false
+        }
+      ],
+      "at_seconds": 90000,
+      "target_seconds": 86400,
+      "age_seconds": 90000,
+      "met": false
+    },
+    {
+      "id": "HC-58",
+      "name": "shorter snapshot interval with headroom",
+      "snapshots": [
+        {
+          "point_seconds": 0,
+          "complete_seconds": 1200,
+          "manifest_verified": true
+        },
+        {
+          "point_seconds": 43200,
+          "complete_seconds": 44400,
+          "manifest_verified": true
+        }
+      ],
+      "at_seconds": 86700,
+      "target_seconds": 86400,
+      "age_seconds": 43500,
+      "met": true
+    },
+    {
+      "id": "HC-59",
+      "name": "no usable snapshot fails target",
+      "snapshots": [],
+      "at_seconds": 500,
+      "target_seconds": 86400,
+      "age_seconds": null,
+      "met": false
+    }
+  ],
+  "release_contract": {
+    "phase_service_additions": {
+      "F1": [
+        "caddy",
+        "cloudflared",
+        "tailscaled",
+        "sshd",
+        "postgres",
+        "telegram-bot-api",
+        "paperclip",
+        "langfuse",
+        "managed-runner",
+        "amt-release",
+        "amt-backup",
+        "amt-control",
+        "ops-bot",
+        "llm-proxy",
+        "quota-coordinator",
+        "amt-workflow",
+        "tg-auth",
+        "cost-watchdog"
+      ],
+      "F2": [
+        "amocrm-mcp",
+        "capi-bridge",
+        "sync-worker",
+        "meta-ads-mcp"
+      ],
+      "F3": [
+        "gateway",
+        "executor"
+      ],
+      "F4": [
+        "render-worker",
+        "hermes"
+      ],
+      "F5": [],
+      "F6": [],
+      "F7": []
+    },
+    "capability_services": {
+      "llm.billable": [
+        "amt-control",
+        "llm-proxy",
+        "quota-coordinator",
+        "cost-watchdog",
+        "ops-bot"
+      ],
+      "workflow.runtime": [
+        "amt-workflow",
+        "amt-control",
+        "paperclip",
+        "ops-bot"
+      ],
+      "intake.live_traffic": [
+        "amocrm-mcp",
+        "quota-coordinator",
+        "capi-bridge",
+        "sync-worker",
+        "amt-control",
+        "ops-bot"
+      ],
+      "shadow.real_data": [
+        "sync-worker",
+        "amocrm-mcp",
+        "meta-ads-mcp",
+        "amt-workflow",
+        "amt-control",
+        "llm-proxy",
+        "cost-watchdog",
+        "quota-coordinator",
+        "ops-bot"
+      ],
+      "meta.remote_test": [
+        "gateway",
+        "executor",
+        "meta-ads-mcp",
+        "amt-control",
+        "quota-coordinator",
+        "ops-bot",
+        "amt-workflow"
+      ],
+      "agents.run": [
+        "hermes",
+        "managed-runner",
+        "gateway",
+        "llm-proxy",
+        "quota-coordinator",
+        "cost-watchdog",
+        "amt-control",
+        "ops-bot",
+        "amt-workflow",
+        "paperclip"
+      ],
+      "creative.publish": [
+        "render-worker",
+        "gateway",
+        "executor",
+        "amt-control",
+        "amt-workflow",
+        "ops-bot"
+      ],
+      "sandbox.candidate": [
+        "amt-sandbox",
+        "amt-eng-proxy",
+        "amt-verify",
+        "managed-runner",
+        "amt-control",
+        "amt-workflow",
+        "amt-release"
+      ],
+      "release.manifest": [
+        "amt-release",
+        "amt-verify",
+        "amt-workflow",
+        "amt-control",
+        "ops-bot"
+      ],
+      "release.auto": [
+        "amt-release",
+        "amt-verify",
+        "amt-workflow",
+        "amt-control",
+        "ops-bot"
+      ],
+      "review.pre_screen": [
+        "gateway",
+        "llm-proxy",
+        "quota-coordinator",
+        "cost-watchdog",
+        "amt-control",
+        "ops-bot"
+      ],
+      "write_mode.enabled": [
+        "tg-auth",
+        "ops-bot",
+        "gateway",
+        "executor",
+        "amt-control",
+        "amocrm-mcp",
+        "quota-coordinator",
+        "llm-proxy",
+        "capi-bridge",
+        "sync-worker",
+        "cost-watchdog",
+        "amt-workflow"
+      ],
+      "pipeline.rent.L1": [
+        "tg-auth",
+        "ops-bot",
+        "gateway",
+        "executor",
+        "amt-control",
+        "amocrm-mcp",
+        "quota-coordinator",
+        "llm-proxy",
+        "capi-bridge",
+        "sync-worker",
+        "cost-watchdog",
+        "amt-workflow"
+      ],
+      "pipeline.sale.L1": [
+        "tg-auth",
+        "ops-bot",
+        "gateway",
+        "executor",
+        "amt-control",
+        "amocrm-mcp",
+        "quota-coordinator",
+        "llm-proxy",
+        "capi-bridge",
+        "sync-worker",
+        "cost-watchdog",
+        "amt-workflow"
+      ],
+      "pipeline.any.L2": [
+        "tg-auth",
+        "ops-bot",
+        "gateway",
+        "executor",
+        "amt-control",
+        "amocrm-mcp",
+        "quota-coordinator",
+        "llm-proxy",
+        "capi-bridge",
+        "sync-worker",
+        "cost-watchdog",
+        "amt-workflow"
+      ]
+    }
+  },
+  "deployment_cases": [
+    {
+      "id": "HC-76",
+      "name": "F1 waits for seven actual phase-floor ACK services, not future F2/F3",
+      "candidate": {
+        "manifest_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "created_at": "2026-10-25T12:00:00Z",
+        "base_release_id": null,
+        "code": {
+          "repo": "synthetic:test",
+          "commit": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        },
+        "workflows": [],
+        "prompts": [],
+        "skills": [],
+        "models": [],
+        "adapters": [],
+        "config": {
+          "config_sha": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+        },
+        "schema": {
+          "schema_version": 1,
+          "migration_kind": "none"
+        },
+        "dependencies": {
+          "lock_sha": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+        },
+        "affected": {
+          "tests": [],
+          "runs": []
+        },
+        "release_class": "normal",
+        "target_profile": "F1_WORKFLOW",
+        "capabilities_enabled": [],
+        "readiness_snapshot": {
+          "keys": {},
+          "capabilities": {}
+        },
+        "deployment": {
+          "kind": "initial",
+          "phase": "F1",
+          "services": [
+            "caddy",
+            "cloudflared",
+            "tailscaled",
+            "sshd",
+            "postgres",
+            "telegram-bot-api",
+            "paperclip",
+            "langfuse",
+            "managed-runner",
+            "amt-release",
+            "amt-backup",
+            "amt-control",
+            "ops-bot",
+            "llm-proxy",
+            "quota-coordinator",
+            "amt-workflow",
+            "tg-auth",
+            "cost-watchdog"
+          ],
+          "required_acks": [
+            "amt-control",
+            "ops-bot",
+            "llm-proxy",
+            "quota-coordinator",
+            "amt-workflow",
+            "tg-auth",
+            "cost-watchdog"
+          ]
+        }
+      },
+      "observed_services": [
+        "caddy",
+        "cloudflared",
+        "tailscaled",
+        "sshd",
+        "postgres",
+        "telegram-bot-api",
+        "paperclip",
+        "langfuse",
+        "managed-runner",
+        "amt-release",
+        "amt-backup",
+        "amt-control",
+        "ops-bot",
+        "llm-proxy",
+        "quota-coordinator",
+        "amt-workflow",
+        "tg-auth",
+        "cost-watchdog"
+      ],
+      "context": {},
+      "valid": true
+    },
+    {
+      "id": "HC-77",
+      "name": "F1 cannot require absent future services",
+      "candidate": {
+        "manifest_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "created_at": "2026-10-25T12:00:00Z",
+        "base_release_id": null,
+        "code": {
+          "repo": "synthetic:test",
+          "commit": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        },
+        "workflows": [],
+        "prompts": [],
+        "skills": [],
+        "models": [],
+        "adapters": [],
+        "config": {
+          "config_sha": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+        },
+        "schema": {
+          "schema_version": 1,
+          "migration_kind": "none"
+        },
+        "dependencies": {
+          "lock_sha": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+        },
+        "affected": {
+          "tests": [],
+          "runs": []
+        },
+        "release_class": "normal",
+        "target_profile": "F1_WORKFLOW",
+        "capabilities_enabled": [],
+        "readiness_snapshot": {
+          "keys": {},
+          "capabilities": {}
+        },
+        "deployment": {
+          "kind": "initial",
+          "phase": "F1",
+          "services": [
+            "caddy",
+            "cloudflared",
+            "tailscaled",
+            "sshd",
+            "postgres",
+            "telegram-bot-api",
+            "paperclip",
+            "langfuse",
+            "managed-runner",
+            "amt-release",
+            "amt-backup",
+            "amt-control",
+            "ops-bot",
+            "llm-proxy",
+            "quota-coordinator",
+            "amt-workflow",
+            "tg-auth",
+            "cost-watchdog"
+          ],
+          "required_acks": [
+            "tg-auth",
+            "ops-bot",
+            "gateway",
+            "executor",
+            "amt-control",
+            "amocrm-mcp",
+            "quota-coordinator",
+            "llm-proxy",
+            "capi-bridge",
+            "sync-worker",
+            "cost-watchdog",
+            "amt-workflow"
+          ]
+        }
+      },
+      "observed_services": [
+        "caddy",
+        "cloudflared",
+        "tailscaled",
+        "sshd",
+        "postgres",
+        "telegram-bot-api",
+        "paperclip",
+        "langfuse",
+        "managed-runner",
+        "amt-release",
+        "amt-backup",
+        "amt-control",
+        "ops-bot",
+        "llm-proxy",
+        "quota-coordinator",
+        "amt-workflow",
+        "tg-auth",
+        "cost-watchdog"
+      ],
+      "context": {},
+      "valid": false
+    },
+    {
+      "id": "HC-78",
+      "name": "protective F1 service cannot be omitted with its ACK",
+      "candidate": {
+        "manifest_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "created_at": "2026-10-25T12:00:00Z",
+        "base_release_id": null,
+        "code": {
+          "repo": "synthetic:test",
+          "commit": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        },
+        "workflows": [],
+        "prompts": [],
+        "skills": [],
+        "models": [],
+        "adapters": [],
+        "config": {
+          "config_sha": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+        },
+        "schema": {
+          "schema_version": 1,
+          "migration_kind": "none"
+        },
+        "dependencies": {
+          "lock_sha": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+        },
+        "affected": {
+          "tests": [],
+          "runs": []
+        },
+        "release_class": "normal",
+        "target_profile": "F1_WORKFLOW",
+        "capabilities_enabled": [],
+        "readiness_snapshot": {
+          "keys": {},
+          "capabilities": {}
+        },
+        "deployment": {
+          "kind": "initial",
+          "phase": "F1",
+          "services": [
+            "caddy",
+            "cloudflared",
+            "tailscaled",
+            "sshd",
+            "postgres",
+            "telegram-bot-api",
+            "paperclip",
+            "langfuse",
+            "managed-runner",
+            "amt-release",
+            "amt-backup",
+            "ops-bot",
+            "llm-proxy",
+            "quota-coordinator",
+            "amt-workflow",
+            "tg-auth",
+            "cost-watchdog"
+          ],
+          "required_acks": [
+            "ops-bot",
+            "llm-proxy",
+            "quota-coordinator",
+            "amt-workflow",
+            "tg-auth",
+            "cost-watchdog"
+          ]
+        }
+      },
+      "observed_services": [
+        "caddy",
+        "cloudflared",
+        "tailscaled",
+        "sshd",
+        "postgres",
+        "telegram-bot-api",
+        "paperclip",
+        "langfuse",
+        "managed-runner",
+        "amt-release",
+        "amt-backup",
+        "ops-bot",
+        "llm-proxy",
+        "quota-coordinator",
+        "amt-workflow",
+        "tg-auth",
+        "cost-watchdog"
+      ],
+      "context": {},
+      "valid": false
+    },
+    {
+      "id": "HC-79",
+      "name": "F2 floor has no absent F3 executor requirement",
+      "candidate": {
+        "manifest_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "created_at": "2026-10-25T12:00:00Z",
+        "base_release_id": "release-test-active",
+        "code": {
+          "repo": "synthetic:test",
+          "commit": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        },
+        "workflows": [],
+        "prompts": [],
+        "skills": [],
+        "models": [],
+        "adapters": [],
+        "config": {
+          "config_sha": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+        },
+        "schema": {
+          "schema_version": 1,
+          "migration_kind": "none"
+        },
+        "dependencies": {
+          "lock_sha": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+        },
+        "affected": {
+          "tests": [],
+          "runs": []
+        },
+        "release_class": "normal",
+        "target_profile": "F1_WORKFLOW",
+        "capabilities_enabled": [],
+        "readiness_snapshot": {
+          "keys": {},
+          "capabilities": {}
+        },
+        "deployment": {
+          "kind": "update",
+          "phase": "F2",
+          "services": [
+            "caddy",
+            "cloudflared",
+            "tailscaled",
+            "sshd",
+            "postgres",
+            "telegram-bot-api",
+            "paperclip",
+            "langfuse",
+            "managed-runner",
+            "amt-release",
+            "amt-backup",
+            "amt-control",
+            "ops-bot",
+            "llm-proxy",
+            "quota-coordinator",
+            "amt-workflow",
+            "tg-auth",
+            "cost-watchdog",
+            "amocrm-mcp",
+            "capi-bridge",
+            "sync-worker",
+            "meta-ads-mcp"
+          ],
+          "required_acks": [
+            "amt-control",
+            "ops-bot",
+            "llm-proxy",
+            "quota-coordinator",
+            "amt-workflow",
+            "tg-auth",
+            "cost-watchdog",
+            "amocrm-mcp",
+            "capi-bridge",
+            "sync-worker"
+          ]
+        }
+      },
+      "observed_services": [
+        "caddy",
+        "cloudflared",
+        "tailscaled",
+        "sshd",
+        "postgres",
+        "telegram-bot-api",
+        "paperclip",
+        "langfuse",
+        "managed-runner",
+        "amt-release",
+        "amt-backup",
+        "amt-control",
+        "ops-bot",
+        "llm-proxy",
+        "quota-coordinator",
+        "amt-workflow",
+        "tg-auth",
+        "cost-watchdog",
+        "amocrm-mcp",
+        "capi-bridge",
+        "sync-worker",
+        "meta-ads-mcp"
+      ],
+      "context": {
+        "active_phase": "F1",
+        "active_release_id": "release-test-active",
+        "prior_services": [
+          "caddy",
+          "cloudflared",
+          "tailscaled",
+          "sshd",
+          "postgres",
+          "telegram-bot-api",
+          "paperclip",
+          "langfuse",
+          "managed-runner",
+          "amt-release",
+          "amt-backup",
+          "amt-control",
+          "ops-bot",
+          "llm-proxy",
+          "quota-coordinator",
+          "amt-workflow",
+          "tg-auth",
+          "cost-watchdog"
+        ]
+      },
+      "valid": true
+    },
+    {
+      "id": "HC-80",
+      "name": "F3 capability closure and ACK set accepted",
+      "candidate": {
+        "manifest_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "created_at": "2026-10-25T12:00:00Z",
+        "base_release_id": "release-test-active",
+        "code": {
+          "repo": "synthetic:test",
+          "commit": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        },
+        "workflows": [],
+        "prompts": [],
+        "skills": [],
+        "models": [],
+        "adapters": [],
+        "config": {
+          "config_sha": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+        },
+        "schema": {
+          "schema_version": 1,
+          "migration_kind": "none"
+        },
+        "dependencies": {
+          "lock_sha": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+        },
+        "affected": {
+          "tests": [],
+          "runs": []
+        },
+        "release_class": "normal",
+        "target_profile": "F1_WORKFLOW",
+        "capabilities_enabled": [
+          "meta.remote_test"
+        ],
+        "readiness_snapshot": {
+          "keys": {},
+          "capabilities": {}
+        },
+        "deployment": {
+          "kind": "update",
+          "phase": "F3",
+          "services": [
+            "caddy",
+            "cloudflared",
+            "tailscaled",
+            "sshd",
+            "postgres",
+            "telegram-bot-api",
+            "paperclip",
+            "langfuse",
+            "managed-runner",
+            "amt-release",
+            "amt-backup",
+            "amt-control",
+            "ops-bot",
+            "llm-proxy",
+            "quota-coordinator",
+            "amt-workflow",
+            "tg-auth",
+            "cost-watchdog",
+            "amocrm-mcp",
+            "capi-bridge",
+            "sync-worker",
+            "meta-ads-mcp",
+            "gateway",
+            "executor"
+          ],
+          "required_acks": [
+            "amt-control",
+            "ops-bot",
+            "llm-proxy",
+            "quota-coordinator",
+            "amt-workflow",
+            "tg-auth",
+            "cost-watchdog",
+            "amocrm-mcp",
+            "capi-bridge",
+            "sync-worker",
+            "gateway",
+            "executor"
+          ]
+        }
+      },
+      "observed_services": [
+        "caddy",
+        "cloudflared",
+        "tailscaled",
+        "sshd",
+        "postgres",
+        "telegram-bot-api",
+        "paperclip",
+        "langfuse",
+        "managed-runner",
+        "amt-release",
+        "amt-backup",
+        "amt-control",
+        "ops-bot",
+        "llm-proxy",
+        "quota-coordinator",
+        "amt-workflow",
+        "tg-auth",
+        "cost-watchdog",
+        "amocrm-mcp",
+        "capi-bridge",
+        "sync-worker",
+        "meta-ads-mcp",
+        "gateway",
+        "executor"
+      ],
+      "context": {
+        "active_phase": "F2",
+        "active_release_id": "release-test-active",
+        "prior_services": [
+          "caddy",
+          "cloudflared",
+          "tailscaled",
+          "sshd",
+          "postgres",
+          "telegram-bot-api",
+          "paperclip",
+          "langfuse",
+          "managed-runner",
+          "amt-release",
+          "amt-backup",
+          "amt-control",
+          "ops-bot",
+          "llm-proxy",
+          "quota-coordinator",
+          "amt-workflow",
+          "tg-auth",
+          "cost-watchdog",
+          "amocrm-mcp",
+          "capi-bridge",
+          "sync-worker",
+          "meta-ads-mcp"
+        ]
+      },
+      "valid": true
+    },
+    {
+      "id": "HC-81",
+      "name": "enabled capability cannot omit gateway and executor",
+      "candidate": {
+        "manifest_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "created_at": "2026-10-25T12:00:00Z",
+        "base_release_id": "release-test-active",
+        "code": {
+          "repo": "synthetic:test",
+          "commit": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        },
+        "workflows": [],
+        "prompts": [],
+        "skills": [],
+        "models": [],
+        "adapters": [],
+        "config": {
+          "config_sha": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+        },
+        "schema": {
+          "schema_version": 1,
+          "migration_kind": "none"
+        },
+        "dependencies": {
+          "lock_sha": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+        },
+        "affected": {
+          "tests": [],
+          "runs": []
+        },
+        "release_class": "normal",
+        "target_profile": "F1_WORKFLOW",
+        "capabilities_enabled": [
+          "meta.remote_test"
+        ],
+        "readiness_snapshot": {
+          "keys": {},
+          "capabilities": {}
+        },
+        "deployment": {
+          "kind": "update",
+          "phase": "F1",
+          "services": [
+            "caddy",
+            "cloudflared",
+            "tailscaled",
+            "sshd",
+            "postgres",
+            "telegram-bot-api",
+            "paperclip",
+            "langfuse",
+            "managed-runner",
+            "amt-release",
+            "amt-backup",
+            "amt-control",
+            "ops-bot",
+            "llm-proxy",
+            "quota-coordinator",
+            "amt-workflow",
+            "tg-auth",
+            "cost-watchdog"
+          ],
+          "required_acks": [
+            "amt-control",
+            "ops-bot",
+            "llm-proxy",
+            "quota-coordinator",
+            "amt-workflow",
+            "tg-auth",
+            "cost-watchdog"
+          ]
+        }
+      },
+      "observed_services": [
+        "caddy",
+        "cloudflared",
+        "tailscaled",
+        "sshd",
+        "postgres",
+        "telegram-bot-api",
+        "paperclip",
+        "langfuse",
+        "managed-runner",
+        "amt-release",
+        "amt-backup",
+        "amt-control",
+        "ops-bot",
+        "llm-proxy",
+        "quota-coordinator",
+        "amt-workflow",
+        "tg-auth",
+        "cost-watchdog"
+      ],
+      "context": {},
+      "valid": false
+    },
+    {
+      "id": "HC-82",
+      "name": "observed installed service cannot disappear from candidate subset",
+      "candidate": {
+        "manifest_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "created_at": "2026-10-25T12:00:00Z",
+        "base_release_id": "release-test-active",
+        "code": {
+          "repo": "synthetic:test",
+          "commit": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        },
+        "workflows": [],
+        "prompts": [],
+        "skills": [],
+        "models": [],
+        "adapters": [],
+        "config": {
+          "config_sha": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+        },
+        "schema": {
+          "schema_version": 1,
+          "migration_kind": "none"
+        },
+        "dependencies": {
+          "lock_sha": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+        },
+        "affected": {
+          "tests": [],
+          "runs": []
+        },
+        "release_class": "normal",
+        "target_profile": "F1_WORKFLOW",
+        "capabilities_enabled": [],
+        "readiness_snapshot": {
+          "keys": {},
+          "capabilities": {}
+        },
+        "deployment": {
+          "kind": "update",
+          "phase": "F2",
+          "services": [
+            "caddy",
+            "cloudflared",
+            "tailscaled",
+            "sshd",
+            "postgres",
+            "telegram-bot-api",
+            "paperclip",
+            "langfuse",
+            "managed-runner",
+            "amt-release",
+            "amt-backup",
+            "amt-control",
+            "ops-bot",
+            "llm-proxy",
+            "quota-coordinator",
+            "amt-workflow",
+            "tg-auth",
+            "cost-watchdog",
+            "amocrm-mcp",
+            "capi-bridge",
+            "sync-worker",
+            "meta-ads-mcp"
+          ],
+          "required_acks": [
+            "amt-control",
+            "ops-bot",
+            "llm-proxy",
+            "quota-coordinator",
+            "amt-workflow",
+            "tg-auth",
+            "cost-watchdog",
+            "amocrm-mcp",
+            "capi-bridge",
+            "sync-worker"
+          ]
+        }
+      },
+      "observed_services": [
+        "caddy",
+        "cloudflared",
+        "tailscaled",
+        "sshd",
+        "postgres",
+        "telegram-bot-api",
+        "paperclip",
+        "langfuse",
+        "managed-runner",
+        "amt-release",
+        "amt-backup",
+        "amt-control",
+        "ops-bot",
+        "llm-proxy",
+        "quota-coordinator",
+        "amt-workflow",
+        "tg-auth",
+        "cost-watchdog",
+        "amocrm-mcp",
+        "capi-bridge",
+        "sync-worker",
+        "meta-ads-mcp",
+        "gateway"
+      ],
+      "context": {},
+      "valid": false
+    },
+    {
+      "id": "HC-83",
+      "name": "prior installed gateway cannot silently disappear",
+      "candidate": {
+        "manifest_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "created_at": "2026-10-25T12:00:00Z",
+        "base_release_id": "release-test-active",
+        "code": {
+          "repo": "synthetic:test",
+          "commit": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        },
+        "workflows": [],
+        "prompts": [],
+        "skills": [],
+        "models": [],
+        "adapters": [],
+        "config": {
+          "config_sha": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+        },
+        "schema": {
+          "schema_version": 1,
+          "migration_kind": "none"
+        },
+        "dependencies": {
+          "lock_sha": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+        },
+        "affected": {
+          "tests": [],
+          "runs": []
+        },
+        "release_class": "normal",
+        "target_profile": "F1_WORKFLOW",
+        "capabilities_enabled": [],
+        "readiness_snapshot": {
+          "keys": {},
+          "capabilities": {}
+        },
+        "deployment": {
+          "kind": "update",
+          "phase": "F1",
+          "services": [
+            "caddy",
+            "cloudflared",
+            "tailscaled",
+            "sshd",
+            "postgres",
+            "telegram-bot-api",
+            "paperclip",
+            "langfuse",
+            "managed-runner",
+            "amt-release",
+            "amt-backup",
+            "amt-control",
+            "ops-bot",
+            "llm-proxy",
+            "quota-coordinator",
+            "amt-workflow",
+            "tg-auth",
+            "cost-watchdog"
+          ],
+          "required_acks": [
+            "amt-control",
+            "ops-bot",
+            "llm-proxy",
+            "quota-coordinator",
+            "amt-workflow",
+            "tg-auth",
+            "cost-watchdog"
+          ]
+        }
+      },
+      "observed_services": [
+        "caddy",
+        "cloudflared",
+        "tailscaled",
+        "sshd",
+        "postgres",
+        "telegram-bot-api",
+        "paperclip",
+        "langfuse",
+        "managed-runner",
+        "amt-release",
+        "amt-backup",
+        "amt-control",
+        "ops-bot",
+        "llm-proxy",
+        "quota-coordinator",
+        "amt-workflow",
+        "tg-auth",
+        "cost-watchdog"
+      ],
+      "context": {
+        "prior_services": [
+          "caddy",
+          "cloudflared",
+          "tailscaled",
+          "sshd",
+          "postgres",
+          "telegram-bot-api",
+          "paperclip",
+          "langfuse",
+          "managed-runner",
+          "amt-release",
+          "amt-backup",
+          "amt-control",
+          "ops-bot",
+          "llm-proxy",
+          "quota-coordinator",
+          "amt-workflow",
+          "tg-auth",
+          "cost-watchdog",
+          "gateway"
+        ]
+      },
+      "valid": false
+    },
+    {
+      "id": "HC-84",
+      "name": "phase cannot regress from F2",
+      "candidate": {
+        "manifest_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "created_at": "2026-10-25T12:00:00Z",
+        "base_release_id": "release-test-active",
+        "code": {
+          "repo": "synthetic:test",
+          "commit": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        },
+        "workflows": [],
+        "prompts": [],
+        "skills": [],
+        "models": [],
+        "adapters": [],
+        "config": {
+          "config_sha": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+        },
+        "schema": {
+          "schema_version": 1,
+          "migration_kind": "none"
+        },
+        "dependencies": {
+          "lock_sha": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+        },
+        "affected": {
+          "tests": [],
+          "runs": []
+        },
+        "release_class": "normal",
+        "target_profile": "F1_WORKFLOW",
+        "capabilities_enabled": [],
+        "readiness_snapshot": {
+          "keys": {},
+          "capabilities": {}
+        },
+        "deployment": {
+          "kind": "update",
+          "phase": "F1",
+          "services": [
+            "caddy",
+            "cloudflared",
+            "tailscaled",
+            "sshd",
+            "postgres",
+            "telegram-bot-api",
+            "paperclip",
+            "langfuse",
+            "managed-runner",
+            "amt-release",
+            "amt-backup",
+            "amt-control",
+            "ops-bot",
+            "llm-proxy",
+            "quota-coordinator",
+            "amt-workflow",
+            "tg-auth",
+            "cost-watchdog"
+          ],
+          "required_acks": [
+            "amt-control",
+            "ops-bot",
+            "llm-proxy",
+            "quota-coordinator",
+            "amt-workflow",
+            "tg-auth",
+            "cost-watchdog"
+          ]
+        }
+      },
+      "observed_services": [
+        "caddy",
+        "cloudflared",
+        "tailscaled",
+        "sshd",
+        "postgres",
+        "telegram-bot-api",
+        "paperclip",
+        "langfuse",
+        "managed-runner",
+        "amt-release",
+        "amt-backup",
+        "amt-control",
+        "ops-bot",
+        "llm-proxy",
+        "quota-coordinator",
+        "amt-workflow",
+        "tg-auth",
+        "cost-watchdog"
+      ],
+      "context": {
+        "active_phase": "F2"
+      },
+      "valid": false
+    },
+    {
+      "id": "HC-85",
+      "name": "installed executor cannot be caller-exempted from ACK",
+      "candidate": {
+        "manifest_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "created_at": "2026-10-25T12:00:00Z",
+        "base_release_id": "release-test-active",
+        "code": {
+          "repo": "synthetic:test",
+          "commit": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        },
+        "workflows": [],
+        "prompts": [],
+        "skills": [],
+        "models": [],
+        "adapters": [],
+        "config": {
+          "config_sha": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+        },
+        "schema": {
+          "schema_version": 1,
+          "migration_kind": "none"
+        },
+        "dependencies": {
+          "lock_sha": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+        },
+        "affected": {
+          "tests": [],
+          "runs": []
+        },
+        "release_class": "normal",
+        "target_profile": "F1_WORKFLOW",
+        "capabilities_enabled": [],
+        "readiness_snapshot": {
+          "keys": {},
+          "capabilities": {}
+        },
+        "deployment": {
+          "kind": "update",
+          "phase": "F3",
+          "services": [
+            "caddy",
+            "cloudflared",
+            "tailscaled",
+            "sshd",
+            "postgres",
+            "telegram-bot-api",
+            "paperclip",
+            "langfuse",
+            "managed-runner",
+            "amt-release",
+            "amt-backup",
+            "amt-control",
+            "ops-bot",
+            "llm-proxy",
+            "quota-coordinator",
+            "amt-workflow",
+            "tg-auth",
+            "cost-watchdog",
+            "amocrm-mcp",
+            "capi-bridge",
+            "sync-worker",
+            "meta-ads-mcp",
+            "gateway",
+            "executor"
+          ],
+          "required_acks": [
+            "amt-control",
+            "ops-bot",
+            "llm-proxy",
+            "quota-coordinator",
+            "amt-workflow",
+            "tg-auth",
+            "cost-watchdog",
+            "amocrm-mcp",
+            "capi-bridge",
+            "sync-worker",
+            "gateway"
+          ]
+        }
+      },
+      "observed_services": [
+        "caddy",
+        "cloudflared",
+        "tailscaled",
+        "sshd",
+        "postgres",
+        "telegram-bot-api",
+        "paperclip",
+        "langfuse",
+        "managed-runner",
+        "amt-release",
+        "amt-backup",
+        "amt-control",
+        "ops-bot",
+        "llm-proxy",
+        "quota-coordinator",
+        "amt-workflow",
+        "tg-auth",
+        "cost-watchdog",
+        "amocrm-mcp",
+        "capi-bridge",
+        "sync-worker",
+        "meta-ads-mcp",
+        "gateway",
+        "executor"
+      ],
+      "context": {},
+      "valid": false
+    },
+    {
+      "id": "HC-86",
+      "name": "unknown capability dependency rejected",
+      "candidate": {
+        "manifest_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "created_at": "2026-10-25T12:00:00Z",
+        "base_release_id": "release-test-active",
+        "code": {
+          "repo": "synthetic:test",
+          "commit": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        },
+        "workflows": [],
+        "prompts": [],
+        "skills": [],
+        "models": [],
+        "adapters": [],
+        "config": {
+          "config_sha": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+        },
+        "schema": {
+          "schema_version": 1,
+          "migration_kind": "none"
+        },
+        "dependencies": {
+          "lock_sha": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+        },
+        "affected": {
+          "tests": [],
+          "runs": []
+        },
+        "release_class": "normal",
+        "target_profile": "F1_WORKFLOW",
+        "capabilities_enabled": [
+          "unknown.capability"
+        ],
+        "readiness_snapshot": {
+          "keys": {},
+          "capabilities": {}
+        },
+        "deployment": {
+          "kind": "update",
+          "phase": "F1",
+          "services": [
+            "caddy",
+            "cloudflared",
+            "tailscaled",
+            "sshd",
+            "postgres",
+            "telegram-bot-api",
+            "paperclip",
+            "langfuse",
+            "managed-runner",
+            "amt-release",
+            "amt-backup",
+            "amt-control",
+            "ops-bot",
+            "llm-proxy",
+            "quota-coordinator",
+            "amt-workflow",
+            "tg-auth",
+            "cost-watchdog"
+          ],
+          "required_acks": [
+            "amt-control",
+            "ops-bot",
+            "llm-proxy",
+            "quota-coordinator",
+            "amt-workflow",
+            "tg-auth",
+            "cost-watchdog"
+          ]
+        }
+      },
+      "observed_services": [
+        "caddy",
+        "cloudflared",
+        "tailscaled",
+        "sshd",
+        "postgres",
+        "telegram-bot-api",
+        "paperclip",
+        "langfuse",
+        "managed-runner",
+        "amt-release",
+        "amt-backup",
+        "amt-control",
+        "ops-bot",
+        "llm-proxy",
+        "quota-coordinator",
+        "amt-workflow",
+        "tg-auth",
+        "cost-watchdog"
+      ],
+      "context": {},
+      "valid": false
+    },
+    {
+      "id": "HC-87",
+      "name": "active transition capability closure must remain even outside release list",
+      "candidate": {
+        "manifest_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "created_at": "2026-10-25T12:00:00Z",
+        "base_release_id": "release-test-active",
+        "code": {
+          "repo": "synthetic:test",
+          "commit": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        },
+        "workflows": [],
+        "prompts": [],
+        "skills": [],
+        "models": [],
+        "adapters": [],
+        "config": {
+          "config_sha": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+        },
+        "schema": {
+          "schema_version": 1,
+          "migration_kind": "none"
+        },
+        "dependencies": {
+          "lock_sha": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+        },
+        "affected": {
+          "tests": [],
+          "runs": []
+        },
+        "release_class": "normal",
+        "target_profile": "F1_WORKFLOW",
+        "capabilities_enabled": [],
+        "readiness_snapshot": {
+          "keys": {},
+          "capabilities": {}
+        },
+        "deployment": {
+          "kind": "update",
+          "phase": "F1",
+          "services": [
+            "caddy",
+            "cloudflared",
+            "tailscaled",
+            "sshd",
+            "postgres",
+            "telegram-bot-api",
+            "paperclip",
+            "langfuse",
+            "managed-runner",
+            "amt-release",
+            "amt-backup",
+            "amt-control",
+            "ops-bot",
+            "llm-proxy",
+            "quota-coordinator",
+            "amt-workflow",
+            "tg-auth",
+            "cost-watchdog"
+          ],
+          "required_acks": [
+            "amt-control",
+            "ops-bot",
+            "llm-proxy",
+            "quota-coordinator",
+            "amt-workflow",
+            "tg-auth",
+            "cost-watchdog"
+          ]
+        }
+      },
+      "observed_services": [
+        "caddy",
+        "cloudflared",
+        "tailscaled",
+        "sshd",
+        "postgres",
+        "telegram-bot-api",
+        "paperclip",
+        "langfuse",
+        "managed-runner",
+        "amt-release",
+        "amt-backup",
+        "amt-control",
+        "ops-bot",
+        "llm-proxy",
+        "quota-coordinator",
+        "amt-workflow",
+        "tg-auth",
+        "cost-watchdog"
+      ],
+      "context": {
+        "transition_capabilities": [
+          "write_mode.enabled"
+        ]
+      },
+      "valid": false
+    },
+    {
+      "id": "HC-88",
+      "name": "used bootstrap cannot seed again",
+      "candidate": {
+        "manifest_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "created_at": "2026-10-25T12:00:00Z",
+        "base_release_id": null,
+        "code": {
+          "repo": "synthetic:test",
+          "commit": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        },
+        "workflows": [],
+        "prompts": [],
+        "skills": [],
+        "models": [],
+        "adapters": [],
+        "config": {
+          "config_sha": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+        },
+        "schema": {
+          "schema_version": 1,
+          "migration_kind": "none"
+        },
+        "dependencies": {
+          "lock_sha": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+        },
+        "affected": {
+          "tests": [],
+          "runs": []
+        },
+        "release_class": "normal",
+        "target_profile": "F1_WORKFLOW",
+        "capabilities_enabled": [],
+        "readiness_snapshot": {
+          "keys": {},
+          "capabilities": {}
+        },
+        "deployment": {
+          "kind": "initial",
+          "phase": "F1",
+          "services": [
+            "caddy",
+            "cloudflared",
+            "tailscaled",
+            "sshd",
+            "postgres",
+            "telegram-bot-api",
+            "paperclip",
+            "langfuse",
+            "managed-runner",
+            "amt-release",
+            "amt-backup",
+            "amt-control",
+            "ops-bot",
+            "llm-proxy",
+            "quota-coordinator",
+            "amt-workflow",
+            "tg-auth",
+            "cost-watchdog"
+          ],
+          "required_acks": [
+            "amt-control",
+            "ops-bot",
+            "llm-proxy",
+            "quota-coordinator",
+            "amt-workflow",
+            "tg-auth",
+            "cost-watchdog"
+          ]
+        }
+      },
+      "observed_services": [
+        "caddy",
+        "cloudflared",
+        "tailscaled",
+        "sshd",
+        "postgres",
+        "telegram-bot-api",
+        "paperclip",
+        "langfuse",
+        "managed-runner",
+        "amt-release",
+        "amt-backup",
+        "amt-control",
+        "ops-bot",
+        "llm-proxy",
+        "quota-coordinator",
+        "amt-workflow",
+        "tg-auth",
+        "cost-watchdog"
+      ],
+      "context": {
+        "bootstrap_used": true
+      },
+      "valid": false
+    },
+    {
+      "id": "HC-89",
+      "name": "active release cannot take initial path",
+      "candidate": {
+        "manifest_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "created_at": "2026-10-25T12:00:00Z",
+        "base_release_id": null,
+        "code": {
+          "repo": "synthetic:test",
+          "commit": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        },
+        "workflows": [],
+        "prompts": [],
+        "skills": [],
+        "models": [],
+        "adapters": [],
+        "config": {
+          "config_sha": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+        },
+        "schema": {
+          "schema_version": 1,
+          "migration_kind": "none"
+        },
+        "dependencies": {
+          "lock_sha": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+        },
+        "affected": {
+          "tests": [],
+          "runs": []
+        },
+        "release_class": "normal",
+        "target_profile": "F1_WORKFLOW",
+        "capabilities_enabled": [],
+        "readiness_snapshot": {
+          "keys": {},
+          "capabilities": {}
+        },
+        "deployment": {
+          "kind": "initial",
+          "phase": "F1",
+          "services": [
+            "caddy",
+            "cloudflared",
+            "tailscaled",
+            "sshd",
+            "postgres",
+            "telegram-bot-api",
+            "paperclip",
+            "langfuse",
+            "managed-runner",
+            "amt-release",
+            "amt-backup",
+            "amt-control",
+            "ops-bot",
+            "llm-proxy",
+            "quota-coordinator",
+            "amt-workflow",
+            "tg-auth",
+            "cost-watchdog"
+          ],
+          "required_acks": [
+            "amt-control",
+            "ops-bot",
+            "llm-proxy",
+            "quota-coordinator",
+            "amt-workflow",
+            "tg-auth",
+            "cost-watchdog"
+          ]
+        }
+      },
+      "observed_services": [
+        "caddy",
+        "cloudflared",
+        "tailscaled",
+        "sshd",
+        "postgres",
+        "telegram-bot-api",
+        "paperclip",
+        "langfuse",
+        "managed-runner",
+        "amt-release",
+        "amt-backup",
+        "amt-control",
+        "ops-bot",
+        "llm-proxy",
+        "quota-coordinator",
+        "amt-workflow",
+        "tg-auth",
+        "cost-watchdog"
+      ],
+      "context": {
+        "active_release_id": "release-test-active"
+      },
+      "valid": false
+    },
+    {
+      "id": "HC-90",
+      "name": "update must bind exact active base",
+      "candidate": {
+        "manifest_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "created_at": "2026-10-25T12:00:00Z",
+        "base_release_id": "release-test-active",
+        "code": {
+          "repo": "synthetic:test",
+          "commit": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        },
+        "workflows": [],
+        "prompts": [],
+        "skills": [],
+        "models": [],
+        "adapters": [],
+        "config": {
+          "config_sha": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+        },
+        "schema": {
+          "schema_version": 1,
+          "migration_kind": "none"
+        },
+        "dependencies": {
+          "lock_sha": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+        },
+        "affected": {
+          "tests": [],
+          "runs": []
+        },
+        "release_class": "normal",
+        "target_profile": "F1_WORKFLOW",
+        "capabilities_enabled": [],
+        "readiness_snapshot": {
+          "keys": {},
+          "capabilities": {}
+        },
+        "deployment": {
+          "kind": "update",
+          "phase": "F1",
+          "services": [
+            "caddy",
+            "cloudflared",
+            "tailscaled",
+            "sshd",
+            "postgres",
+            "telegram-bot-api",
+            "paperclip",
+            "langfuse",
+            "managed-runner",
+            "amt-release",
+            "amt-backup",
+            "amt-control",
+            "ops-bot",
+            "llm-proxy",
+            "quota-coordinator",
+            "amt-workflow",
+            "tg-auth",
+            "cost-watchdog"
+          ],
+          "required_acks": [
+            "amt-control",
+            "ops-bot",
+            "llm-proxy",
+            "quota-coordinator",
+            "amt-workflow",
+            "tg-auth",
+            "cost-watchdog"
+          ]
+        }
+      },
+      "observed_services": [
+        "caddy",
+        "cloudflared",
+        "tailscaled",
+        "sshd",
+        "postgres",
+        "telegram-bot-api",
+        "paperclip",
+        "langfuse",
+        "managed-runner",
+        "amt-release",
+        "amt-backup",
+        "amt-control",
+        "ops-bot",
+        "llm-proxy",
+        "quota-coordinator",
+        "amt-workflow",
+        "tg-auth",
+        "cost-watchdog"
+      ],
+      "context": {
+        "active_release_id": "release-other"
+      },
+      "valid": false
+    }
+  ],
+  "phase_entry_cases": [
+    {
+      "id": "HC-91",
+      "name": "Q67 missing FE_RELEASE blocks formal F5 entry",
+      "phase": "F5",
+      "profile_results": {},
+      "met": false
+    },
+    {
+      "id": "HC-92",
+      "name": "Q67 failed FE_RELEASE blocks formal F5 entry",
+      "phase": "F5",
+      "profile_results": {
+        "FE_RELEASE": "fail"
+      },
+      "met": false
+    },
+    {
+      "id": "HC-93",
+      "name": "Q67 FE_RELEASE pass precedes F5_GO evaluation",
+      "phase": "F5",
+      "profile_results": {
+        "FE_RELEASE": "pass",
+        "F5_GO": "pending"
+      },
+      "met": true
+    },
+    {
+      "id": "HC-94",
+      "name": "F5_GO claim cannot replace the pre-entry FE_RELEASE proof",
+      "phase": "F5",
+      "profile_results": {
+        "F5_GO": "pass"
+      },
+      "met": false
+    }
+  ],
+  "historical_clear_cases": [
+    {
+      "id": "HC-95",
+      "name": "valid billing clear remains historical evidence after later authorized owner epoch",
+      "record": {
+        "raised_control_event_id": "event:raise:billing:1",
+        "cleared_control_event_id": "event:clear:billing:1",
+        "clearance_control_epoch": 7,
+        "key_and_period": "key:period",
+        "approved_policy_revision": "policy:1",
+        "fresh_reconciliation_evidence": "evidence:fresh",
+        "actual_plus_reserved_allowance_evidence": "evidence:allowance",
+        "authenticated_at_clearance": {
+          "authorized": true,
+          "control_epoch": 7,
+          "key_and_period": "key:period",
+          "approved_policy_revision": "policy:1",
+          "fresh_reconciliation_evidence": "evidence:fresh",
+          "actual_plus_reserved_allowance_evidence": "evidence:allowance"
+        }
+      },
+      "raised_id": "event:raise:billing:1",
+      "current": {
+        "snapshot_verified": true,
+        "control_epoch": 8,
+        "later_epoch_changes_authorized": true,
+        "active_causes": []
+      },
+      "closes": true
+    },
+    {
+      "id": "HC-96",
+      "name": "wrong epoch at the actual clearance transaction is refused",
+      "record": {
+        "raised_control_event_id": "event:raise:billing:1",
+        "cleared_control_event_id": "event:clear:billing:1",
+        "clearance_control_epoch": 7,
+        "key_and_period": "key:period",
+        "approved_policy_revision": "policy:1",
+        "fresh_reconciliation_evidence": "evidence:fresh",
+        "actual_plus_reserved_allowance_evidence": "evidence:allowance",
+        "authenticated_at_clearance": {
+          "authorized": true,
+          "control_epoch": 6,
+          "key_and_period": "key:period",
+          "approved_policy_revision": "policy:1",
+          "fresh_reconciliation_evidence": "evidence:fresh",
+          "actual_plus_reserved_allowance_evidence": "evidence:allowance"
+        }
+      },
+      "raised_id": "event:raise:billing:1",
+      "current": {
+        "snapshot_verified": true,
+        "control_epoch": 8,
+        "later_epoch_changes_authorized": true,
+        "active_causes": []
+      },
+      "closes": false
+    },
+    {
+      "id": "HC-97",
+      "name": "old clear cannot satisfy a new raised cause identity",
+      "record": {
+        "raised_control_event_id": "event:raise:billing:1",
+        "cleared_control_event_id": "event:clear:billing:1",
+        "clearance_control_epoch": 7,
+        "key_and_period": "key:period",
+        "approved_policy_revision": "policy:1",
+        "fresh_reconciliation_evidence": "evidence:fresh",
+        "actual_plus_reserved_allowance_evidence": "evidence:allowance",
+        "authenticated_at_clearance": {
+          "authorized": true,
+          "control_epoch": 7,
+          "key_and_period": "key:period",
+          "approved_policy_revision": "policy:1",
+          "fresh_reconciliation_evidence": "evidence:fresh",
+          "actual_plus_reserved_allowance_evidence": "evidence:allowance"
+        }
+      },
+      "raised_id": "event:raise:billing:2",
+      "current": {
+        "snapshot_verified": true,
+        "control_epoch": 8,
+        "later_epoch_changes_authorized": true,
+        "active_causes": []
+      },
+      "closes": false
+    },
+    {
+      "id": "HC-98",
+      "name": "valid old pair cannot hide a newly active live cause",
+      "record": {
+        "raised_control_event_id": "event:raise:billing:1",
+        "cleared_control_event_id": "event:clear:billing:1",
+        "clearance_control_epoch": 7,
+        "key_and_period": "key:period",
+        "approved_policy_revision": "policy:1",
+        "fresh_reconciliation_evidence": "evidence:fresh",
+        "actual_plus_reserved_allowance_evidence": "evidence:allowance",
+        "authenticated_at_clearance": {
+          "authorized": true,
+          "control_epoch": 7,
+          "key_and_period": "key:period",
+          "approved_policy_revision": "policy:1",
+          "fresh_reconciliation_evidence": "evidence:fresh",
+          "actual_plus_reserved_allowance_evidence": "evidence:allowance"
+        }
+      },
+      "raised_id": "event:raise:billing:1",
+      "current": {
+        "snapshot_verified": true,
+        "control_epoch": 8,
+        "later_epoch_changes_authorized": true,
+        "active_causes": [
+          "event:raise:kill:2"
+        ]
+      },
+      "closes": false
+    }
+  ]
+}

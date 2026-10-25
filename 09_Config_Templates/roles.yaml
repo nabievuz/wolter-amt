@@ -1,0 +1,86 @@
+# Project OS configuration template; unresolved readiness blocks the relevant live profile.
+schema_version: 1
+bundle_state: template
+decision_refs: [Q47, Q49]
+mode: seed_once_then_export
+runtime_source: amt.people + amt.roles
+export_must_not_reseed: true
+quorum_source: approval-policy.yaml#change_set.quorum
+roles: [owner, ads_approver, sales_lead, fleet_operator, content_contributor, viewer]
+responsibility_assignments:
+  # roster assignments, not Telegram permissions; the owner may hold them
+  # storage: amt.responsibility_assignments; change: owner /role assign|unassign <tg_id> <assignment> [expires] (typed code, role_change)
+  # a holder needs at least a viewer membership to use Telegram (/readiness approve|cosign|withdraw)
+  technical_operator: runs the AMT host, restores, rotations and drills; Telegram via role viewer + flag ops_responder
+  finance_owner: approves finance-related readiness values
+  privacy_owner: approves privacy readiness values and breach handling
+  independent_reviewer: human reviewer of protected-surface changes who is not the author (OD-12)
+flags:
+  paperclip_ui: Paperclip UI behind tg-auth
+  langfuse_ui: Langfuse UI behind tg-auth
+  dm_alerts: alerts by direct message
+  hermes_chat: may talk to the CMO (Hermes)
+  golden_copy_rater: golden copy blind test rater
+  shadow_rater: rates SHADOW items during F5
+  language_checker: native-Uzbek human language check of the first live copy (Q42)
+  ops_responder: may ACK alerts and run read-only diagnostics
+  rights_clearer: may attach asset-rights evidence (consent_ref, purpose, text_version, territory, expires_at) with /asset evidence; never clears or revokes (owner-only actions); uploader may not prepare evidence for own upload
+flag_rules:
+  effective_flags: default flags of valid memberships plus person_flags whose expires_at is in the future
+  requires_valid_membership: true
+  storage: person_flags
+  change_command: /role flag add|remove <tg_id> <flag> [expires]
+  flag_commands:   # commands opened by an effective flag in any role
+    rights_clearer: [asset evidence]
+role_permissions:
+  owner:
+    commands: [status, report, help, whoami, spend, pause_all, resume, role, budget_raise, budget_engineering, fleet, sales_feedback, mode, takeover, graduate, asset, release, proposal, handover, drill, protected, readiness, agent, work, decisions]   # no upload: uploader_may_not_clear and owner-only clearing would leave owner uploads quarantined; owner media goes through a content_contributor
+    default_flags: [paperclip_ui, langfuse_ui, dm_alerts, hermes_chat, golden_copy_rater, shadow_rater, ops_responder, rights_clearer]   # language_checker: owner backup only after P-29 is accepted
+    sees: [change_set, alerts, reports, digests, spend, workflow_queue, decisions]
+  ads_approver:
+    commands: [status, report, help, whoami, spend]
+    default_flags: [hermes_chat]
+    sees: [change_set, ads_alerts, reports, spend]
+  sales_lead:
+    commands: [status, report, help, whoami, sales_feedback, sale_ready, readiness]
+    default_flags: [hermes_chat]
+    sees: [sales_digest, intake_alerts, sale_readiness]
+  fleet_operator:
+    commands: [status, help, whoami, fleet, readiness]
+    default_flags: []
+    sees: [fleet_requests, fleet_alerts]
+  content_contributor:
+    commands: [status, help, whoami, upload]
+    default_flags: []
+    sees: [content_requests, upload_receipts]
+  viewer:
+    commands: [status, report, help, whoami, spend, readiness]   # readiness: only keys the person is accountable for or co-signs
+    default_flags: []
+    sees: [reports, spend]
+telegram_main_group:
+  members: [owner, ads_approver, viewer]
+  decision_status: P-10
+  other_roles_channel: direct_message_or_separate_group
+  cmo_channel: direct_message_only
+  on_removal_suspension_or_expiry: ops-bot removes the person from groups or raises ALERT_ACCESS_DRIFT
+people: []
+people_seed_schema:
+  tg_id: integer
+  display_name: string
+  memberships: [{role: string, expires_at: UTC timestamp or null}]
+  flags: [{flag: string, expires_at: UTC timestamp or null}]
+  cloud_password_attested_at: UTC timestamp (required for owner and ads_approver approval buttons and tg-auth)
+  native_language_attested: uz|ru|null (owner attests)
+seed_scope:
+  F1: owner + break-glass only (ops.roles_owner)
+  F2: intake roster via owner /role add (HG-F2-16, ops.roles_roster)
+  F3: remaining people via owner /role add (HG-F3-05)
+bootstrap_readiness_ref: ops.roles_owner
+person_suspension_denies_all_roles: true
+role_expiry_scoped_to_membership: true
+at_least_one_active_owner_required: true
+expiry_reminder_days_before: 7
+targetologist_timeline:
+  F5: viewer + golden_copy_rater + shadow_rater + language_checker
+  F6_STEP1: ads_approver expires_at Step1 + 28 days
+  rotation_gate: HG-F6-05 at Step1 + 21 days (extend, replace or end)

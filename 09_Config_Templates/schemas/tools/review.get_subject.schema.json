@@ -1,0 +1,26 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "https://wolter.uz/amt/schemas/tools/review.get_subject.schema.json",
+ "title": "review.get_subject arguments",
+ "description": "Gateway guard 4 argument schema; contract: GUARDRAIL_GATEWAY.md §9.2.",
+ "type": "object",
+ "additionalProperties": false,
+ "properties": {
+  "subject_type": {
+   "enum": [
+    "creative_revision",
+    "change_set_item",
+    "offer_pr",
+    "landing_pr",
+    "weekly_report"
+   ]
+  },
+  "subject_ref": {
+   "$ref": "_common.schema.json#/$defs/ref"
+  }
+ },
+ "required": [
+  "subject_type",
+  "subject_ref"
+ ]
+}

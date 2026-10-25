@@ -1,0 +1,247 @@
+# Project OS configuration template; unresolved readiness blocks the relevant live profile.
+schema_version: 1
+bundle_state: template
+timezone: Asia/Tashkent
+decision_refs: [Q20, Q24, Q29.3, Q38, Q43, Q47, Q53, Q55]
+roster_source: amt.people + amt.roles   # identities live only there; readiness keeps opaque person_ref
+roster_readiness_refs:
+- ops.roles_owner
+- ops.roles_roster
+- ops.intake_responders
+- ops.ads_handback_roster
+- ops.sale_handback_roster
+readiness_refs:
+- ops.independent_monitor
+- ops.independent_monitor_full
+- ops.ack_minutes
+- ops.escalation
+- ops.kill_targets
+- ops.credential_inventory
+- ops.resource_envelope
+- ops.founder_time_budget
+monitoring_required_before: F2_LIVE_INTAKE
+host_independent_signal: true
+owner_authority_transfer: only by granting the owner RBAC role; no implicit delegation
+deputy_emergency_kill: OD-04
+responders_flag: ops_responder
+severities:
+  critical:
+    ack_ref: ops.ack_minutes.critical
+  degraded:
+    ack_ref: ops.ack_minutes.degraded
+alert_catalog_ref: 03_Architecture/TELEGRAM.md#6
+dataset_catalog_refs: [recovery.intake_datasets, recovery.full_datasets]
+drill_refs: [recovery.intake_drill, recovery.full_drill]
+rpo_definition: >-
+  Data-loss window = logical-error time minus the consistency point of the newest
+  usable snapshot at that time. A run is usable only after all artefacts complete
+  and MANIFEST verifies; an in-progress run cannot replace the prior usable point.
+  The amt point is the start of its dump; each other dataset uses its own manifest
+  point. With interval I and usable completion/scheduling delay D, even healthy
+  runs can leave a window approaching I + D; failed/missed runs extend it further.
+  The daily 02:00 baseline alone does not prove the existing logical-error RPO <=24 h.
+  Host loss remains the separately accepted Q55 scope.
+rpo_rto_source: recovery.* readiness values (seconds)
+rpo_readiness_rule: >-
+  Before F2/F6 acceptance, recovery.intake_datasets/recovery.full_datasets evidence
+  must identify each dataset target, consistency-point interval, completion and
+  scheduling bounds, tolerated failed/missed-run scenarios and measured worst
+  usable-point age. Use a shorter same-disk consistent snapshot interval or local
+  WAL/PITR with sufficient headroom to meet the existing <=24 h ceiling (or a
+  stricter approved dataset target). Change the schedule/timer together after
+  review; keep readiness pending until isolated recovery tests prove the bounds.
+  No offsite copy (Q55), invented SLA, target increase or weakened runtime guard.
+backup_stale_alert_rule: >-
+  The existing expected-run deadline from the schedule (baseline 02:00 + expected
+  run duration + margin), failed/missed run or insufficient-space skip raises
+  immediate ALERT_BACKUP_STALE and one catch-up run. Also measure now minus the
+  newest usable dataset consistency point; exceeding the approved target raises
+  the same alert and records an RPO breach. Alert/catch-up is detection, not proof
+  that the target was met; report the longer window and keep its blocker open.
+business_recovery_clock_includes_host_keys_tunnel_rebuild: true
+local_snapshot:                 # Q55: the only AMT-side copy; it never leaves the AMT PC
+  decision_ref: Q55
+  target: /var/backups/amt/<YYYY-MM-DDTHHMMZ>-<nightly|pre-upgrade|catchup> on the same RAID1 (root 0700); every run gets its own UTC-timestamped directory, so runs on the same day never collide
+  format: unencrypted (pg_dump -Fc, ClickHouse BACKUP to Disk, file copies) - Q54
+  contents: [paperclip and amt databases incl. command/audit/attempt/cost ledgers, outbox and workflow ledger, Langfuse PostgreSQL, ClickHouse, MinIO buckets and the Redis queue recovery strategy, /etc/amt, /srv/*/config, Caddy config, sops-encrypted secrets and release manifests, Hermes config and memory]   # single canonical list (OPERATING_ENVELOPE §6 refers here)
+  manifest: sha256 of every artefact + engine/schema/code/config revisions + per-artefact start/end timestamps + per-dataset consistency points (amt dump start; engine-reported point for other datasets)
+  order: ["amt (pg_dump, consistency point)", "paperclip (pg_dump; Paperclip is a projection of the amt workflow ledger and is re-synced from amt after a restore)", "Langfuse ClickHouse BACKUP", "Langfuse MinIO copy (after ClickHouse, so it is a superset of referenced blobs; orphan blobs accepted)", "Langfuse PostgreSQL dump", "files"]
+  retention_days: 7                # every kind (nightly, pre-upgrade, catchup); pruning is by directory age and is tested with back-dated fixtures (F0-AT-09)
+  pre_upgrade_run: required before every upgrade - OS or package, vendor component, code or config release (amt-backup --pre-upgrade); automatic security updates (apt-daily-upgrade.timer) run after the nightly snapshot
+  automatic_security_updates: apt-daily-upgrade.timer drop-in - OnCalendar= (empty, resets the stock 06:00) then OnCalendar=*-*-* 03:30:00 Asia/Tashkent, RandomizedDelaySec=0, Persistent=false (a missed night is skipped, never run at boot); after the 02:00 snapshot and before the 04:30 restore_check due check; the snapshot check is ExecCondition= in apt-daily-upgrade.service.d/ (a [Service] setting, ignored in a .timer drop-in) and skips that night when tonight's snapshot did not complete and verify by then (a late snapshot can still be inside its own deadline, so this raises no alert by itself); each skipped night is logged and a second consecutive skip raises ALERT_BACKUP_STALE, so security updates never stop silently; the restore check waits while apt-daily-upgrade.service is active; no automatic reboot
+  free_space_check: run skipped with ALERT_BACKUP_STALE when free space is below the ops.resource_envelope disk threshold
+  covers: logical errors only (bad migration, deletion, bad bulk write)
+  does_not_cover: loss or theft of both disks - AMT history is lost; intake and CAPI are rebuilt from the landing store and amoCRM
+  offsite_copy: false
+host_loss:
+  decision_ref: Q55
+  pc_hardware_failure: move the RAID1 disks (or one surviving disk) into another PC; disks are unencrypted (Q54)
+  both_disks_lost_or_stolen: new PC with 00-owner-bootstrap.sh --rebuild (no builder sudo), git secrets decrypted with the owner age key paper/QR copy (Q56); on theft rotate every credential first (INC-26)
+  rebuild_from_sources: 'landing receipts (production Dokploy) + amoCRM -> CAPI resend inside the vendor event-age window, never relying on deduplication (same-source event_id dedup is not proven: the "single source is not deduplicated" sentence belongs to the fbp/external_id method of Meta, and the newer Batch Requests text says the first copy of an event_id + event_name is kept - VR-33, VR-37 - so without F2 evidence a repeated server event - QualifiedLead and Contract are server-only - may count twice): (1) source change later than the observed_at (host send time) of the last good off-host heartbeat plus the lease (capi_dispatch_lease, 2 x heartbeat_interval) plus clock_margin is resent - sound because the lease is measured from the observed_at of the newest acknowledged heartbeat, never from ACK receipt, so dispatch stops at most one lease after the last stored heartbeat whatever the ACK delay, and the lost host could not have sent it; used only if the monitor record for that period is intact (the monitor stores each heartbeat before it ACKs it), otherwise rule 3 applies to everything; (2) source change earlier than the capi_terminal_before time that the last good heartbeat reported - every such event had already left the automatic send path (sent, rejected, skipped, uncertain or needs_review) - is not resent; (3) every other event is not resent; rules 2 and 3 are recorded as skipped_unknown_prior_send with reason terminal_before_loss or unknown_state, audited and counted'
+  capi_dispatch_lease: 'capi-bridge dispatches a CAPI event only while now minus the observed_at of the newest acknowledged heartbeat in amt.monitor_acks is below the lease = 2 x heartbeat_interval (one slow round trip does not pause dispatch); the lease is measured from the heartbeat send time that the monitor stores, never from ACK receipt, so a late ACK cannot extend it; amt-control writes the row when the monitor ACKs a heartbeat, and amt_capi may only read it; during a monitor outage events stay queued; a monitor that is down cannot report its own outage, so amt-control raises the host-side ALERT_MONITOR_UNREACHABLE (monitor_unreachable_alert), and a blocked path is also seen off-host by the monitor dead-man check (F2-AT-23)'
+  heartbeat_timeout: PT30S          # a heartbeat request is abandoned after this, below heartbeat_interval
+  heartbeat_capi_field: capi_terminal_before (source change = the event trigger time - CRM confirmation, qualified fact or contract fact - which amoCRM history gives back after a loss) - the earlier of (a) the earliest source-change time among CAPI events that can still be sent automatically (queued, sending, retry_wait - uncertain and needs_review are never resent automatically, so they do not hold it back) and (b) the source sync watermark (the time up to which landing and amoCRM changes have been ingested), so no source change earlier than it can still produce an automatic send; a time, so it can be matched after the ledger is lost; amt-control reads every database-backed heartbeat field - capi_terminal_before, the audit-chain head (seq and hash), the backlog counts and the oldest backlog age, and the last durable acceptance, delivery and checkpoint times - only through the SECURITY DEFINER function amt.heartbeat_snapshot() (no grant on capi_events, sync_cursors, audit_log, delivery_outbox or submission_delivery)
+  capi_terminal_before_lag_alert: now - capi_terminal_before above PT1H raises ALERT_CAPI_FAILED - a stuck queue or a lagging sync would otherwise widen the unknown_state window unseen
+  monitor_unreachable_alert:       # the host reports a dead or unreachable monitor; the monitor cannot report itself
+    after: lease_plus_margin       # 2 x the heartbeat_interval in force (the ops.independent_monitor evidence wins over the candidate) + after_margin; PT3M with the PT1M candidate (validator G02)
+    after_margin: PT1M             # builder candidate, calibrated in F2; the alert follows the lease expiry, below the PT1H capi_terminal_before lag alert
+    raised_by: amt-control         # the heartbeat sender (the only service whose egress names the monitor endpoint) sees every failed or unacknowledged heartbeat
+    channel: ops-bot               # Telegram; when the office line is down the monitor itself still raises its dead-man alert on the alternate channel
+    alert: ALERT_MONITOR_UNREACHABLE
+    message_fields: [dispatch_paused_since, queued_events, oldest_queued_age, last_heartbeat_error]
+    re_alert_every: PT1H           # builder candidate; while it stays open
+    clears_after_acks: 3           # hysteresis: a flapping monitor does not open and close the alert every minute (builder candidate)
+    clears_on: three consecutive acknowledged heartbeats; CAPI dispatch resumes with the first one and events older than vendor.meta_capi.max_event_age become skipped_too_old with audit
+    silent_double_fault: monitor dead while the office line is down - neither the host nor the monitor can alert until the line returns (INC-27)
+    runbook: INC-27
+  heartbeat_interval: PT1M         # candidate; the value pinned in ops.independent_monitor evidence wins
+  clock_margin: PT1M               # NTP on the AMT PC; covers clock skew between amoCRM, the monitor and the host
+  physical_access_sign_on_site: 'P-32 sign with the PC on site - network cable unplugged, never booted into production; writer fence and full rotation first; reinstall on the same hardware only after inspection and a vendor firmware reflash (otherwise new hardware); both disks are wiped and the operational state is rebuilt exactly as for both_disks_lost_or_stolen - data on the inspected disks is untrusted and never restored into production; an optional forensic copy (amt dump, MANIFEST, /var/log/amt) is carried inside the PC only (installer tmpfs -> /var/lib/amt-forensic), read only as text for the AAR (pg_restore --list and pg_restore -f -; never restored into any PostgreSQL server, because restoring a dump runs code of its author) and deleted when the AAR closes; never external media (Q55)'
+  writer_fence: before the replacement host starts - revoke the old Tailscale node, rotate the Cloudflare Tunnel token AND force-disconnect every existing tunnel connection (rotation alone does not drop running connectors), then confirm the connector list shows only the new host
+  production_backup_ref: HG-F2-18
+amo_webhook_contract:             # the vendor delivery rules (RESEARCH_FACTS VR-36) the capi-bridge webhook must satisfy; validator G04
+  vendor_reply_timeout_ms: 2000    # VR-36: amoCRM waits at most 2 s for the hook reply, end to end
+  reply_budget_ms: 1500            # builder candidate, p99 with the durable webhook_inbox commit, measured end to end from an external vantage through the tunnel (F2-AT-24)
+  reply_budget_measured: end_to_end_external
+  on_commit_failure: {reply_status: 503, never_reply_2xx_before_commit: true, never_time_out: true}
+  retry_tradeoff: 'a 5xx earns attempts 4 and 5, so a failed event yields 5 invalid replies instead of 3 and the >100-in-2-h disable is reached after about 21 failed events instead of about 34 [inference]; chosen because the extra attempts deliver short commit failures before the 15-minute sync, and a tunnel or PC outage is answered by the Cloudflare edge itself (530) whatever AMT replies [inference]'
+  vendor_retry_after: [PT5M, PT15M, PT15M, PT1H]   # VR-36: attempts 2-5; attempts 4 and 5 only for 499/5xx replies
+  auto_disable: more than 100 invalid replies in 2 h with the latest reply invalid disables the hook; it is re-enabled by hand in the amoCRM settings, an admin action by inference (INC-28)
+  subscribed_events: [add_lead, status_lead]       # HG-F2-04
+  challenge_free_path: mar2/amo/*  # a Cloudflare challenge is a non-5xx reply (3 attempts only); checked in F2-AT-24
+integration_watch:                # host-side detection of silent integration failures; alerts only, no gate or mode effect; validator G04
+- id: amo_webhook_liveness
+  runs_in: [sync-worker]
+  every: sync cycle
+  window: PT1H                    # builder candidate, calibrated in F2 (upper bound; the vendor disables within 2 h, VR-36)
+  condition: the amoCRM events sync found at least min_events status events in the window and none of them has a matching webhook_inbox row
+  min_events: 3                   # builder candidate volume floor, calibrated in F2 (upper bound): low night traffic alone never raises it
+  alert: ALERT_WEBHOOK_SILENT
+  severity: degraded
+  critical_after: PT4H            # builder candidate, calibrated in F2 (upper bound)
+  subscription_read:
+    every: P1D
+    via: amocrm-mcp
+    read: 'webhooks list - the state of the mar2/amo/<secret> subscription only (GUARDRAIL_GATEWAY.md §9.5; endpoint and admin-rights need verified in F2 [T])'
+    on_failure: ALERT_WEBHOOK_SILENT
+  on_sync_auth_error: ALERT_AMO_BREAKER   # a revoked AMO_TOKEN makes the sync find nothing, so liveness alone could never fire
+  runbook: INC-28
+- id: meta_token_health            # each probe runs in a service with a DB role, so it can write the durable alert
+  runs_in: [executor, capi-bridge, sync-worker]
+  tokens: {executor: META_WRITE_TOKEN, capi-bridge: META_CAPI_TOKEN, sync-worker: META_READ_TOKEN}
+  probe_via: {sync-worker: meta-ads-mcp}   # the read token never leaves amt-meta-read; an OAuth error on the regular spend/insights read through meta-ads-mcp is the probe
+  every: PT15M                     # at most one sync cycle
+  probe: read-only calls with the held token - /me, /me/permissions and the ad account status for the write token, a dataset read for the CAPI token, the regular account read through meta-ads-mcp for the read token; exact endpoints verified in F3 [T]
+  alert: ALERT_META_TOKEN_INVALID
+  severity: critical
+  degrades: {executor: [write_mode.enabled, protective_pause], capi-bridge: [capi_delivery], sync-worker: [spend and insights reads]}
+  effect: status only - /status shows the capabilities degraded; the protective pause is still attempted and reports failed with reason auth; the provider spending limit (Q37) stays the independent cap
+  runbook: INC-02
+- id: landing_delivery_pull        # a persistent 401/403/5xx or timeout on the delivery pull
+  runs_in: [sync-worker]
+  every: sync cycle
+  condition: GET /internal/delivery fails (401/403, 5xx, timeout) for consecutive_failures cycles in a row
+  consecutive_failures: 5          # builder candidate, calibrated in F2 (upper bound)
+  alert: ALERT_DELIVERY_PULL_FAILED
+  severity: degraded
+  critical_after: PT1H            # the capi_terminal_before lag alert threshold (upper bound)
+  runbook: INC-14
+- id: amo_token_visibility          # an amoCRM token sees only what its issuing user's role sees (VR-16); a narrower role silently undercounts
+  runs_in: [sync-worker]
+  every: sync cycle
+  condition: a crm_confirmed landing delivery record names a crm_lead_id that the AMO_TOKEN reads through amocrm-mcp cannot return within visibility_grace
+  visibility_grace: PT1H           # builder candidate, calibrated in F2 (upper bound)
+  alert: ALERT_AMO_VISIBILITY_GAP
+  severity: degraded
+  critical_after: PT4H            # builder candidate (upper bound)
+  runbook: INC-29
+host_power:
+  decision_ref: Q53
+  ups_feeds: [AMT PC, ONT, ER605]   # owner text Q53 (G7: PC, ONT and router)
+  ups_feeds_builder_clarification: [SG2428P, Omada controller]   # needed when the AMT VLAN passes through the switch; their PoE load shortens runtime, so runtime is measured with the real load (F0-AT-19) or the PC is cabled straight to an ER605 port
+  bios_power_on_after_ac_loss: true
+  clean_shutdown: NUT when the UPS has a USB signal port - upssched starts a 3600 s timer on ONBATT (cancelled on ONLINE) that runs upsmon -c fsd; the low-battery signal triggers FSD directly
+  ups_killpower_required: true      # only the upsmon FSD path sets POWERDOWNFLAG, so the UPS output is switched off at the end of the shutdown; returning mains is then seen as AC power-on and the BIOS starts the PC; ups.delay.shutdown, ups.delay.start and the return-on-mains behaviour are read back in F0-AT-19
+  no_killpower_fallback: shut down only on the low-battery signal (the UPS then runs empty and returning mains powers the PC on); otherwise the owner powers the PC on by hand
+  alert: ALERT_HOST_POWER
+  ups_model_and_runtime_evidence: F0-AT-19
+outage_log:                     # Q60 evidence from F0, before the independent monitor exists (HG-F2-17)
+  decision_ref: Q60
+  source: journal events of cloudflared (connection lost/registered), tailscaled, NUT (ONBATT/ONLINE/FSD) and boot times on the AMT PC; from HG-F2-17 also the independent monitor
+  sink: /var/log/amt/outage.jsonl (daily amt-outage-log.timer; no PII)
+  clock: the 30-day statistic starts when F0 is accepted
+upgrade_window:
+  days: [tue, wed, thu, fri, sat, sun]
+  time: '14:00-18:00'
+  not_monday: true
+protective_controls:
+- id: protective_pause
+  trigger: managed spend headroom <= safety margin, or spend data older than budget.ads_pacing cutoff while managed entities are active
+  invoker: amt-control (requested by the spend pacer check in amt-sync)
+  owner_unavailable_allowed: true
+  effect: pause managed entities only (pause-only executor path); provider spending limit stays the independent cap
+  audit: protective_actions
+  alert: ALERT_PROTECTIVE_PAUSE
+- id: proxy_admission_pause
+  trigger: key spend >= openrouter.key_noncritical_stop_pct, agent share >= share_stop_pct, or billing reconciliation unavailable longer than openrouter.billing_unreliable_noncritical_pause_after_hours (Langfuse/usage outage)
+  invoker: cost-watchdog via amt-control
+  owner_unavailable_allowed: true
+  effect: stop new non-critical LLM/media admissions (class per budgets.yaml#openrouter.admission_classes - by default every LLM and media admission); running reservations settle; resume per budgets.yaml#openrouter.billing_unreliable_resume or owner agent_resume
+  alert: ALERT_BUDGET_100
+- id: tracking_read_only
+  trigger: tracking fail-day streak reaches 2 (tracking-health.yaml#fail_streak; any gate check fail counts)
+  invoker: sync-worker via amt-control
+  owner_unavailable_allowed: true
+  effect: global read_only until cause resolved and owner /resume
+  alert: ALERT_READ_ONLY
+- id: provider_limit_read_only
+  trigger: provider spending limit missing, or its API read-back equals neither the active expected value nor the business month's new cap_update_formula value (vendor.meta_cap; budgets.yaml ads.expected_cap_switch, ads.provider_spend_limit_readback_required; WF-O04 S03 and every sync cycle)
+  invoker: sync-worker via amt-control
+  owner_unavailable_allowed: true
+  effect: global read_only until the limit read-back matches the expected value and owner /resume
+  alert: ALERT_SPEND_CAP_HEADROOM
+- id: account_restricted_read_only
+  trigger: ad account restriction, disable or abuse signal
+  invoker: sync-worker via amt-control
+  owner_unavailable_allowed: true
+  effect: global read_only until the restriction is resolved and owner /resume; never reopened automatically
+  alert: ALERT_ACCOUNT_RESTRICTED
+- id: kill_criteria_l0
+  trigger: KC-01
+  invoker: sync-worker via amt-control
+  owner_unavailable_allowed: true
+  effect: pipeline L0_shadow + human handback + C05
+  alert: ALERT_KILL_CRITERIA
+- id: maintenance_hold
+  trigger: planned release window
+  invoker: amt-release
+  owner_unavailable_allowed: false
+  effect: execution-policy.yaml#maintenance_hold
+schedule:
+- {id: fleet_ask, when: 'daily 08:00', who: ops-bot, what: fleet snapshot request to fleet_operator, status: P-06}
+- {id: media_buyer_daily, when: 'daily 08:30', who: media-buyer, what: sale and non-capacity proposals}
+- {id: fleet_remind, when: 'daily 09:00', who: ops-bot, what: reminder when no valid snapshot}
+- {id: rent_capacity_review, when: 'on fleet_snapshot_accepted', who: media-buyer, what: 'rent proposals from today snapshot revision (WF-B03 rent round, signals_by_key.rent; window until fleet_escalate)'}
+- {id: sale_ready, when: 'daily 09:00', who: sales_lead, what: /sale_ready snapshot (P-22); required from F6_STEP2}
+- {id: sale_ready_cutoff, when: 'daily 09:30', who: ops-bot, what: no valid sale readiness snapshot -> sale budget increase and rent->sale shift blocked; ALERT_SALE_READINESS_STALE to sales_lead and owner (sale-readiness.yaml cadence)}
+- {id: tracking_health, when: 'daily 09:30', who: sync-worker, what: tracking gate checks}
+- {id: batch_cutoff, when: 'daily 09:45', who: gateway, what: reviewed items close for the 10:00 batch; later items go separately with their own TTL}
+- {id: change_set, when: 'daily 10:00', who: ops-bot, what: daily change set (Q38)}
+- {id: fleet_escalate, when: 'daily 14:00', who: ops-bot, what: no valid snapshot -> hold all ordinary rent budget changes today}
+- {id: sales_digest, when: 'daily 18:00', who: ops-bot, what: sales_lead digest}
+- {id: exposure_guard, when: 'every sync cycle', who: sync-worker, what: zero-qualified exposure and low-data guard}
+- {id: kill_criteria, when: 'mon 07:30', who: sync-worker, what: KC-01/KC-02 weekly evaluation and data freeze; starts WF-B06}
+- {id: weekly_plan, when: 'mon 11:00', who: cmo, what: weekly plan after the published report (WF-B06 S05)}
+- {id: content_reminder, when: 'mon 09:30', who: ops-bot, what: weekly real photo/video upload reminder to content_contributor (Q20/Q29.3)}
+- {id: weekly_report_submit, when: 'mon 08:00', who: funnel-analyst, what: report.submit BLUF <=250 words + full report}
+- {id: weekly_report_review, when: 'mon 08:00-09:00', who: reviewer, what: Kernel/PII/claims pre-check of the exact report text}
+- {id: weekly_report, when: 'mon 09:00', who: ops-bot, what: Telegram BLUF + Paperclip full report (Q24)}
+- {id: cmo_status, when: 'fri 16:00', who: cmo, what: short weekly status incl. open proposals and decisions}
+- {id: dependency_check, when: 'wed 15:00', who: amt-workflow, what: WF-E03 VERSIONS.lock.md and advisories}
+- {id: backup, when: 'daily 02:00', who: amt-backup.timer (systemd), what: 'nightly local snapshot on the same RAID1 (unencrypted, kept 7 days, Q55) with ledger evidence; not a workflow run'}
+- {id: spend_cap_update, when: 'monthly day 1', who: owner, what: HG-OPS-01 spend cap update}
+- {id: qualified_volume_check, when: 'monthly first Monday 07:30', who: sync-worker, what: 'Q29.1 per-pipeline volume re-measure over the previous calendar month (business-policy qualified_optimization_rule); a met switch condition goes to the weekly report and an owner events_manager_change proposal', status: P-45}
+- {id: retro, when: 'monthly day 1', who: 'cmo + funnel-analyst', what: C12 retro; accepted lessons go to WF-E04}
+- {id: credential_expiry_check, when: 'monthly day 1', who: technical_operator, what: credential inventory review; alerts at T-30/T-7/T-1}
+- {id: restore_check, when: 'daily 04:30 due check', who: 'amt-workflow WF-O03 + technical_operator', what: 'restore check from the local snapshot into restore_test when the recovery.restore_check evidence is P25D old or older (about monthly; always inside P30D with time left for acceptance); refreshes recovery.restore_check'}
+- {id: kill_drill, when: 'daily 10:00 due check', who: 'technical_operator + owner (WF-O03)', what: 'ops-bot reminds the owner when the recovery.full_drill evidence is P75D old and daily from P83D; the owner-scheduled quarterly full drill (owner present) runs in the isolated restore_drill container on the AMT PC (restore from the local snapshot, rebuild from a staged PII-free source export with the CAPI resend simulated, kill A/B on fixtures, schema-aware rollback) + production amt-kill --self-test over SSH via Tailscale (sshd); refreshes recovery.full_drill inside P92D', status: P-12}

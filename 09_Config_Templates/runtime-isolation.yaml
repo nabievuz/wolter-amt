@@ -1,0 +1,192 @@
+# Project OS configuration template; unresolved readiness blocks the relevant live profile.
+# Canonical service registry: ARCHITECTURE §3, env.example sections, release-policy ACK lists and DB grants derive from it.
+schema_version: 1
+bundle_state: template
+decision_refs: [Q10, Q15, Q25, Q26, Q44, Q52, Q57, Q58, Q59]
+orchestrator_uid: paperclip
+agents:
+  cmo: {uid: hermes, runtime: hermes_gateway}
+  media-buyer: {uid: agent-media-buyer, runtime: isolated_managed_runner}
+  creative-studio: {uid: agent-creative-studio, runtime: isolated_managed_runner}
+  cro: {uid: agent-cro, runtime: isolated_managed_runner}
+  funnel-analyst: {uid: agent-funnel-analyst, runtime: isolated_managed_runner}
+  reviewer: {uid: agent-reviewer, runtime: isolated_managed_runner}
+dynamic_agents: {uid: agent-dynamic, runtime: isolated_managed_runner, envelope_ref: agent-hiring.yaml, rule: 'agents created by WF-E05 (Q68) share one pre-provisioned UID and run only inside the envelope; the paperclip_bridge denied_ops apply to them; the platform (gateway) creates them, never an agent'}
+engineering_roles:
+  # sandbox-only authority; not business agents; no business tools
+  eng-planner: {uid: agent-eng-planner, runtime: sandbox_runner}
+  eng-architect: {uid: agent-eng-architect, runtime: sandbox_runner}
+  eng-implementer: {uid: agent-eng-implementer, runtime: sandbox_runner}
+  eng-verifier: {uid: agent-eng-verifier, runtime: sandbox_runner}
+services:
+- {service_id: caddy, unit: caddy.service, uid: caddy, listen: '127.0.0.1:8080', db_role: none, credential_file: none, egress: none, ack_class: none}
+- {service_id: cloudflared, unit: cloudflared.service, uid: cloudflared, listen: '127.0.0.1:20241 (metrics only; pinned with --metrics)', db_role: none, credential_file: '/run/amt/secrets/cloudflared.env (TUNNEL_TOKEN via EnvironmentFile; never on the command line)', egress: 'Cloudflare Tunnel edge (outbound 7844 tcp+udp); on loopback only 127.0.0.1:8080 (Caddy) and the systemd-resolved stub 127.0.0.53:53 / 127.0.0.54:53 (DNS) - per-UID nftables, so a hostname added in the Cloudflare account cannot reach any other local service', ack_class: none}
+- {service_id: tailscaled, unit: tailscaled.service, uid: root (vendor daemon), listen: 'tailscale0 (peerAPI TCP on the tailnet IPv4/IPv6) + UDP 41641 WireGuard on all addresses (tailscaled accepts it itself in netfilter mode on; NAT traversal or DERP)', db_role: none, credential_file: /var/lib/tailscale/tailscaled.state (root 0600), egress: 'Tailscale control plane, DERP relays and WireGuard peers (UDP to arbitrary peers; the one root service whose egress is not narrowed)', ack_class: none}
+- {service_id: sshd, unit: ssh.service, uid: root (vendor daemon), listen: 'tailscale0 only - ssh.socket drop-in BindToDevice=tailscale0 (0.0.0.0%tailscale0:22 and [::]%tailscale0:22 - the noble ssh.socket has separate IPv4 and IPv6 ListenStream lines; no ListenAddress); the socket is not started from sockets.target - the udev rule starts it when tailscale0 appears (boot, tailscaled restart), and ssh.service runs only through it (Requires=ssh.socket; standalone sshd would bind *:22); ufw default-deny also closes 22 on the LAN NIC; on tailscale0 the Tailscale policy (owner -> tag:amt:22 only) is the filter', db_role: none, credential_file: /etc/ssh host keys (root 0600), egress: none, ack_class: none}
+- {service_id: tg-auth, unit: amt-auth.service, uid: amt-auth, listen: '127.0.0.1:3200', db_role: amt_auth, credential_file: /run/amt/secrets/tg-auth.env, egress: none, ack_class: function_gate}
+- {service_id: ops-bot, unit: amt-ops.service, uid: amt-ops, listen: '127.0.0.1:3201', db_role: amt_ops, credential_file: /run/amt/secrets/ops-bot.env, egress: 'telegram-bot-api (local), Google Drive upload', ack_class: write_gate}
+- {service_id: telegram-bot-api, unit: amt-telegram.service, uid: amt-telegram, listen: '127.0.0.1:8081', db_role: none, credential_file: /run/amt/secrets/telegram-bot-api.env, egress: 'Telegram data centres - the local Bot API server talks to Telegram itself, not to api.telegram.org (container: DOCKER-USER allows only the published Telegram ranges, core.telegram.org/resources/cidr.txt, from its fixed-name bridge)', ack_class: none}
+- {service_id: paperclip, unit: paperclip.service, uid: paperclip, listen: '127.0.0.1:3100', db_role: paperclip (own database), credential_file: /run/amt/secrets/paperclip.env, egress: none, ack_class: none}
+- {service_id: hermes, unit: hermes.service, uid: hermes, listen: pinned in F4, db_role: none, credential_file: /run/amt/secrets/hermes.env, egress: 'gateway, llm-proxy, api.telegram.org (CMO bot only)', ack_class: none}
+- {service_id: managed-runner, unit: amt-runner.service, uid: root (fixed entrypoint), listen: private socket, db_role: none, credential_file: none, egress: 'none (systemd IPAddressDeny=any, IPAddressAllow=localhost; role workers get their own UID rules)', ack_class: none}
+- {service_id: gateway, unit: amt-gateway.service, uid: amt-gateway, listen: '127.0.0.1:3300', db_role: amt_gateway, credential_file: /run/amt/secrets/gateway.env, egress: 'meta-ads-mcp (local), amocrm-mcp (local), GitHub API (PR tokens), Google Drive read, Umami API, Clarity API', ack_class: write_gate}
+- {service_id: executor, unit: amt-executor.service, uid: amt-executor, listen: private socket, db_role: amt_executor, credential_file: /run/amt/secrets/executor.env, egress: graph.facebook.com, ack_class: write_gate}
+- {service_id: amt-control, unit: amt-control.service, uid: amt-control, listen: private socket, db_role: amt_control, credential_file: /run/amt/secrets/control.env, egress: independent monitor endpoint, ack_class: write_gate}
+- {service_id: meta-ads-mcp, unit: amt-meta-read.service, uid: amt-meta-read, listen: private stdio/socket, db_role: none, credential_file: /run/amt/secrets/meta-read.env, egress: graph.facebook.com, ack_class: none}
+- {service_id: amocrm-mcp, unit: amt-amo.service, uid: amt-amo, listen: private socket (peer-UID allowlist; separate capi_lookup socket for capi-bridge only), db_role: amt_amo, credential_file: /run/amt/secrets/amocrm.env, egress: '<subdomain>.amocrm.ru', ack_class: write_gate}
+- {service_id: quota-coordinator, unit: amt-quota.service, uid: amt-quota, listen: private endpoint, db_role: amt_quota, credential_file: /run/amt/secrets/quota.env, egress: none, ack_class: write_gate}
+- {service_id: llm-proxy, unit: amt-proxy.service, uid: amt-proxy, listen: '127.0.0.1:3500', db_role: amt_proxy, credential_file: /run/amt/secrets/llm-proxy.env, egress: 'openrouter.ai, Langfuse (local)', ack_class: write_gate}
+- {service_id: stt-local, unit: amt-stt.service, uid: amt-stt, listen: '127.0.0.1:3510', db_role: none, credential_file: none, egress: none, ack_class: none, optional: true, note: owner-chosen single engine; no automatic fallback (Q44.3)}
+- {service_id: capi-bridge, unit: amt-capi.service, uid: amt-capi, listen: '127.0.0.1:3400', db_role: amt_capi, credential_file: /run/amt/secrets/capi-bridge.env, egress: 'graph.facebook.com (CAPI), amocrm-mcp capi_lookup socket; dispatch only under a fresh monitor ACK (operations.yaml#host_loss.capi_dispatch_lease)', ack_class: function_gate}
+- {service_id: sync-worker, unit: amt-sync.service, uid: amt-sync, listen: none, db_role: amt_sync, credential_file: /run/amt/secrets/sync-worker.env, egress: 'amocrm-mcp (local), meta-ads-mcp (local), Umami API (read token), go.wolter.uz delivery read API (GET /internal/delivery only) and public build metadata (GET /.well-known/amt-deployment.json; hashes and commit only, no credentials)', ack_class: function_gate}
+- {service_id: render-worker, unit: amt-render.service, uid: amt-render, listen: private socket, db_role: none, credential_file: none, egress: none, ack_class: none}
+- {service_id: cost-watchdog, unit: amt-watchdog.service, uid: amt-watchdog, listen: none, db_role: amt_watchdog, credential_file: /run/amt/secrets/watchdog.env, egress: 'OpenRouter usage API (read credential), Paperclip API (agent pause only)', ack_class: function_gate}
+- {service_id: postgres, unit: postgresql.service, uid: postgres, listen: '127.0.0.1:5432', db_role: owner amt_migrator (non-login), credential_file: none, egress: none, ack_class: none}
+- {service_id: langfuse, unit: langfuse compose stack, uid: langfuse, listen: '127.0.0.1:3000', db_role: own PostgreSQL, credential_file: /run/amt/secrets/langfuse.env, egress: 'none (TELEMETRY_ENABLED=false; DOCKER-USER drops new connections leaving its fixed-name bridge - per-UID nftables do not see container traffic; Docker Engine >= 29.0 has firewall-backend pinned to iptables; older engines have only iptables)', ack_class: none}
+- {service_id: amt-workflow, unit: amt-workflow.service, uid: amt-workflow, listen: private socket, db_role: amt_workflow, credential_file: /run/amt/secrets/workflow.env, egress: 'Paperclip API (projection only)', ack_class: write_gate}
+- {service_id: amt-release, unit: amt-release.service, uid: root (fixed publisher entrypoint), listen: private socket, db_role: 'amt_release; migrations through login role amt_migrate that may only SET ROLE amt_migrator', credential_file: '/etc/amt/release-signers + read-only deploy key + /run/amt/secrets/release.env', egress: 'GitHub (read-only; systemd IPAddressDeny=any + IPAddressAllow from release-policy.yaml#publisher_egress)', ack_class: none}
+- {service_id: amt-verify, unit: amt-verify.service, uid: amt-verify, listen: private socket, db_role: amt_verify, credential_file: /var/lib/amt-verify/holdout.key, egress: none, ack_class: none}
+- {service_id: amt-sandbox, unit: amt-sandbox.service, uid: amt-sandbox, listen: private socket, db_role: none, credential_file: /run/amt/secrets/sandbox.env, egress: 'package proxy; GitHub push to cand/* only (ENG_GITHUB_TOKEN)', ack_class: none}
+- {service_id: amt-eng-proxy, unit: amt-eng-proxy.service, uid: amt-eng-proxy, listen: private socket, db_role: amt_eng_proxy, credential_file: /run/amt/secrets/eng-proxy.env, egress: engineering LLM provider (OD-02), ack_class: none}
+- {service_id: amt-backup, unit: amt-backup.timer, uid: root (fixed entrypoint), listen: none, db_role: amt_backup (read), credential_file: none, egress: 'none (systemd IPAddressDeny=any, IPAddressAllow=localhost; root units cannot be told apart by UID)', ack_class: none}
+control_socket_peers:
+  # amt-control socket; caller identity = kernel peer UID (root callers are told apart by executable path); env.example CONTROL_ALLOWED_PEER_UIDS derives from this
+  # ARCHITECTURE §10.1 matrix = this mapping (validator D24); readiness_evidence and readiness_sign are the only writers of amt.readiness_records/signatures
+  amt-ops: [kill, control_resume, global_mode_change, pipeline_mode_change, takeover_scope_change, trust_graduation, trust_demotion, agent_resume, readiness_sign, mirror_role_event, status]
+  amt-sync: [tracking_read_only, provider_limit_read_only, account_restricted_read_only, kill_criteria_l0, protective_pause, trust_demotion, status]
+  amt-watchdog: [proxy_admission_pause, agent_pause, billing_unreliable_resume, status]
+  amt-workflow: [readiness_evidence, status]
+  root:amt-kill: [kill, status, self_test]
+  root:amt-release: [maintenance_hold, maintenance_release, readiness_evidence, status]
+runner_contract:
+  fixed_role_units_only: true
+  arbitrary_command: false
+  caller_cannot_choose_uid_or_entrypoint: true
+  support_readiness_ref: vendor.runner_isolation
+  final_readiness_ref: vendor.runner_isolation_final
+  isolation_gate: F4_AGENTS
+  isolation_gate_status: P-07
+  infeasible_escalation: OD-05
+  session_policy: fresh_per_step     # P-88: every workflow step starts a new agent session; an adapter may resume a session only inside the same step (a retry of that step's call), never across steps or Paperclip heartbeats
+  workspace: ephemeral_per_step      # a tmpfs workspace wiped when the step ends; what must survive goes through the gateway (outputs, handoffs, artefacts)
+  home_readonly: true                # the role UID home is read-only, so Claude Code memory files (CLAUDE.md, ~/.claude/**) and project memory cannot be written
+  claude_code_memory: disabled
+  transcript_bound: budget.request_bounds.max_input_tokens   # the transcript is part of every request; a request over the bound is refused before dispatch (input_over_bound), so a session never grows silently
+  long_term_memory: released_lessons_only   # durable agent guidance is only released lessons (ADR-028, I24); a session, a workspace file or a memory file is never memory
+  session_test: F4-AT-30
+  llm_client:                        # P-97: a pinned adapter never resends an LLM request on its own (VR-41); another attempt is only a new step call (max_attempts_per_step)
+    max_retries: 0                   # Claude Code CLAUDE_CODE_MAX_RETRIES=0 (default 10); an SDK client max_retries=0 (default 2); Hermes on /openai: its client library and own retry layer are checked in F1-AT-28
+    retry_watchdog: unset            # Claude Code CLAUDE_CODE_RETRY_WATCHDOG is never set: it retries 429/529 indefinitely and other transient errors up to 300 times
+    timeouts_above_proxy_deadline: true   # every client timeout of the adapter is longer than the upstream deadline of budgets.yaml#openrouter.upstream_contract, so the adapter never reaches its own timeout
+    test: F1-AT-28
+  claude_code_env:                  # P-102: pinned in the role unit by the runner, never chosen by the caller (VR-45); [?] verified in the pinned version by F1-AT-21
+    CLAUDE_CONFIG_DIR: per_step_tmpfs   # settings, session transcripts and auto memory live in the step workspace and vanish with it
+    CLAUDE_CODE_DISABLE_AUTO_MEMORY: '1'
+    CLAUDE_CODE_MAX_OUTPUT_TOKENS: budget.request_bounds.max_output_tokens   # the reservation's output bound is also the client bound (an unresolved model id defaults to 32 000)
+    ANTHROPIC_DEFAULT_HAIKU_MODEL: role_slot_model   # background functionality uses the role's assigned model, never an unlisted model
+    API_TIMEOUT_MS: '600000'           # the documented default, pinned: the proxy queue wait ends before it (slot_wait_exceeded) and it stays above the upstream deadline (llm_client)
+    CLAUDE_CODE_AUTO_COMPACT_WINDOW: 'max(100000, max_input_tokens)'   # the client minimum is 100 000
+    CLAUDE_AUTOCOMPACT_PCT_OVERRIDE: 'floor(100 x (max_input_tokens - max_output_tokens) / CLAUDE_CODE_AUTO_COMPACT_WINDOW)'   # compaction triggers before a request reaches max_input_tokens
+  compaction_policy: 'inside a step Claude Code compacts before a request reaches max_input_tokens (claude_code_env); a compaction call is an ordinary llm-proxy request with request_kind compaction, counted in the role share; nothing is carried across steps (session_policy)'   # long steps such as the weekly C07 finish inside the bound
+paperclip_bridge:
+  allowed_ops: [issue.create, issue.assign, issue.comment, issue.status, document.attach, issue.read_assigned_or_linked]
+  denied_ops: [agent.hire, agent.create, agent.update, instructions.update, adapter.update, model.update, budget.update, routine.create, routine.update, approval.request]
+  platform_ops:   # deterministic platform calls; never reachable with an agent token (Q68, P-167)
+  - {op: agent.create, caller: 'gateway, only as WF-E05 S03 of a run whose S02 envelope checks passed (bound to run_id and proposal revision)', paperclip_call: 'board create POST /api/companies/{companyId}/agents (RESEARCH_FACTS VR-46)', approval_setting: 'Paperclip requireBoardApprovalForNewAgents stays on - a hire request from any agent principal still waits for the board (owner)'}
+  enforced_by: gateway paperclip bridge
+  negative_tests: F4 per-role attempts must be refused
+provider_keys_on_agents: false
+agent_egress:
+- authenticated_gateway
+- authenticated_llm_proxy
+cmo_telegram_transport: hermes UID egress exception to api.telegram.org for the CMO bot only; never an approval channel
+cmo_telegram_outbound_filter:     # Hermes output never passes the gateway and reaches api.telegram.org directly, so the deterministic Telegram adapter (not the LLM) checks every outbound message
+  hook: F4 Hermes Telegram adapter - an outbound hook before every Bot API sendMessage call, pinned with the Hermes version (WF-E03 upgrade re-checks it)
+  max_chars: 4096                  # Telegram message limit; a longer reply is split by the adapter, never cut silently
+  blocks: [credential_formats, lead_pii_patterns]   # token and key formats of env.example secrets; the gateway's local PII detector patterns (GUARDRAIL_GATEWAY.md §9.2)
+  allow_from: [offers.yaml active registry facts and texts, the published landing contact block (landing content snapshot hash)]   # Wolter's own public numbers and offer text are not a hit
+  on_hit: drop_and_alert           # the message is not sent
+  notify_chat: 'Javob yuborilmadi: maxfiylik filtri ishladi (owner xabardor)'   # the chat learns that a reply was withheld; no content is echoed
+  alert: ALERT_SECURITY_PII
+  test: F4-AT-27                   # seeded secret and PII probes, a reply with a Wolter public number from the registry, and the withheld-reply notice
+hermes_memory:                     # P-87: Hermes memory and its conversation store are bounded and owner-controlled (ADR-004 items 3 and 5, P-14, I24)
+  pins:                            # Hermes config keys pinned with the version in F4; a change is a class A release (WF-E04). Defaults verified 2026-10-24 (VR-39)
+    memory.memory_enabled: true      # Q07: the CMO keeps a memory
+    memory.memory_char_limit: 2200   # the pinned-version default, recorded so an upgrade cannot raise it silently
+    memory.user_char_limit: 1375
+    memory.write_approval: true      # Hermes default is false (writes freely); with true, writes from messaging platforms are staged
+    skills.write_approval: true
+    auxiliary.background_review.enabled: false   # Hermes default is true: a background LLM pass that stages memory writes, with an input of up to 75 % of the context window (at most 600 000 tokens)
+    memory.user_profile_enabled: false   # P-99: one USER.md is injected into every hermes_chat session, so an owner profile would reach sales_lead [?]; off until F4-AT-24 proves per-person profiles
+    memory.provider: builtin         # an external memory provider would move memory off the host; [?] the exact key and value are verified in the pinned version (VR-44, F4-AT-24)
+  hidden_tools: [session_search]   # via agent.disabled_toolsets; session_search returns stored messages of every session without role scope (VR-39); the exact toolset name is verified in the pinned version [T] (F4-AT-29)
+  staged_writes:                   # the P-14 mechanism, enforced by the deterministic Hermes Telegram adapter (TELEGRAM.md §5.2), never by the LLM
+    approver: owner
+    in_chat_commands: dropped_for_every_sender   # P-99: every /memory and /skills command (pending, approve, reject, approval on|off) from every sender, the owner included, is dropped and audited (K11): no approval passes through Hermes (Q47) and a runtime toggle would switch off the pinned write approval and persist it (VR-39, VR-44)
+    approval_channel: ops_bot_typed_callback   # the only way a staged write is approved
+    bulk_approve: refused             # one staged id per approval
+    non_owner_origin: rejected        # a write staged in a session whose person_ref is not the owner is rejected by the adapter and never offered for approval
+    typed_callback: 'the ops-bot owner typed callback (P-14) carries exactly one staged id and passes the same origin rule'
+    enforcement: fail_closed         # the drop and origin rules hold when the enforcing component errors or times out; Hermes pre_command is observer-only and post_gateway_admission and pre_gateway_dispatch fail open on a raise or timeout (VR-44), so a hook alone does not qualify
+    fallback: 'when the pinned version cannot enforce any staged_writes rule fail-closed (command drop, origin attribution, one id per callback), agent.disabled_toolsets also hides memory and MEMORY.md/USER.md change only by release (WF-E04)'   # decided by F4-AT-24
+  config_file: read_only           # the Hermes config file is root-owned and read-only to the hermes UID, so no command can persist a changed pin; Hermes ACKs its effective config hash and a drift is ALERT_CONFIG_ACK
+  workflow_sessions: 'every API-server run that amt-workflow starts uses a new Hermes session id, so a run never loads an earlier transcript (VR-44); Hermes compression calls go through llm-proxy on the run token and count in the workflow part'   # P-102
+  conversation_store: {dataset: hermes_sessions, retention_ref: privacy.retention}   # privacy-policy.yaml#datasets
+  memory_files: {dataset: hermes_memory, retention_ref: privacy.retention}
+  tests: [F4-AT-24, F4-AT-29]
+cmo_telegram_inbound_filter:      # P-100: staff DMs pass the lead-PII detector before Hermes stores or sends them (Q28, Q62; OPEN_ITEMS C-43)
+  blocks: [lead_pii_patterns]      # the gateway's local PII detector patterns (GUARDRAIL_GATEWAY.md §9.2), the same set the outbound filter uses
+  on_hit: redact_and_alert         # the matched span is replaced by a marker before Hermes sees the text; the original reaches neither state.db nor llm-proxy
+  voice_notes: 'a voice note is transcribed by the configured STT engine and its transcript passes the same filter before Hermes stores or sends it; with an STT model behind llm-proxy the audio itself leaves the host (C-43)'
+  alert: ALERT_SECURITY_PII
+  enforcement: fail_closed         # a filter error or timeout drops the message instead of forwarding it; Hermes hooks fail open on a raise or timeout (VR-44), so F4-AT-29 proves the enforcing component, else a deterministic relay in front of Hermes is required before F4_AGENTS closes
+  test: F4-AT-29
+engineering_egress: default deny network namespace; package proxy only; no production credentials
+control_config_agent_writable: false
+same_uid_tokens_count_as_isolation: false
+external_dependencies:            # systems AMT relies on but does not run; the workflow principal is workflow-policy.yaml#external_participants; validator G03
+- id: independent-monitor
+  kind: off_host_monitor
+  operator: owner                 # HG-F2-17: the owner opens and pays for the service and the alternate channel (cost in budget.tco)
+  accountable: technical_operator
+  readiness_ref: ops.independent_monitor
+  product_ref: readiness:ops.independent_monitor   # product and host are chosen at HG-F2-17; this contract is what the choice must satisfy
+  hosting_constraints: [not_amt_pc, not_production_dokploy_landing_host]   # it watches both hosts; sharing one is a common-mode failure (hosting on production Dokploy would need its own owner decision, Q46.4)
+  contract:
+    store_before_ack: true        # host-loss rule 1 and the CAPI dispatch lease are sound only if every ACKed heartbeat is stored
+    ack_echo: [observed_at, nonce]  # the ACK names the heartbeat it stores; the lease is measured from that observed_at
+    ack_auth: hmac_sha256         # amt-control verifies every ACK with INDEPENDENT_MONITOR_ACK_KEY; a forged ACK cannot extend the lease
+    ack_key_rotation: dual_key_window   # during a rotation amt-control accepts the current and the next key (INDEPENDENT_MONITOR_ACK_KEY_NEXT), so a rotation never pauses CAPI
+    heartbeat_auth: INDEPENDENT_MONITOR_SEND_TOKEN   # the send token authenticates each heartbeat; the nonce is not signed by the host, the monitor echoes it inside its HMAC ACK
+    retention_days_min: 8         # vendor.meta_capi.max_event_age (candidate 7 d) + 1 d margin
+    heartbeat_interval_ref: operations.yaml#host_loss.heartbeat_interval
+    dead_man_after: PT5M          # candidate; the value pinned in the ops.independent_monitor evidence wins
+    journal_append_only: true     # the off-host control journal decides the resume level after a restore (SECURITY §8)
+    host_side_detection_ref: operations.yaml#host_loss.monitor_unreachable_alert
+  alternate_channel: {independent_of: [telegram, amt-pc], ack: signed link or one-time code}
+  endpoint_env: INDEPENDENT_MONITOR_ENDPOINT
+  credentials: [INDEPENDENT_MONITOR_SEND_TOKEN, INDEPENDENT_MONITOR_ACK_KEY, INDEPENDENT_MONITOR_ACK_KEY_NEXT, LANDING_INDEPENDENT_HEALTH_TOKEN]   # env.example names; inventory rows in ops.credential_inventory
+  evidence_before_first_ack: storage-kill test (stop the monitor store, send a heartbeat, no ACK may come back) or the vendor's written store-before-ACK and retention guarantee (HG-F2-17)
+- id: landing-delivery-api
+  kind: cross_host_read           # the server Lead trigger (crm_confirmed) and the WF-B01 runs read the landing delivery state by pull
+  operator: owner                 # production Dokploy; the builder opens the landing PR, the owner merges and deploys (HG-F2-01, Q46.4); env values HG-F2-13
+  accountable: technical_operator
+  readiness_ref: tracking.freshness
+  host: go.wolter.uz
+  endpoint: GET /internal/delivery?since=<cursor>   # pull over HTTPS; mar2 stays webhook-only (Q46.2)
+  reader: sync-worker
+  endpoint_env: SYNC_LANDING_DELIVERY_URL
+  credentials: [SYNC_LANDING_DELIVERY_TOKEN, LANDING_DELIVERY_READ_TOKEN_HASH]   # the landing keeps only the hash of the read token
+  fields: [submission_id, pipeline, accepted_at, delivered_at, state, crm_lead_id, event_id, consent_ref, custody_ref]
+  pii: false                      # no name, phone, IP, user agent, fbc/fbp, payload or ciphertext (DATA_MODEL §3.1, amt.submission_delivery)
+  cursor: landing_delivery
+  cadence: PT1M                   # candidate; tracking.freshness approves the value
+  failure: the landing keeps accepting and delivering to amoCRM; AMT catches up from the cursor; original event_time is kept (F2-AT-26)
+  hardening:                       # part of the landing PR scope; the owner merges and deploys it (HG-F2-01), which is the owner decision point for C-42
+    page_size_max: 500              # builder candidate: records per response
+    response_bytes_max: 262144      # builder candidate: bounded response
+    rate_limit_per_token: 60/min    # builder candidate
+    token_compare: constant_time_hash   # the landing stores only the hash of SYNC_LANDING_DELIVERY_TOKEN
+    token_rotation: with the credential inventory (ops.credential_inventory), both sides in one window (SECURITY.md#10)
+    edge_rule: the path answers only GET with the token; anything else 404 with no body
+  conflict_ref: C-42                # new AMT <-> production flow; P-33 lists it only after the owner accepts (OPEN_ITEMS §4)

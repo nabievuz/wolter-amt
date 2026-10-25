@@ -1,0 +1,128 @@
+# Project OS configuration template; unresolved readiness blocks the relevant live profile.
+schema_version: 1
+bundle_state: template
+decision_refs: [Q31, Q36, Q37]
+job: sync-worker --job kill-criteria
+schedule: Monday 07:30 Asia/Tashkent
+schedule_ref: operations.schedule
+metric_source: amt_ro.v_pipeline_cohorts
+baseline:
+  definition_revision_required: true
+  window_weeks: 8
+  seasonal_months_requested: 12
+  comparability_readiness_ref: business.baseline
+  diff_in_diff: diagnostic_only_unless_parallel_trends_supported
+  cpl_formula: pooled_ratio   # sum(spend) / sum(qualified) over the valid weeks of the frozen window; never a mean of weekly CPLs
+  formula_record: business.baseline metric_formula_ref names cpl_formula; another formula needs a protected change of this file
+decision_statistics_ref: decision-statistics.yaml
+rules:
+- id: KC-01
+  decision_rule: KC-01
+  metric: qualified_cpl_event_week
+  comparison: worse_pct_greater_than
+  worse_pct: 25
+  consecutive_weeks: 2
+  min_sample_ref: business.acceptance
+  cohort_confirmation: OD-13
+  scope: per_pipeline_under_ai_control
+  actions: [pipeline_L0_shadow, urgent_alert, human_handback, C05_rca]
+  alert: ALERT_KILL_CRITERIA
+- id: KC-02
+  decision_rule: KC-02
+  metric: lead_to_contract
+  comparison: worse_pct_greater_than
+  reference: baseline_matured_cohorts   # baseline lead_to_contract of the matured cohorts of the frozen window, same definition revision
+  cohort_grain: lead_created_event_week
+  evaluated_cohort: each_newly_matured   # a weekly cohort is evaluated once its maturity_days have elapsed
+  worse_pct: null
+  consecutive_weeks: 2   # two consecutive matured cohorts
+  min_sample_ref: business.acceptance
+  maturity_ref: business.acceptance
+  scope: per_pipeline_under_ai_control
+  readiness_ref: business.acceptance
+  actions: [block_auto_increase, urgent_alert]
+  alert: ALERT_KILL_CRITERIA_GUARDRAIL
+data_status_ref: business-policy.yaml#data_status_values
+data_status_actions:
+  valid: evaluate
+  spend_zero_qualified: count_exposure_and_bad_week
+  insufficient_sample: inconclusive_streak_kept_exposure_clock_continues
+  not_mature: inconclusive_streak_kept_exposure_clock_continues
+  incomparable_baseline: inconclusive_streak_kept_exposure_clock_continues
+  missing_data: blocked_and_alert
+  stale_data: blocked_and_alert
+  no_activity: not_evaluated
+  no_spend: not_evaluated
+low_data:
+  readiness_ref: business.exposure
+  check_schedule: every_sync_cycle
+  qualification_lag_ref: sales.sop
+  scale_blocked: true
+  alert_on_spend_and_zero: ALERT_ZERO_QUALIFIED_EXPOSURE
+  clear_bad_week_streak: false
+  bad_week_streak_bound: {counts: streak.counter, max_ref: 'rules[id=KC-01].consecutive_weeks', on_reach: handback, value_constraint: 'readiness.yaml rules.value_constraints business.exposure bad_week_streak'}
+  max_spend_minor: null
+  max_elapsed_hours: null
+  handback_ack_required: true
+streak:   # per rule x pipeline, written only by the sync-worker kill-criteria job; LLM never involved
+  applies_to: [KC-01, KC-02]
+  counter: bad_count in kill_criteria_evaluations (consecutive_bad_weeks), per rule x pipeline
+  unit: KC-01 one evaluation per pipeline x event_week; KC-02 one evaluation per newly matured weekly lead cohort
+  week_effects:   # data_status (business-policy.yaml data_status_values) -> streak effect
+    valid_worse: increment       # data_status valid and worse than the reference by more than the threshold
+    valid_not_worse: reset
+    spend_zero_qualified: increment
+    insufficient_sample: hold
+    not_mature: hold
+    incomparable_baseline: hold
+    no_activity: hold
+    no_spend: hold
+    missing_data: blocked
+    stale_data: blocked
+  low_sample_bound:   # P-56: monotone below the minimum sample, stricter than a plain hold
+    applies_to: [KC-01]
+    rule: 'a week with 0 < qualified < min_sample counts as increment when spend / max(qualified, min_sample) > (1 + worse_pct / 100) x baseline CPL; otherwise hold'
+    min_sample_unit: qualified facts per pipeline x event_week (business.acceptance min_sample)
+    blind_spot: 'if min_sample is at or above the weekly qualified volume, KC-01 almost never fires (BUSINESS_CONTRACT 8.7); business.exposure stays the cumulative bound'
+  hold_rule: a held week neither increments nor resets, so two bad weeks separated only by held weeks trigger (stricter than adjacent weeks, ◇ P-40)
+  blocked_rule: 'a blocked week is evaluated whenever its data arrives (catch-up every sync cycle, no cut-off; late data recomputes under measurement_revision); after PT48H still blocked -> ALERT_KILL_CRITERIA (reason evaluation_blocked, degraded, owner and technical_operator, no handback buttons); while any week of the pipeline is blocked, budget increases there stay blocked (P-58)'
+  blocked_policy: {catch_up: every_sync_cycle, cut_off: none, alert_after: PT48H, alert: ALERT_KILL_CRITERIA, alert_reason: evaluation_blocked, increases_blocked_while_blocked: true}
+  measurement_revision: 'a new measurement revision (owner-approved through business.attribution) recomputes the streak from the frozen raw data under the new revision; a recomputation never undoes an executed L0, a trigger it newly reaches acts at once, and a recompute that clears a counting streak is logged next to the owner approval of that revision (P-58)'
+  states: [clear, counting, triggered]
+  transitions:   # on_effect is the week effect (or owner_clear) that drives the move; K05 checks each against week_effects
+  - {from: clear, to: counting, on_effect: increment, guard: bad_count + 1 < consecutive_weeks, actor: sync-worker}
+  - {from: clear, to: triggered, on_effect: increment, guard: consecutive_weeks = 1, actor: sync-worker}
+  - {from: counting, to: triggered, on_effect: increment, guard: bad_count + 1 >= consecutive_weeks, actor: sync-worker}
+  - {from: counting, to: clear, on_effect: reset, guard: a valid week not worse than the reference, actor: sync-worker}
+  - {from: clear, to: clear, on_effect: reset, guard: a valid week not worse than the reference, actor: sync-worker}
+  - {from: clear, to: clear, on_effect: hold, guard: a held week, actor: sync-worker}
+  - {from: clear, to: clear, on_effect: blocked, guard: a blocked week (blocked_rule), actor: sync-worker}
+  - {from: counting, to: counting, on_effect: hold, guard: a held week, actor: sync-worker}
+  - {from: counting, to: counting, on_effect: blocked, guard: a blocked week (blocked_rule), actor: sync-worker}
+  - {from: triggered, to: clear, on_effect: owner_clear, rule: KC-01, guard: "resume completed (resume.policy_ref - C05 RCA, HG-F6-04 takeover_scope_change, owner pipeline_mode_change); counting restarts at the next full event_week", actor: owner}
+  - {from: triggered, to: clear, on_effect: owner_clear, rule: KC-02, guard: "C05 RCA recorded and at least one matured cohort since the trigger is valid and not worse, then owner control_resume (cause kc02_guardrail); counting restarts at the next matured cohort; the Trust Ramp incident window restarts at the clear", actor: owner}
+  terminal: []
+  illegal:
+  - triggered -> counting or clear by an evaluation (only the owner resume clears a trigger)
+  - any transition written by an agent, the LLM or a human edit of the evaluation record
+  - a measurement-revision recomputation that moves triggered back while the pipeline is in L0
+step1_timing:
+  decision_status: P-13
+  decision_rule: STEP1_TO_STEP2
+  step1_starts_on: monday_business_week
+  step2_requires: second KC-01 evaluation completed; inconclusive -> extend or hold, never auto-advance
+  verdict_rule_ref: business.acceptance   # field verdict_rule, schema CONFIG_CONTRACT 4.1
+  pre_registered_before: HG-F6-01   # approved at F5_GO (HG-F5-04); a later revision is not used for the running Step 1
+  extension_unit: one full event_week (one more KC-01 evaluation)
+  max_weeks_ref: business.acceptance   # field verdict_rule.max_weeks, Step 1 length including extensions
+  at_max: hold; sale stays with the targetologist; the owner decides at HG-F6-02; never auto-advance
+  approver_bound: an extension never outlives the targetologist ads_approver grant (roles.yaml targetologist_timeline, Step1 + 28 days); HG-F6-05 renews or replaces the grant before such an extension starts
+  evaluations_record: business.step1_comparison kc01_evaluations lists one KC-01 evaluation per full event_week of Step 1, extensions included
+  looks_rule: 'every extension week is a look; the verdict follows verdict_rule.looks (one analysis at max_weeks or the pre-set alpha-spending schedule); unadjusted repeated looks are not allowed (P-56)'
+  extension_unit_weeks: 1
+resume:
+  policy_ref: execution-policy.yaml#resume.after_kill_criteria
+  owner_two_step: true
+  retain_previous_global_shadow: true
+  released_entities_require_owner_retakeover: true
+  auto_retakeover_on_resume: false

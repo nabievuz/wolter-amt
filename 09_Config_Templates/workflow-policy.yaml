@@ -1,0 +1,629 @@
+# Project OS configuration template; unresolved readiness blocks the relevant live profile.
+schema_version: 1
+bundle_state: template
+runtime_service: amt-workflow
+truth_store: postgresql amt.workflow_* tables (WORKFLOW_RUNTIME §3)
+mechanism_readiness_ref: workflow.mechanism
+recovery_readiness_ref: workflow.recovery
+definition_schema: schemas/workflow-definition.schema.json
+external_participants:
+  # actors outside the AMT host that definitions name as executor, starter, trigger source or producer (validator W08, W10)
+  # executes_steps: true = may be the executor of a deterministic step; registry_ref = the canonical contract entry
+  landing-intake: {host: "production Dokploy (go.wolter.uz)", owner: owner, role: "durable accept of a landing submission (ADR-012, TRACKING_CAPI)", executes_steps: true}
+  landing-intake-delivery: {host: "production Dokploy (go.wolter.uz)", owner: owner, role: "CRM delivery and binding of an accepted submission", executes_steps: true}
+  github-ci: {host: "GitHub Actions of the AMT offer-config and landing repositories", owner: owner, role: "pull request checks (WF-B04 S03)", executes_steps: true}
+  independent-monitor: {host: "off-host monitor (ops.independent_monitor)", owner: technical_operator, role: "heartbeat ACK and host-down alert on the alternate channel", executes_steps: false, registry_ref: "runtime-isolation.yaml#external_dependencies[independent-monitor]"}
+human_aliases:
+  # composite human executors and principals; each resolves to registered roles or assignments (validator W08)
+  # flag: from_executor = the step names the flag in executor.requires_flag; a fixed flag name = every performer holds it
+  approver_per_policy:
+    any_of: [owner, ads_approver]
+    case_narrowing: "approval-policy.yaml#actions.<action>.cases: a matching case replaces the action's approvers and level (re_activation_after_protective_pause -> owner only, never_auto)"
+    resolution: "approval-policy.yaml#actions.<action>.approvers per command (the gateway routes each command to its own approvers); owner-only actions stay owner-only (Q32)"
+  flag_holder:
+    any_of: [owner, ads_approver, sales_lead, fleet_operator, content_contributor, viewer]
+    flag: from_executor
+    applies_flag_exclusions: true
+    resolution: "any person with a valid membership whose effective flags include executor.requires_flag (roles.yaml#flag_rules); the flag decides, not the role"
+  snapshot_provider:
+    any_of: [fleet_operator, sales_lead, finance_owner]
+    resolution: "the provider of the readiness key in the WF-O01 run input: fleet snapshot fleet_operator, sale readiness sales_lead, finance sources finance_owner"
+  ops_on_call:
+    any_of: [technical_operator, owner, ads_approver, sales_lead, fleet_operator, content_contributor, viewer]
+    flag: ops_responder
+    resolution: "readiness ops.escalation routing: the technical_operator primary first, the named deputy after readiness:ops.ack_minutes"
+  handback_custodian:
+    any_of: [owner, ads_approver, sales_lead, fleet_operator, content_contributor, viewer]
+    flag: ops_responder
+    resolution: "the named custodian of the pipeline in readiness ops.ads_handback_roster or ops.sale_handback_roster (WF-O01 ACK-probed); the owner when the roster escalates"
+  ops_deputy:
+    any_of: [technical_operator, owner, ads_approver, sales_lead, fleet_operator, content_contributor, viewer]
+    flag: ops_responder
+    resolution: "the deputy named in readiness ops.escalation (F2_LIVE_INTAKE)"
+catalog:
+- WF-B01
+- WF-B02
+- WF-B03
+- WF-B04
+- WF-B05
+- WF-B06
+- WF-B07
+- WF-O01
+- WF-O02
+- WF-O03
+- WF-O04
+- WF-O05
+- WF-E01
+- WF-E02
+- WF-E03
+- WF-E04
+- WF-E05
+schedule_execution:
+  # what runs each operations.yaml#schedule entry and how a missed run becomes visible (validator T11)
+  # workflow: the entry is a trigger, step or timer of that workflow (a late timer or a missing run is ALERT_WORKFLOW_BLOCKED);
+  # job: a deterministic service writes one completion row per tick (schedule_runs); no row by the earlier of the next tick of
+  # the same id and the end of the business day -> missed_run_alert; human: the person the job reminds or reports to;
+  # a workflow entry with missed_run_alert: the scheduler raises it when the scheduled run or its mapped step does not start on time
+  # (concurrency limit, precondition); protective entries (schedule_protective) need one and their workflow has no start freshness
+  fleet_ask: {workflow: WF-O01, step: S01}
+  media_buyer_daily: {workflow: WF-B03, step: S02}
+  fleet_remind: {workflow: WF-O01, timer: fleet_reminder_09_00}
+  rent_capacity_review: {workflow: WF-B03, step: S02}
+  sale_ready: {workflow: WF-O01, step: S02}
+  sale_ready_cutoff: {workflow: WF-O01, timer: sale_ready_cutoff_09_30}
+  tracking_health: {job: sync-worker, missed_run_alert: ALERT_SCHEDULE_MISSED}
+  batch_cutoff: {workflow: WF-B03, step: S04}
+  change_set: {workflow: WF-B03, step: S04, timer: change_set_10_00}
+  fleet_escalate: {workflow: WF-O01, timer: fleet_escalation_14_00}
+  sales_digest: {job: ops-bot, missed_run_alert: ALERT_SCHEDULE_MISSED}
+  exposure_guard: {job: sync-worker, missed_run_alert: ALERT_SCHEDULE_MISSED}
+  kill_criteria: {workflow: WF-B06, step: S01, timer: mon_07_30, missed_run_alert: ALERT_KILL_CRITERIA}
+  weekly_plan: {workflow: WF-B06, step: S05, timer: mon_11_00}
+  content_reminder: {job: ops-bot, missed_run_alert: ALERT_SCHEDULE_MISSED}
+  weekly_report_submit: {workflow: WF-B06, step: S02, timer: mon_08_00}
+  weekly_report_review: {workflow: WF-B06, step: S03}
+  weekly_report: {workflow: WF-B06, step: S04, timer: mon_09_00}
+  cmo_status: {workflow: WF-B06, step: S09, timer: fri_16_00_status}
+  dependency_check: {workflow: WF-E03, step: S01}
+  backup: {job: amt-backup, missed_run_alert: ALERT_BACKUP_STALE}
+  spend_cap_update: {workflow: WF-O04, step: S01, missed_run_alert: ALERT_WORKFLOW_BLOCKED}
+  qualified_volume_check: {job: sync-worker, missed_run_alert: ALERT_SCHEDULE_MISSED}
+  retro: {workflow: WF-O05, step: S01, missed_run_alert: ALERT_WORKFLOW_BLOCKED}
+  credential_expiry_check: {job: ops-bot, human: technical_operator, missed_run_alert: ALERT_SCHEDULE_MISSED}
+  restore_check: {workflow: WF-O03, timer: restore_check_due}
+  kill_drill: {workflow: WF-O03, timer: full_drill_due}
+schedule_protective: [tracking_health, exposure_guard, kill_criteria, backup]
+flag_exclusions:
+  # roles that may not perform a flag-gated step even when they hold the flag (validator W08)
+  language_checker: {roles: [owner], until: "◇ P-29 (owner backup language checker) is accepted", why: "Q42 check by a native-Uzbek person other than the owner (RBAC flags table)"}
+executor_constraints:
+  # executors that owner decisions and ◇ rows pin (validator W08)
+  - {workflow: WF-B04, step: S01, type: deterministic, ref: amt-workflow, why: "immutable request kind is validated before assigning an author"}
+  - {workflow: WF-B04, step: S02, type: agent, ref: cro, why: "CRO owns offer/content proposals only; approval-policy landing_pr_paths limits content/**"}
+  - {workflow: WF-B04, step: S10, type: agent, ref: funnel-analyst, why: "tracking/** PR author uses the existing analyst allowlist"}
+  - {workflow: WF-B04, step: S11, type: agent, ref: funnel-analyst, why: "CRO content changes require a separate analyst tracking-impact review"}
+  - {workflow: WF-B04, step: S12, type: agent, ref: reviewer, why: "every exact offer or landing PR revision has an independent Reviewer verdict"}
+  - {workflow: WF-B04, step: S08, type: human, ref: owner, why: "the production Dokploy deploy needs production credentials, so it is an owner human step (Q46.4)"}
+  - {workflow: WF-O04, step: S02, type: human, ref: owner, why: "HG-OPS-01 spending-limit update is owner-only (Q37)"}
+  - {workflow: WF-B02, step: S12, type: agent, ref: reviewer, why: "creation command payload review is separate from the S04 creative verdict"}
+  - {workflow: WF-B02, step: S13, type: agent, ref: media-buyer, why: "first activation needs a new command proposal after proven PAUSED creation"}
+  - {workflow: WF-B02, step: S14, type: agent, ref: reviewer, why: "activation command review binds its own exact command payload"}
+  - {workflow: WF-B03, step: S03, type: agent, ref: reviewer, why: "every review_required command is independently reviewed even without a creative dependency"}
+  - {workflow: WF-B02, step: S05, type: human, ref: flag_holder, requires_flag: language_checker, why: "Q42 native-Uzbek language check"}
+  - {workflow: WF-E01, step: S09, type: deterministic, ref: sync-worker, why: "upgrade observation needs release and guardrail data"}
+  - {workflow: WF-E02, step: S08, type: deterministic, ref: sync-worker, why: "staged observation needs release data"}
+  - {workflow: WF-E03, step: S06, type: deterministic, ref: sync-worker, why: "observation needs release data"}
+  - {workflow: WF-E04, step: S06, type: deterministic, ref: sync-worker, why: "observation needs release data"}
+  - {workflow: WF-O02, step: S07, type: deterministic, ref: sync-worker, why: "post-incident observation needs telemetry and business guards"}
+  - {workflow: WF-O02, step: S10, type: deterministic, ref: amt-control, why: "fresh live cause routing with no owner billing task"}
+  - {workflow: WF-O02, step: S11, type: deterministic, ref: amt-control, why: "deterministic exact cause-resolution barrier before observation"}
+  - {workflow: WF-O02, step: S03, type: deterministic, ref: amt-control, unconditional: true, why: "containment is deterministic, immediate and never conditional (P-49)"}
+required_conditions:
+  # conditions that ◇ rows rely on (validator W15): the step's `when` must equal this
+  - {workflow: WF-O02, step: S06, when: {step: S10, output: remaining_owner_causes, non_empty: true}, why: "fresh owner-only cause set excludes Q63 billing automatic clear; S11 separately verifies live closure"}
+  - {workflow: WF-O02, step: S09, when: {step: S03, output: handback_triggers, non_empty: true}, why: "the human handback opens on every handback trigger (FR-GOV-10, P-150)"}
+  - {workflow: WF-B04, step: S02, when: {step: S01, output: kind, in: [offer, landing_content]}, why: "CRO authors only offer/content requests"}
+  - {workflow: WF-B04, step: S10, when: {step: S01, output: kind, in: [tracking]}, why: "tracking requests route only to the analyst author"}
+  - {workflow: WF-B04, step: S11, when: {step: S01, output: kind, in: [landing_content]}, why: "the analyst reviews a CRO landing PR and never its own tracking PR; all kinds still require the independent Reviewer"}
+  - {workflow: WF-B04, step: S05, when: {step: S04, output: cause, in: [offer_change]}, why: "amt-release publishes only the AMT config bundle of an offer change (P-46)"}
+  - {workflow: WF-B02, step: S13, when: {step: S10, output: created_entity_ids, non_empty: true}, why: "activation proposals target only successfully proven created entities"}
+  - {workflow: WF-B02, step: S14, when: {step: S10, output: created_entity_ids, non_empty: true}, why: "no activation review when no activation proposal exists"}
+  - {workflow: WF-B02, step: S11, when: {step: S10, output: created_entity_ids, non_empty: true}, why: "no activation dispatch when creation produced no proven entity"}
+  - {workflow: WF-B02, step: S07, when: {step: S10, output: created_entity_ids, non_empty: true}, why: "no activation approval when nothing was created"}
+required_edges:
+  # dependency properties that ◇ rows rely on (validator W16): must_depend_on = direct depends_on members; must_not_reach =
+  # steps that may never be upstream of this one (transitively)
+  - {workflow: WF-E05, step: S03, must_depend_on: [S02], must_not_reach: [], why: "the agent is created only after the deterministic envelope check (Q68, P-167)"}
+  - {workflow: WF-E05, step: S04, must_depend_on: [S03], must_not_reach: [], why: "the new agent is verified with its own token before the owner notice (P-167)"}
+  - {workflow: WF-O02, step: S09, must_depend_on: [S03], must_not_reach: [S02, S05], why: "the human handback never waits for the triage ACK or recovery (FR-GOV-10)"}
+  - {workflow: WF-O02, step: S03, must_depend_on: [S01], must_not_reach: [S02], why: "containment never waits for the ACK (P-49)"}
+  - {workflow: WF-O02, step: S05, must_depend_on: [S02, S04], must_not_reach: [], why: "recovery starts from the confirmed triage and the reconciliation (P-49)"}
+  - {workflow: WF-B06, step: S05, must_depend_on: [S04, S08], must_not_reach: [], why: "the weekly plan uses the published report and the previous-period check (PDCA, P-48)"}
+  - {workflow: WF-B04, step: S03, must_depend_on: [S02, S10], must_not_reach: [], why: "CI checks the one applicable author branch"}
+  - {workflow: WF-B04, step: S11, must_depend_on: [S03], must_not_reach: [], why: "analyst review uses passing CI for the exact CRO PR"}
+  - {workflow: WF-B04, step: S12, must_depend_on: [S03, S11], must_not_reach: [], why: "the independent Reviewer receives the checked PR and required analyst review"}
+  - {workflow: WF-B04, step: S04, must_depend_on: [S12], must_not_reach: [], why: "owner merge cannot bypass exact-revision independent review"}
+  - {workflow: WF-O02, step: S10, must_depend_on: [S05], must_not_reach: [], why: "resume routing re-reads live causes after recovery rather than the S03 audit snapshot"}
+  - {workflow: WF-O02, step: S06, must_depend_on: [S10], must_not_reach: [], why: "owner tasks use the fresh non-billing cause set"}
+  - {workflow: WF-O02, step: S11, must_depend_on: [S05, S06], must_not_reach: [], why: "live cause closure verifies exact owner/automatic evidence before observation"}
+  - {workflow: WF-O02, step: S07, must_depend_on: [S05, S06, S09, S11], must_not_reach: [], why: "observation requires recovery, handback and zero unresolved live cause including Q63 automatic evidence"}
+  - {workflow: WF-B04, step: S06, must_depend_on: [S05, S09], must_not_reach: [], why: "superseded artefacts are resolved only after the published snapshot is read back (P-46)"}
+  - {workflow: WF-B02, step: S12, must_depend_on: [S06], must_not_reach: [], why: "creation command review receives the exact immutable proposed commands"}
+  - {workflow: WF-B02, step: S09, must_depend_on: [S12], must_not_reach: [], why: "creation approval never precedes exact command payload review"}
+  - {workflow: WF-B02, step: S13, must_depend_on: [S10], must_not_reach: [], why: "activation targets only created PAUSED entities with remote evidence"}
+  - {workflow: WF-B02, step: S14, must_depend_on: [S13], must_not_reach: [], why: "activation review receives its own new immutable proposal"}
+  - {workflow: WF-B02, step: S07, must_depend_on: [S14], must_not_reach: [], why: "activation approval never precedes its exact command payload review"}
+  - {workflow: WF-B03, step: S04, must_depend_on: [S03], must_not_reach: [], why: "change-set approval follows every required independent command review"}
+  - {workflow: WF-B02, step: S10, must_depend_on: [S09], must_not_reach: [], why: "PAUSED creation is dispatched only after its human approval (P-47)"}
+  - {workflow: WF-B02, step: S11, must_depend_on: [S07], must_not_reach: [], why: "activation is dispatched only after its human approval (P-47)"}
+signal_producer_constraints:
+  # signals whose producer must see what it detects (release, guardrail and holdout data): every producer is a step on the
+  # named service or one of the extra services (validator W10); cost-watchdog sees only cost
+  regression_detected: {step_service: sync-worker}
+  stop_rule_triggered: {step_service: sync-worker}
+  rollback_trigger: {step_service: sync-worker, also_services: [ops-bot]}
+incident_cause_resolution:
+  workflow: WF-O02
+  initial_snapshot: S03 containment_causes is audit only, never the post-recovery resume truth
+  truth: fresh amt-control current causal records plus exact raised and cleared control_events
+  owner_routing: S10 remaining_owner_causes excludes billing_unreliable; S06 re-reads before task creation and decision, retains owner never_auto for every other cause
+  automatic: only budgets.yaml#openrouter.billing_resume_policy may clear the matching billing_unreliable cause; S10/S11 verify the event and never issue that operation
+  exact_match: [raised_control_event_id, clearance_control_epoch, key_and_period, approved_policy_revision, fresh_reconciliation_evidence, actual_plus_reserved_allowance_evidence]
+  historical_clear: clearance_control_epoch, policy/key/period, reconciliation freshness and allowance validity are authenticated against live state at the successful clear transaction; the accepted historical event remains valid across later authorized epoch changes; closure separately re-reads fresh current causes, and an old raised/clear pair never resolves a new raised_control_event_id
+  closure: S11 recomputes all remaining causes on containment_cause_changed and before completion; zero unresolved required; newly raised owner causes block/escalate under the existing S06 policy mapping, never auto-approved
+  signal_rule: containment_cause_changed is a wake-up reference only; missing/stale/mismatched/replayed evidence is not closure
+  observation: S07 waits for S05, applicable owner S06, independent S09 and S11 live closure; recheck at admission and on every cause event during observation, block/reset the full window on a new unresolved cause; reopened AI admission or a skipped/completed owner step never proves closure
+dispatch_ownership:
+  # each command action case is dispatched by exactly one workflow, from a deterministic step of the dispatcher service,
+  # after an upstream human approval step of the same workflow that names the action; another workflow that needs the
+  # action records the cause with by_cause.approved_in and the owner workflow's approval step takes the decision (validator W11)
+  dispatcher_service: executor
+  case_discriminator: "ever_active: true once the Meta entity has been ACTIVE or delivered (command ledger and entity snapshot); the gateway refuses a command whose case does not match the dispatching workflow"
+  urgent_entry:
+    # Q38 "urgent ... darhol alohida": a pause or decrease needed outside the day's rounds (offer or rights revocation, ALERT_OVERSPEND
+    # or ALERT_POLICY_REJECTION pause proposal) is registered by the gateway and starts its own WF-B03 round at once (validator W11)
+    workflow: WF-B03
+    key: urgent
+    signal: urgent_item_submitted
+    actions: [entity_pause, budget_change]
+    direction: decrease_only
+  actions:
+    asset_upload: {owner: WF-B02}
+    ad_create: {owner: WF-B02}
+    campaign_create: {owner: WF-B02}
+    adset_duplicate: {owner: WF-B02}
+    campaign_activate: {owner: WF-B02, case: first_activation}
+    creative_activate: {cases: {first_activation: WF-B02, re_activation: WF-B03}}
+    entity_activate: {owner: WF-B03, case: re_activation}
+    entity_pause: {owner: WF-B03}
+    budget_change: {owner: WF-B03}
+handoff_rejection:
+  # every step.handoff declares on_reject (validator W17); a rejected handoff never loops without a bound and a run with live
+  # external effects never ends without its compensation
+  rule: "every handoff names its rejection route; the receiver records handoffs.status rejected with decision.reason_code and the envelope round (handoff.schema.json)"
+  routes:
+    producer_retry: "the producer step (on_reject.producer_step, default the handoff's own step) runs again with the rejection codes as input and submits a new revision (new handoff_id, round + 1); every handoff that names the same producer shares that step's max_attempts_per_step, so 1 + max_rounds <= max_attempts_per_step"
+    escalate: "the run goes blocked with a blocker (codes, revision, round) for on_reject.escalate_to through workflow.report_blocker and ops-bot; no automatic round follows; the run leaves blocked only by a cancel of an authorization.may_cancel principal or by the step timeout (timeout_exit)"
+    end_run: "the run ends failed with reason handoff_rejected:<code>; no downstream step starts; allowed only when no earlier step of the run had an external effect (reversible or irreversible) or started children, so there is nothing to compensate"
+    compensate_then_end: "the run first runs continuation.compensation: every live effect of the run and of its child arms is stopped or reverted with risk-reducing commands (pause, decrease) through dispatch_ownership.urgent_entry; the run keeps its locks (experiment_lock) until every compensation command is terminal with remote evidence; then it ends failed with reason handoff_rejected:<code>; a failed or uncertain compensation keeps the run in reconciling or manual_resolution"
+  after_max: "route taken when the producer has used its rounds or its step attempts (max_attempts_per_step, shared with technical retries and invalid_args corrections), whichever comes first: escalate, end_run or compensate_then_end"
+  max_rounds_cap: 2   # ◇ P-60: at most two resubmissions per handoff, whatever max_attempts_per_step allows
+  overrides: "reject codes that take another route at once (for example offer_changed, needs_owner, unauthorized_action); a producer_retry override names an upstream producer_step (stale_input re-runs the input snapshot) and shares the handoff's max_rounds"
+  escalate_to: "a principal that can act on the blocker: a human in the definition's authorization.may_cancel or a role or agent in its authorization.may_start (a replacement run); never the producer or the receiver agent"
+  timeout_exit: "an escalated (blocked) run that reaches the step timeout fails with reason escalation_timeout; a run with an earlier external effect or child arms takes compensate_then_end instead"
+  notify: "an end_run or compensate_then_end override may name notify, a human role that gets a blocker notice with the code (reason handoff_rejected:<code>)"
+  security_codes: [unauthorized_action, protected_touch_without_class, authority_change_undeclared]   # always end the run and notify the owner
+command_aggregation:
+  # a step linked to more than one command takes its state from the whole set according to its role; the DATA_MODEL §6.5
+  # single-command table is the one-item case of these rules (validator W18)
+  open_command_states: [pending_review, pending_approval, approved, claimed, executing, awaiting_manual, uncertain, reconciling, manual_resolution]
+  terminal_command_states: [succeeded, done_manual, failed_confirmed, rejected, expired, cancelled]
+  success_states: [succeeded, done_manual]
+  roles:
+    # the steps that aggregate commands (dispatch steps are linked with step_command_links link_role dispatch)
+    WF-B02: {S09: approval, S10: dispatch, S07: approval, S11: dispatch}
+    WF-B03: {S04: approval, S05: dispatch, S06: reconciliation}
+  approval:
+    complete_when: every_item_decided   # approved, rejected, expired, or cancelled as superseded_by_edit
+    rules:   # first match sets the step state
+    - {id: any_approved, when: {any_in: [approved]}, step: completed}
+    - {id: none_approved_expired, when: {none_in: [approved], any_in: [expired]}, step: failed, run: failure_paths.cancel_or_escalate}
+    - {id: all_rejected, when: {all_in: [rejected, cancelled], any_in: [rejected]}, step: rejected, run: failure_paths}
+    - {id: all_cancelled, when: {all_in: [cancelled]}, step: cancelled, run: failure_paths}
+  dispatch:
+    complete_when: no_item_before_attempt   # no linked item is approved, claimed or executing; uncertain items go to reconciliation
+    rules:
+    - {id: compensation_failed, when: {compensation_in: [failed_confirmed]}, step: failed, run: failure_paths}
+    - {id: any_progress, when: {any_in: [succeeded, done_manual, uncertain, reconciling, manual_resolution]}, step: completed, disposition: all_succeeded_or_partial}
+    - {id: all_failed, when: {all_in: [failed_confirmed, expired]}, step: failed, run: failure_paths}
+    - {id: all_cancelled, when: {all_in: [cancelled]}, step: cancelled, run: failure_paths}
+  reconciliation:
+    complete_when: every_item_terminal_or_handed_off   # manual_resolution leaves run custody only through manual_resolution_handoff below
+    rules:
+    - {id: compensation_failed, when: {compensation_in: [failed_confirmed]}, step: failed, run: failure_paths}
+    - {id: reconciled, when: {all_in: [succeeded, done_manual, failed_confirmed, rejected, expired, cancelled, manual_resolution]}, step: completed, disposition: per_item_with_handoffs}
+  failed_risk_reducing: "a failed_confirmed entity_pause or budget decrease in a partial set becomes an urgent item through dispatch_ownership.urgent_entry at once, never a later round"
+  manual_resolution_handoff:
+    applies_to: manual_resolution_only
+    rule: "every_item_terminal_or_handed_off accepts a nonterminal item only after a durable owner task and an I18 accepted handoff transfer its custody outside the run; task creation, assignment, alert, offered, rejected, expired or missing handoff never counts as accepted"
+    required_refs: [command_id_and_revision, unresolved_attempt_and_evidence, owner_task, accepted_handoff_with_receiver_and_time, reservation_or_explicit_not_required, conflict_lock_or_explicit_not_required]
+    acceptance: "the authorized owner receiver validates the exact command revision, task scope, done_when and evidence references, and records accepted with accepted_by and accepted_at; the runtime verifies the linked task and accepted handoff before recording handed_off"
+    preserved: "reservation and conflict locks remain attached to the original command until remote reconciliation settles or releases them; custody transfer never sets succeeded or done_manual, never retries the revision and never starts WF-B07"
+    run_continuation: "uncertain or reconciling commands and manual_resolution items still in run custody keep the run reconciling/manual_resolution; only after each is remotely terminal or manual_resolution with an accepted custody transfer may the runtime checkpoint back to running and evaluate ordinary completion; never reconciling or manual_resolution directly to completed"
+  dispositions: "the step records one disposition per linked item: {command_id, command_revision, terminal_state or handed_off, reason_code}; a handed_off disposition links every manual_resolution_handoff.required_refs item and records the accepted receiver and time; failure_paths apply per failed item, never to items that succeeded and never as an automatic retry of the same revision"
+outcome_start:
+  # effect measurement starts per command, never from a step of the run that dispatched it (validator W18)
+  workflow: WF-B07
+  started_by: amt-workflow
+  start_event: "the command's own ledger transition to succeeded or done_manual with remote evidence (delivery_outbox channel workflow, DATA_MODEL §6.5)"
+  for: "commands linked to a WF-B02 or WF-B03 run whose expected_effect kind is not not_applicable"
+  never_from: parent_run_step
+cost_caps:
+  # per-run cost cap and loop breaker (validator M09); no money value is set here - caps live in readiness values
+  rule: "a definition with an agent step charges its LLM and media requests to ai_runtime (runtime agents) or engineering (engineering roles) and names its per-run cap: limits.cost.max_minor or max_minor_ref (budget.request_bounds run_caps_minor per workflow id; engineering.budget per_proposal_max_minor)"
+  accounting: "llm-proxy and media jobs charge every request to its run_id (ai_requests.run_id); amt-workflow keeps workflow_runs.cost_reserved_minor and cost_actual_minor per run"
+  on_reach: "a request that would take cost_actual_minor + cost_reserved_minor above the cap is refused with run_cost_cap; the running step goes blocked and ALERT_WORKFLOW_BLOCKED goes to the owner, who may cancel or restart the run; the cap never stops deterministic protective work (pause, kill, reconciliation)"
+  demand_model: "F4 cost-model.json counts every agent step and every reviewed command revision: WF-B02 S12 creation-command reviews, S13 activation proposals and S14 activation-command reviews are additional to S04 creative review; WF-B03 S03 covers every review_required item; bounded repair rounds increase calls_per_run, not caps; existing key, role-share, per-run and build/eval caps stay unchanged"
+  loop_breaker: "the per-run cap is the loop breaker from F1_COST_RUNTIME on, so F4 smoke, F5 evals and the shadow already run under it; budget.anomaly (F5_GO) adds the hourly anomaly thresholds from the shadow"
+  value_source: "run_caps_minor is approved with budget.request_bounds from the F1 unit-cost evidence and re-approved as a new readiness revision when the F4 cost model changes it; a missing cap blocks the profile like any missing critical value"
+  ads: "ads spend caused by a run's commands is bounded per command by budgets.yaml ads and the gateway admission, and for experiments by business.exposure (extra_bound_refs); it is never charged to the run cap"
+handoff_validation:
+  # deterministic checks on workflow.submit_output before the runtime records a handoff (validator W19); the receiver,
+  # often an LLM, then judges only the semantic accept_when items (done_when clarity, sourced numbers)
+  at: workflow.submit_output
+  checks:
+  - {id: envelope_schema, rule: "the envelope validates against schemas/handoff.schema.json (analysis through schemas/analysis-envelope.schema.json)"}
+  - {id: analysis_size, rule: "serialized analysis <= analysis_max_chars"}
+  - {id: definition_pin, rule: "workflow_id, run_id, step_id, definition_digest and release_id equal the run's pinned values and the caller's step lease"}
+  - {id: input_freshness, rule: "every inputs[].as_of is inside the definition's input.freshness bounds"}
+  - {id: round_bound, rule: "round <= 1 + handoff.on_reject.max_rounds of the producer step (1 when the route is not producer_retry)"}
+  - {id: payload_schema, rule: "the payload for payload_kind validates against payload_schemas (a schema file, the producing tool's argument schema, or the text_artifact bounds)"}
+  - {id: pii_and_text, rule: "GUARDRAIL_GATEWAY guard 4: free text <= 2 000 characters (◇ P-30), no control characters, no value-level PII or secret"}
+  on_fail: "invalid_args to the producer with the failed check ids; the handoff is never offered to the receiver; the correction counts against the producer step's max_attempts_per_step"
+  analysis_max_chars: 32000   # ◇ derived: THINKING_MODELS §4.1 L3 chain <= 6 phases x <= 600 words ≈ 27 000 characters at ~7.5 characters per Uzbek word, plus keys
+  payload_schemas:
+    creative_brief: producing_tool_args
+    creative_revision: producing_tool_args
+    review_request: producing_tool_args
+    change_set_proposal: producing_tool_args
+    offer_or_landing_request: producing_tool_args
+    c07_report: text_artifact
+    plan: producing_tool_args
+    experiment_verdict: producing_tool_args
+    upgrade_proposal: upgrade-proposal.schema.json
+    design: producing_tool_args
+    candidate: candidate-manifest.schema.json
+    verification_request: producing_tool_args
+    disposition_plan: producing_tool_args
+    other: refs_only
+  payload_kinds_meaning:
+    producing_tool_args: "the payload is the record a gateway-validated tool call created (creative.register, change_set.propose, review.submit_verdict, offers.propose_pr, experiment.update, report.submit ...); the handoff carries its refs in inputs and the record's argument schema (guard 4) is the payload schema"
+    text_artifact: "a bounded text artifact: c07_report BLUF <= 250 words (✅ Q24) and <= 2 000 characters (◇ P-30) in Telegram, full report as a sha256-referenced artifact in Paperclip (✅ Q24) of <= 3 600 words (THINKING_MODELS §4.1: 6 phases x 600 words)"
+    refs_only: "no payload body: refs in inputs and next_action (<= 500 characters) only"
+  text_artifact_bounds:
+    c07_report: {bluf_max_words: 250, bluf_max_chars: 2000, full_report_ref: sha256, full_report_max_words: 3600}
+pinned_handoff_routes:
+  # the rejection route of every handoff as ◇ P-60 and P-161 state it (validator W17 compares each definition exactly)
+  - {workflow: WF-B02, step: S01, route: producer_retry, max_rounds: 2, after_max: escalate, escalate_to: owner, overrides: [{codes: [offer_expired, rights_unknown], route: escalate, escalate_to: owner}]}
+  - {workflow: WF-B02, step: S03, route: producer_retry, max_rounds: 2, after_max: escalate, escalate_to: cmo, overrides: [{codes: [offer_changed], route: end_run}]}
+  - {workflow: WF-B02, step: S04, route: producer_retry, producer_step: S03, max_rounds: 2, after_max: escalate, escalate_to: cmo, overrides: [{codes: [needs_owner], route: escalate, escalate_to: owner}]}
+  - {workflow: WF-B02, step: S12, route: producer_retry, producer_step: S06, max_rounds: 2, after_max: escalate, escalate_to: cmo, overrides: [{codes: [needs_owner], route: escalate, escalate_to: owner}]}
+  - {workflow: WF-B02, step: S14, route: producer_retry, producer_step: S13, max_rounds: 2, after_max: escalate, escalate_to: cmo, overrides: [{codes: [needs_owner], route: escalate, escalate_to: owner}]}
+  - {workflow: WF-B03, step: S03, route: producer_retry, producer_step: S02, max_rounds: 2, after_max: escalate, escalate_to: owner, overrides: [{codes: [needs_owner], route: escalate, escalate_to: owner}]}
+  - {workflow: WF-B03, step: S02, route: producer_retry, max_rounds: 2, after_max: end_run, overrides: [{codes: [stale_input], route: producer_retry, producer_step: S01}, {codes: [readiness_hold], route: end_run}, {codes: [unauthorized_action], route: end_run, notify: owner}]}
+  - {workflow: WF-B04, step: S11, route: escalate, escalate_to: owner}
+  - {workflow: WF-B04, step: S12, route: escalate, escalate_to: owner}
+  - {workflow: WF-B05, step: S06, route: producer_retry, producer_step: S06, max_rounds: 2, after_max: escalate, escalate_to: owner, overrides: [{codes: [exposure_exceeded], route: compensate_then_end, notify: owner}]}
+  - {workflow: WF-B06, step: S02, route: producer_retry, max_rounds: 2, after_max: escalate, escalate_to: owner}
+  - {workflow: WF-B06, step: S03, route: producer_retry, producer_step: S02, max_rounds: 2, after_max: escalate, escalate_to: owner}
+  - {workflow: WF-E01, step: S02, route: end_run}
+  - {workflow: WF-E01, step: S04, route: producer_retry, max_rounds: 2, after_max: escalate, escalate_to: owner}
+  - {workflow: WF-E01, step: S05, route: producer_retry, max_rounds: 2, after_max: escalate, escalate_to: owner, overrides: [{codes: [protected_touch_without_class], route: end_run, notify: owner}]}
+  - {workflow: WF-E02, step: S02, route: producer_retry, max_rounds: 2, after_max: escalate, escalate_to: owner}
+  - {workflow: WF-E04, step: S02, route: producer_retry, max_rounds: 2, after_max: escalate, escalate_to: owner, overrides: [{codes: [authority_change_undeclared], route: end_run, notify: owner}]}
+  - {workflow: WF-O05, step: S02, route: producer_retry, max_rounds: 2, after_max: escalate, escalate_to: owner}
+child_lifecycle:
+  # what amt-workflow does with children when their parent run is cancelled, fails or is killed (validator W13)
+  on_parent_end: "when a parent run is cancelled, fails or is killed, amt-workflow applies each start's on_parent_end: cancel_open cancels the child while it has no external effect yet (a child with an external effect follows its own compensation or reconciliation); continue leaves the child under its own rules"
+  experiment_stop: "a WF-B05 stop, cancel, failure, kill or compensate_then_end submits a revert for every live arm effect (entity_pause, budget decrease) as an urgent item through dispatch_ownership.urgent_entry and cancels arm children that have no external effect yet (WF-B02 before activation, WF-B04 before merge); experiment_lock stays until the reverts are terminal with remote evidence"
+  handover: "a WF-E02 handover that has passed S04 (drain and fence) is never cancelled by its parent; it follows its own rollback (continuation.cancel)"
+  kill: "every business definition that starts children or is a child consumes the kill signal"
+  cancel_actor: amt-workflow   # in the may_cancel of every child that a cancel_open start can reach; it cancels only under on_parent_end
+  start_refused: "a refused start of an await started child blocks the starting step with a blocker; it never counts as done"
+pinned_starts:
+  # parent/child starts as ◇ P-62 and P-163 state them (validator W13): await, on_parent_end, fixed inputs and the human step that authorizes them (upstream)
+  - {workflow: WF-B06, step: S07, child: WF-B02, await: started, on_parent_end: continue, after_human_step: S06}
+  - {workflow: WF-B06, step: S07, child: WF-B04, await: started, on_parent_end: continue, after_human_step: S06}
+  - {workflow: WF-B06, step: S07, child: WF-B05, await: started, on_parent_end: continue, after_human_step: S06}
+  - {workflow: WF-B05, step: S04, child: WF-B02, await: started, on_parent_end: cancel_open, after_human_step: S03}
+  - {workflow: WF-B05, step: S04, child: WF-B03, await: started, on_parent_end: cancel_open, after_human_step: S03, input_values: {round: "experiment:<experiment_id>"}}
+  - {workflow: WF-B05, step: S04, child: WF-B04, await: started, on_parent_end: cancel_open, after_human_step: S03}
+  - {workflow: WF-B04, step: S06, child: WF-B02, await: none, on_parent_end: continue, after_human_step: S04}
+  - {workflow: WF-E01, step: S07, child: WF-E02, await: started, on_parent_end: cancel_open, after_human_step: S03, waits_for_signal: handover_plan_approved}
+  - {workflow: WF-E01, step: S10, child: WF-E04, await: none, on_parent_end: continue, after_human_step: S10}
+pinned_may_start:
+  # who may start each child definition (validator W13); amt-workflow only on behalf of a pinned start
+  WF-B02: [cmo, owner, ads_approver, amt-workflow]
+  WF-B03: [amt-workflow]
+  WF-B04: [owner, cro, cmo, amt-workflow]
+  WF-B05: [cmo, funnel-analyst, owner, amt-workflow]
+  WF-E02: [amt-workflow]
+  WF-E04: [amt-workflow, owner]
+child_guard: "a parent_run start by amt-workflow happens only on behalf of a parent run step that lists this workflow in starts (parent_run_id and parent step recorded)"
+definition_pinning: run_pins_workflow_id_definition_version_and_digest_at_start
+new_definition_affects_running_runs: false
+run_states:
+- created
+- running
+- waiting
+- blocked
+- reconciling
+- completed
+- failed
+- cancelled
+- manual_resolution
+step_states:
+- pending
+- ready
+- claimed
+- running
+- waiting
+- handoff_pending
+- completed
+- rejected
+- failed
+- skipped
+- cancelled
+- compensated
+handoff_states:
+- offered
+- accepted
+- rejected
+- expired
+state_machines:   # ◇ P-166: transition tables for the run, step and handoff states above; the writer of every state is amt-workflow (WORKFLOW_CONTRACT §3), `actor` is who causes the transition; validator W12 and 03_Architecture/STATE_MACHINES.md
+  allowed_actors: [amt-workflow, amt-control, owner, may_cancel_principal, technical_operator, executor, receiver]
+  run:
+    states_ref: run_states
+    initial: created
+    terminal: [completed, failed, cancelled]
+    transitions:
+      - {from: created, to: running, actor: amt-workflow, guard: "trigger dedup passed, concurrency admitted (concurrency_semantics), authorization.preconditions and input freshness hold"}
+      - {from: created, to: blocked, actor: amt-workflow, guard: "a required input is missing or stale, or a precondition fails (failure_paths.missing_input)"}
+      - {from: created, to: cancelled, actor: may_cancel_principal, guard: "cancel before any step is claimed"}
+      - {from: running, to: waiting, actor: amt-workflow, guard: "every ready step waits on a human decision, a timer or a signal"}
+      - {from: waiting, to: running, actor: amt-workflow, guard: "the awaited decision, signal or timer arrived (completes_on, continuation.signals, continuation.timers)"}
+      - {from: running, to: blocked, actor: amt-workflow, guard: "a blocker is reported: missing input, handoff on_reject escalate, run cost cap, dependency down, kill"}
+      - {from: waiting, to: blocked, actor: amt-workflow, guard: "on_timeout wait_and_escalate reached its bound, or a blocker is reported"}
+      - {from: blocked, to: running, actor: amt-workflow, guard: "the blocker's owner resolved it (input refreshed, owner decision recorded, resume after kill)"}
+      - {from: blocked, to: failed, actor: amt-workflow, guard: "limits.max_duration reached while blocked"}
+      - {from: running, to: reconciling, actor: amt-workflow, guard: "a linked command is uncertain"}
+      - {from: waiting, to: reconciling, actor: amt-workflow, guard: "a linked command is uncertain"}
+      - {from: reconciling, to: running, actor: amt-workflow, guard: "no command still in run custody is uncertain, reconciling or unresolved manual_resolution: each is terminal with required evidence (remote evidence for succeeded/done_manual), or manual_resolution with a durable accepted owner custody handoff under command_aggregation.manual_resolution_handoff; write a running checkpoint before ordinary completion checks"}
+      - {from: reconciling, to: manual_resolution, actor: amt-workflow, guard: "the reconciliation deadline passed without remote evidence"}
+      - {from: manual_resolution, to: running, actor: technical_operator, guard: "the operator or owner recorded done_manual, succeeded or failed_confirmed with remote evidence (execution-policy extra_transitions), or every remaining manual_resolution item has a verified accepted owner custody handoff under command_aggregation.manual_resolution_handoff; write a running checkpoint before ordinary completion checks"}
+      - {from: running, to: completed, actor: amt-workflow, guard: "completion.technical_done holds and every completion.required_evidence item is bound to the run; no uncertain or reconciling command and no manual_resolution item still in run custody remains; handed-off items satisfy command_aggregation.manual_resolution_handoff and are reported separately from success"}
+      - {from: running, to: failed, actor: amt-workflow, guard: "a step failed with no attempt left and its failure path ends the run (end_run; compensate_then_end only after its compensation is terminal)"}
+      - {from: running, to: cancelled, actor: may_cancel_principal, guard: "owner or a may_cancel principal cancels, or amt-control kills: pending commands become cancelled or expired, a dispatched effect is undone only by a new authorized compensating command"}
+      - {from: waiting, to: cancelled, actor: may_cancel_principal, guard: "as running -> cancelled"}
+      - {from: blocked, to: cancelled, actor: may_cancel_principal, guard: "as running -> cancelled"}
+    illegal:
+      - {from: completed, to: "*", why: "terminal; a correction is a new run"}
+      - {from: failed, to: "*", why: "terminal; a correction is a new run"}
+      - {from: cancelled, to: "*", why: "terminal; a correction is a new run"}
+      - {from: reconciling, to: completed, why: "an uncertain command is never treated as done (state_separation)"}
+      - {from: reconciling, to: cancelled, why: "a cancel request during reconciliation is recorded and applied after the uncertain commands are resolved; reconciliation never stops"}
+      - {from: manual_resolution, to: completed, why: "only through a running checkpoint after remote resolution evidence or an accepted manual_resolution custody handoff is recorded"}
+      - {from: blocked, to: completed, why: "a blocked run completes only after it runs again"}
+  step:
+    states_ref: step_states
+    initial: pending
+    terminal: [completed, rejected, failed, skipped, cancelled, compensated]
+    post_terminal:
+      - {from: completed, to: compensated, actor: amt-workflow, guard: "a compensating command for this step's effect reached succeeded with remote evidence"}
+    transitions:
+      - {from: pending, to: ready, actor: amt-workflow, guard: "every depends_on step is terminal with a success disposition and the step's `when` condition holds"}
+      - {from: pending, to: skipped, actor: amt-workflow, guard: "the `when` condition is false, or on_timeout auto_not_applicable"}
+      - {from: pending, to: cancelled, actor: amt-workflow, guard: "the run is cancelled, killed or ended by a failure path"}
+      - {from: ready, to: claimed, actor: executor, guard: "the executor named by the definition acquires the lease (lease.required, fence_on_takeover)"}
+      - {from: ready, to: cancelled, actor: amt-workflow, guard: "the run is cancelled, killed or ended by a failure path"}
+      - {from: claimed, to: running, actor: amt-workflow, guard: "the lease holder started; checkpoint written"}
+      - {from: claimed, to: ready, actor: amt-workflow, guard: "the lease expired before start (lease_ttl); the old holder is fenced"}
+      - {from: claimed, to: cancelled, actor: amt-workflow, guard: "the run is cancelled or killed before dispatch"}
+      - {from: running, to: waiting, actor: amt-workflow, guard: "the step awaits a timer, a signal, a human decision or an uncertain command"}
+      - {from: waiting, to: running, actor: amt-workflow, guard: "the awaited event arrived (completes_on, signal, timer, resolved command)"}
+      - {from: waiting, to: failed, actor: amt-workflow, guard: "on_timeout fail_step_safe"}
+      - {from: waiting, to: completed, actor: amt-workflow, guard: "on_timeout expire_item_and_close with every item terminal (an expired item is never approved)"}
+      - {from: waiting, to: cancelled, actor: amt-workflow, guard: "the run is cancelled or killed; uncertain commands keep reconciling"}
+      - {from: running, to: handoff_pending, actor: amt-workflow, guard: "the output was submitted as a handoff (workflow.submit_output passed handoff_validation)"}
+      - {from: handoff_pending, to: completed, actor: receiver, guard: "the receiver accepted the handoff revision"}
+      - {from: handoff_pending, to: rejected, actor: receiver, guard: "the receiver rejected with reject_codes; on_reject applies (producer_retry creates attempt + 1 of the producer step, escalate blocks the run, end_run ends it)"}
+      - {from: handoff_pending, to: failed, actor: amt-workflow, guard: "the handoff expired and on_reject.after_max ends the step"}
+      - {from: running, to: completed, actor: amt-workflow, guard: "outputs recorded; a command-linked step satisfies its command_aggregation role complete_when and the first matching ordered rule returns completed (approval, dispatch or reconciliation). Per-item dispositions preserve remote evidence and accepted manual_resolution custody handoffs; uncertain or handed-off items are never reported as succeeded. Run-owned unresolved commands still prevent run completion (state_separation). A step without linked commands uses its declared outputs, approvals or completes_on evidence"}
+      - {from: running, to: failed, actor: amt-workflow, guard: "an error with no attempt left (max_attempts_per_step), or a linked primary command failed_confirmed per command_aggregation"}
+      - {from: running, to: cancelled, actor: amt-workflow, guard: "the run is cancelled or killed before this step dispatched an effect"}
+    illegal:
+      - {from: running, to: ready, why: "no new attempt while an effect may be in flight (retry.irreversible_effect reconcile_before_new_attempt)"}
+      - {from: waiting, to: ready, why: "no new attempt while a linked command is uncertain"}
+      - {from: rejected, to: "*", why: "terminal for that attempt; producer_retry creates a new attempt"}
+      - {from: failed, to: "*", why: "terminal; recovery is a new attempt or a new run"}
+      - {from: skipped, to: "*", why: "terminal"}
+      - {from: cancelled, to: "*", why: "terminal"}
+      - {from: compensated, to: "*", why: "terminal"}
+  handoff:
+    states_ref: handoff_states
+    initial: offered
+    terminal: [accepted, rejected, expired]
+    transitions:
+      - {from: offered, to: accepted, actor: receiver, guard: "receiver_validates: the envelope schema and accept_when pass for this exact revision (handoff_validation)"}
+      - {from: offered, to: rejected, actor: receiver, guard: "a reason code from the handoff reject_codes is recorded with the round (handoff_rejection)"}
+      - {from: offered, to: expired, actor: amt-workflow, guard: "the handoff deadline passed (step timeout or on_timeout)"}
+    illegal:
+      - {from: offered, to: accepted, actor: executor, why: "the producer never accepts its own handoff"}
+      - {from: rejected, to: accepted, why: "a corrected revision is a new handoff_id with round + 1"}
+      - {from: expired, to: accepted, why: "a late answer is a new revision"}
+      - {from: accepted, to: "*", why: "terminal"}
+  pinned:   # properties the validator keeps (W12) — each one is a claim of ◇ P-166
+    run_terminal: [completed, failed, cancelled]
+    forbidden_edges: ["run:reconciling->completed", "run:reconciling->cancelled", "run:manual_resolution->completed", "step:running->ready", "step:waiting->ready", "handoff:rejected->accepted", "handoff:expired->accepted"]
+    guard_terms:
+      "step:running->completed": [remote evidence]
+      "handoff:offered->accepted": [receiver_validates]
+      "run:running->completed": [required_evidence]
+    actor_of:
+      "handoff:offered->accepted": receiver
+      "step:ready->claimed": executor
+      "run:running->reconciling": amt-workflow
+business_outcomes:
+- pending
+- met
+- not_met
+- inconclusive
+- not_applicable
+state_separation:
+  run_state_replaces_command_state: false
+  paperclip_issue_status_is_truth: false
+  agent_text_completes_external_step: false
+  external_step_requires: command succeeded or done_manual with remote evidence
+checkpoint: transactional_with_audit_and_outbox
+timers: durable_rows_evaluated_by_scheduler
+long_wait_holds_process_or_llm_session: false
+concurrency_semantics:
+  # limits.concurrency of every definition is read with these rules (validator W09)
+  counted_run_states: [created, running, waiting, blocked, reconciling, manual_resolution]   # every open run counts; only completed, failed and cancelled free a slot
+  scope: global counts open runs of the same workflow_id; per_correlation_key counts open runs with the same correlation_key
+  dedup_first: a trigger whose dedup_key matches an open run attaches to that run before any limit is evaluated
+  on_limit_values: [queue, skip_with_audit, reject_with_alert]
+  on_limit_default: reject_with_alert
+  queue: the trigger is stored durably in workflow_signals (disposition queued) and starts in arrival order when a slot frees; a queued trigger whose dedup_key matches attaches; a queued trigger older than the definition max_duration is dropped with an audit event and ALERT_WORKFLOW_BLOCKED
+  skip_with_audit: the trigger is recorded as skipped with the blocking run_id; the next scheduled trigger evaluates again
+  reject_with_alert: the trigger is recorded as rejected and ALERT_WORKFLOW_BLOCKED goes to the accountable role of the definition
+  scheduled_lifetime_rule: a scheduled definition with a non-null global limit has an ISO max_duration and either global >= ceil(max_duration / trigger period) or an explicit on_limit of queue or skip_with_audit; with global null its correlation_key changes every period
+  long_observation_rule: an observation that outlives the trigger period runs in its own workflow keyed by the observed object (WF-B07 per command), never as the last step of a scheduled run
+signals:
+  dedup_by: correlation_key_and_signal_id
+  late_callback: attach_if_run_open_else_audit_only
+  transports:
+    signal_fn: SECURITY DEFINER signal function of amt-workflow called with the caller service audience token (WORKFLOW_RUNTIME §3 grant)
+    command_outbox: delivery_outbox row, channel workflow, logical_key cmd:<command_id>:<revision>:<state> (DATA_MODEL §6.5)
+    control_event: amt-control control_events row mirrored to the workflow by amt-control (ARCHITECTURE §10.1)
+    ops_callback: ops-bot callback or command after tg-auth and RBAC checks, recorded first in the ops inbox
+  catalog:
+    # every signal a definition consumes (continuation.signals, trigger.signals_by_key) has an entry; every entry is consumed (validator W10)
+    # producers: service (runtime-isolation.yaml#services), workflow_step (WF-xx.Sxx that lists the kind in emits) or external (external_participants)
+    amo_webhook_event: {producers: [{service: capi-bridge}], transport: signal_fn, payload: "webhook_inbox allowlisted fields (entity ids, status, times, body sha256)", dedup: amo event id}
+    finance_source_ingest: {producers: [{service: sync-worker}], transport: signal_fn, payload: business outcome source row (business.outcome_sources), dedup: source+row id+revision}
+    consent_withdrawal: {producers: [{service: sync-worker}], transport: signal_fn, payload: landing consent receipt revision (ingested from the landing store), dedup: submission_id+consent revision}
+    merge_or_correction: {producers: [{service: sync-worker}], transport: signal_fn, payload: amoCRM lead merge or status correction from incremental sync, dedup: lead id+history event id}
+    review_verdict: {producers: [{service: gateway}], transport: signal_fn, payload: review_verdicts row for the exact subject_hash (review.submit_verdict), dedup: verdict id}
+    human_check: {producers: [{service: ops-bot}], transport: ops_callback, payload: human_checks row bound to the exact revision, dedup: human_check_id}
+    approval_callback: {producers: [{service: ops-bot}], transport: ops_callback, payload: approvals row (DATA_MODEL §6.3), dedup: approval_id}
+    offer_revoked: {producers: [{service: gateway}], transport: signal_fn, payload: offer revision expiry or revocation with dependency_invalidations, dedup: offer revision}
+    rights_revoked: {producers: [{service: ops-bot}], transport: ops_callback, payload: owner asset_rights_revoke (/asset revoke) for an asset manifest, dedup: rights event id}
+    meta_rejection: {producers: [{service: sync-worker}, {service: executor}], transport: signal_fn, payload: Meta ad review status or write rejection for the exact creative revision (ALERT_POLICY_REJECTION), dedup: ad id+review status time}
+    kill: {producers: [{service: amt-control}], transport: control_event, payload: "control_events kill row (mode, epoch)", dedup: control_event_id}
+    containment_cause_changed: {producers: [{service: amt-control}], transport: control_event, payload: "durable raised/cleared cause control_event_id, raised event reference, control epoch recorded at that action and evidence references; wake-up only, WF-O02 S10/S11 re-read and verify live state", dedup: control_event_id}
+    mode_change: {producers: [{service: amt-control}], transport: control_event, payload: global_mode_change or pipeline_mode_change control event, dedup: control_event_id}
+    fleet_snapshot_accepted: {producers: [{workflow_step: WF-O01.S04}], transport: signal_fn, payload: "fleet_snapshots report_id, revision and business_date of the effective valid snapshot", dedup: business_date+report_id}
+    sale_readiness_accepted: {producers: [{workflow_step: WF-O01.S04}], transport: signal_fn, payload: "sale_readiness report_id, valid_until and business_date of the effective valid snapshot", dedup: business_date+report_id}
+    pr_merged: {producers: [{service: gateway}], transport: signal_fn, payload: GitHub PR state poll for a PR opened by landing.open_pr or offers.propose_pr (merge commit), dedup: repo+pr number+merge sha}
+    pr_closed: {producers: [{service: gateway}], transport: signal_fn, payload: GitHub PR closed without merge, dedup: repo+pr number}
+    deploy_ack: {producers: [{service: amt-release}], transport: signal_fn, payload: "config bundle active ACK (amt-release)", dedup: release_id}
+    landing_snapshot_matched: {producers: [{workflow_step: WF-B04.S09}], transport: signal_fn, payload: "WF-B04 S09 same-origin read-only GET /.well-known/amt-deployment.json matches the trusted merge-commit CI expected landing_merge_commit, build_digest, content_artifact_hashes, tracking_artifact_hashes and offer_snapshot_hash; observed_at and response digest attached; unchanged offer hash alone never completes deployment", dedup: "run_id + expected landing merge commit + build digest"}
+    kill_criteria_trigger: {producers: [{service: amt-control}], transport: control_event, payload: kill_criteria_l0 control event requested by sync-worker (KC-01), dedup: control_event_id}
+    measurement_revision_change: {producers: [{service: amt-release}], transport: signal_fn, payload: "active qualification, attribution or tracking definition revision changed (release ACK)", dedup: release_id}
+    child_run_completed: {producers: [{service: amt-workflow}], transport: signal_fn, payload: "child run_id, workflow_id and terminal status", dedup: child run_id}
+    owner_decision: {producers: [{service: ops-bot}], transport: ops_callback, payload: "owner decision on a plan item, proposal or release (/decisions, /proposal, /release)", dedup: decision id}
+    verification_complete: {producers: [{service: amt-verify}], transport: signal_fn, payload: verification-result.schema.json record, dedup: verification_id}
+    regression_detected: {producers: [{workflow_step: WF-E01.S09}, {workflow_step: WF-E03.S06}, {workflow_step: WF-E04.S06}], transport: signal_fn, payload: guardrail or holdout regression during the observation window (sync-worker observation step), dedup: release_id+metric+window}
+    stop_rule_triggered: {producers: [{workflow_step: WF-E01.S09}], transport: signal_fn, payload: "stop rule of release.scope_observation hit (WF-E01 S09, sync-worker)", dedup: release_id+rule}
+    old_controller_heartbeat: {producers: [{service: amt-workflow}], transport: signal_fn, payload: heartbeat of the controller instance with the old epoch, dedup: epoch+sequence}
+    new_controller_ready: {producers: [{service: amt-workflow}], transport: signal_fn, payload: new controller instance ready with the new epoch, dedup: epoch}
+    handover_plan_approved: {producers: [{workflow_step: WF-E02.S03}], transport: signal_fn, payload: "proposal_id and the owner-approved handover plan revision bound to the manifest digest (WF-E02 S03)", dedup: proposal_id and plan revision}
+    rollback_trigger: {producers: [{workflow_step: WF-E02.S08}, {service: ops-bot}], transport: signal_fn, payload: "observation breach (WF-E02 S08, sync-worker) or owner /release rollback (ops-bot)", dedup: release_id+cause}
+    advisory_update: {producers: [{service: ops-bot}], transport: ops_callback, payload: vendor advisory or release note submitted by the technical_operator or owner through /work (no AMT service reads advisory feeds; the weekly dependency_check run prompts the review), dedup: component+advisory id}
+    lesson_revoked: {producers: [{service: ops-bot}], transport: ops_callback, payload: owner revokes an improvement-memory lesson, dedup: lesson_id+revision}
+    snapshot_submitted: {producers: [{service: ops-bot}], transport: ops_callback, payload: /fleet or /sale_ready wizard submission, dedup: report_id}
+    snapshot_superseded: {producers: [{service: ops-bot}], transport: ops_callback, payload: a newer submission with supersedes_report_id, dedup: report_id}
+    ack: {producers: [{service: ops-bot}], transport: ops_callback, payload: alert or incident ACK by an ops_responder or the owner (Telegram or the independent monitor alternate channel relayed by amt-control), dedup: ack id}
+    resume: {producers: [{service: amt-control}], transport: control_event, payload: control_resume or agent_resume control event, dedup: control_event_id}
+    handback_ack: {producers: [{service: ops-bot}], transport: ops_callback, payload: handback roster person ACK (handback_acks), dedup: ack id}
+    monitor_clear: {producers: [{service: amt-control}], transport: control_event, payload: independent monitor ACKs resumed after a host-down or heartbeat gap, dedup: monitor ack sequence}
+    recovery_reported: {producers: [{service: ops-bot}], transport: ops_callback, payload: "technical_operator [Tikladim] on the incident card with the runbook evidence refs (WF-O02 S05)", dedup: incident_id+callback id}
+    operator_ack: {producers: [{service: ops-bot}], transport: ops_callback, payload: "technical_operator acceptance of a restore check, drill or rotation", dedup: ack id}
+    owner_ack: {producers: [{service: ops-bot}], transport: ops_callback, payload: owner acceptance of a full drill, dedup: ack id}
+    urgent_item_submitted: {producers: [{service: gateway}], transport: signal_fn, payload: "Q38 urgent item registered by the gateway (entity_pause or a budget decrease for an offer or rights revocation, ALERT_OVERSPEND or ALERT_POLICY_REJECTION): item_id, entity, action_type, reason", dedup: item_id}
+    provider_cap_readback_matched: {producers: [{workflow_step: WF-O04.S03}], transport: signal_fn, payload: "account spending limit read back equal to the business month expected_cap_native (switch recorded)", dedup: business_month}
+    spend_cap_set: {producers: [{service: ops-bot}], transport: ops_callback, payload: "owner [Qo‘ydim] on REMINDER_SPEND_CAP_RESET for the business month (HG-OPS-01)", dedup: business_month+callback id}
+    command_compensated: {producers: [{service: executor}], transport: command_outbox, payload: compensation command succeeded (compensates_command_id), dedup: command_id+revision}
+    entity_released: {producers: [{service: amt-control}], transport: control_event, payload: takeover_scope_change releasing a managed entity (released_at), dedup: control_event_id}
+timer_catalog:
+  # every name in continuation.timers has an entry (validator W10); kinds: schedule (operations.yaml#schedule id), readiness (approved value), input (run input field), relative (base + duration)
+  spend_cap_day_end: {kind: relative, base: run start (00:00 on day 1 of the business month), after: P1D}
+  aar_48h: {kind: relative, base: containment recorded, after: PT48H}
+  ack_deadline: {kind: readiness, ref: ops.ack_minutes}
+  advisory_deadline: {kind: input, ref: advisory_deadline}
+  approval_ttl_12h: {kind: relative, base: presented_at, after: approval-policy.yaml#change_set.approval_ttl_hours}
+  change_set_10_00: {kind: schedule, ref: change_set}
+  crm_delivery_retry: {kind: relative, base: previous delivery attempt, after: exponential backoff of the landing delivery worker (TRACKING_CAPI)}
+  drain_deadline: {kind: relative, base: WF-E02 S04 start, after: PT30M}
+  escalation_deadline: {kind: readiness, ref: ops.escalation}
+  exposure_limit_check: {kind: schedule, ref: exposure_guard}
+  fleet_escalation_14_00: {kind: schedule, ref: fleet_escalate}
+  fleet_reminder_09_00: {kind: schedule, ref: fleet_remind}
+  fri_16_00_status: {kind: schedule, ref: cmo_status}
+  full_drill_due: {kind: schedule, ref: kill_drill}
+  maturity_horizon_close: {kind: readiness, ref: business.acceptance}
+  max_elapsed_time: {kind: readiness, ref: business.exposure}
+  mon_07_30: {kind: schedule, ref: kill_criteria}
+  mon_08_00: {kind: schedule, ref: weekly_report_submit}
+  mon_09_00: {kind: schedule, ref: weekly_report}
+  mon_11_00: {kind: schedule, ref: weekly_plan}
+  observation_window_max: {kind: readiness, ref: evolution.outcome_policy}
+  offer_expiry_watch: {kind: relative, base: active offer revision valid_to, after: PT0S}
+  offer_valid_to_watch: {kind: relative, base: active offer revision valid_to, after: PT0S}
+  outcome_check_at: {kind: input, ref: outcome_check_at}
+  propagation_deadline: {kind: readiness, ref: offers.propagation}
+  proposal_ttl: {kind: relative, base: proposal handoff offered, after: P7D}
+  restore_check_due: {kind: schedule, ref: restore_check}
+  review_expiry: {kind: relative, base: review verdict recorded, after: review revision validity (GUARDRAIL_GATEWAY §9)}
+  rotation_due: {kind: readiness, ref: ops.credential_inventory}
+  sale_ready_cutoff_09_30: {kind: schedule, ref: sale_ready_cutoff}
+  valid_until_expiry: {kind: relative, base: effective snapshot valid_until, after: PT0S}
+  verification_expiry: {kind: relative, base: verification result recorded, after: verification validity of the candidate manifest}
+lease:
+  required: true
+  fence_on_takeover: true
+controller_epoch:
+  required: true
+  stale_epoch_dispatch: reject_and_audit
+retry:
+  only_steps_marked_retryable: true
+  irreversible_effect: reconcile_before_new_attempt
+  provider_exactly_once_assumed: false
+handoff:
+  receiver_validates: true
+  assignment_or_mention_is_acceptance: false
+  stale_artifact_publish: deny
+paperclip:
+  role: projection_and_task_surface
+  issue_close_completes_step: false
+  drift: run_truth_wins_issue_is_updated
+owner_view:
+  questions:
+  - what_is_running
+  - expected_result
+  - who_needs_to_do_what
+  - spent_so_far
+  - next_step
+  also_show:
+  - blockers
+  - waiting_until
+  - decision_deadline
+  - last_trusted_result
+  surfaces:
+  - ops_bot_status
+  - paperclip_dashboard
+bootstrap:
+  first_business_dispatch_requires_runtime: true
+  pre_runtime_test_issues: inventory_then_close_or_attach
+retention_readiness_ref: privacy.retention

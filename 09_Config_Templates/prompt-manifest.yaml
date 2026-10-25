@@ -1,0 +1,74 @@
+# Project OS configuration template; unresolved readiness blocks the relevant live profile.
+schema_version: 1
+bundle_state: template
+decision_refs: [Q12, Q13, Q28, Q44]
+purpose: >-
+  What enters every LLM call of each business agent (P-83). Eager content is injected by the runner (claude_local system prompt,
+  Hermes SOUL.md) and counted against max_fixed_tokens; on_demand content is listed by name and description and opened only when
+  the task needs it. The harness system prompt, tool definitions, conversation turns and tool results are not part of the fixed
+  prompt; budget.request_bounds max_input_tokens bounds the whole request. The release copies the listed files and records one
+  prompt digest per role (release-policy.yaml version_fields prompt_digest); a changed byte means a new digest and the role eval.
+estimator_ref: 05_Build_Phases/CONTEXT_PACKS.yaml#estimator   # the conservative builder-pack estimator; an over-estimate only makes the ceiling safer
+ceiling_rule: max_fixed_tokens is the current eager estimate plus at most 15 per cent headroom, rounded up to 1000; growth beyond it is a reviewed manifest change (protected config), never a silent prompt increase
+kernel_ref_source: runner      # the runner injects kernel_ref = sha256 of the Kernel text it loaded; the model copies it and never computes or invents a digest
+invariant_index: {source: 11_Production_Contracts/INVARIANTS.md, form: id_and_first_sentence, scope: all_invariants}   # every invariant visible in every call; the full paragraph is on demand
+common_eager:
+- {path: 02_Team_Charter/TEAM.md, section: "2.5 Umumiy agent execution contract", part: text_block}
+- {path: 08_Skills/thinking-kernel/SKILL.md}   # always-on kernel (Q13)
+- {extract: invariant_index}
+- {runtime: knowledge/lessons/, max_tokens: 2000, selection: 'active guidance_eligible lessons whose scope is the role or role:pipeline of the call (schema scope grammar), newest first, at most 15; one line gives the count of the other matching lessons, all inside max_tokens; the agent opens knowledge/lessons/ on demand', description: 'released lessons (ADR-028, I24); counted in max_fixed_tokens at max_tokens (P-91, P-103)'}
+common_on_demand:
+- {path: 11_Production_Contracts/INVARIANTS.md, by: invariant_id, description: full invariant paragraph with its owner decisions and tests}
+- {path: 11_Production_Contracts/BUSINESS_CONTRACT.md, by: section, description: 'business definitions, metrics and offer semantics the task touches'}
+- {path: 11_Production_Contracts/WORKFLOW_CONTRACT.md, by: section, description: 'handoff, step and run rules the task touches'}
+roles:
+  cmo:
+    role_prompt: {path: 02_Team_Charter/agents/CMO.md, section: "Role prompt (English)"}
+    eager_skills: [funnel-metrics, offer-registry, meta-ads-operations, change-set-proposal, wolter-brand-voice]
+    on_demand:
+    - {path: 08_Skills/paperclip-create-agent/SKILL.md, by: section, description: 'hire proposal for WF-E05 S01 (Q68); never eager'}
+    - {path: 02_Team_Charter/agents/CMO.md, by: section, description: full charter}
+    max_fixed_tokens: 39000
+  media-buyer:
+    role_prompt: {path: 02_Team_Charter/agents/MEDIA_BUYER.md, section: "Role prompt (English)"}
+    eager_skills: [meta-ads-operations, change-set-proposal, funnel-metrics, offer-registry]
+    on_demand:
+    - {path: 02_Team_Charter/agents/MEDIA_BUYER.md, by: section, description: full charter}
+    - {path: 03_Architecture/TRACKING_CAPI.md, by: section, description: naming and URL parameters (section 2)}
+    max_fixed_tokens: 35000
+  creative-studio:
+    role_prompt: {path: 02_Team_Charter/agents/CREATIVE_STUDIO.md, section: "Role prompt (English)"}
+    eager_skills: [ad-creative-production, wolter-brand-voice, offer-registry, meta-ads-policy-review]
+    on_demand:
+    - {path: 02_Team_Charter/agents/CREATIVE_STUDIO.md, by: section, description: full charter}
+    - {runtime: knowledge/meta-policy/, max_tokens: 8000, overflow: 'the release refuses a knowledge/meta-policy/ set over max_tokens; the role opens it by section index', description: verified official Meta policy sources with their verification records}   # ◇ builder bound (P-83, P-103), equal to the meta-ads-policy-review skill cap
+    - {runtime: knowledge/golden-copy/, max_tokens: 1500, selection: 'at most 6 examples per pipeline x format, highest owner rating first', description: 'released golden copy few-shot examples (EVALS section 3 step 8, P-91); never offer evidence'}
+    max_fixed_tokens: 29000
+  cro:
+    role_prompt: {path: 02_Team_Charter/agents/CRO.md, section: "Role prompt (English)"}
+    eager_skills: [offer-registry, funnel-metrics, wolter-brand-voice, meta-ads-policy-review]
+    on_demand:
+    - {path: 02_Team_Charter/agents/CRO.md, by: section, description: full charter}
+    - {runtime: knowledge/meta-policy/, max_tokens: 8000, overflow: 'the release refuses a knowledge/meta-policy/ set over max_tokens; the role opens it by section index', description: verified official Meta policy sources with their verification records}   # ◇ builder bound (P-83, P-103), equal to the meta-ads-policy-review skill cap
+    max_fixed_tokens: 30000
+  funnel-analyst:
+    role_prompt: {path: 02_Team_Charter/agents/FUNNEL_ANALYST.md, section: "Role prompt (English)"}
+    eager_skills: [funnel-metrics, change-set-proposal, offer-registry, meta-ads-operations]
+    on_demand:
+    - {path: 02_Team_Charter/agents/FUNNEL_ANALYST.md, by: section, description: full charter}
+    max_fixed_tokens: 35000
+  reviewer:
+    role_prompt: {path: 02_Team_Charter/agents/REVIEWER.md, section: "Role prompt (English)"}
+    eager_sections: [{path: 02_Team_Charter/agents/REVIEWER.md, section: Verdict sxemasi}]   # P-103: the role prompt points to the verdict schema, so it is in the prompt
+    eager_skills: [meta-ads-policy-review, wolter-brand-voice, offer-registry, change-set-proposal]
+    on_demand:
+    - {path: 02_Team_Charter/agents/REVIEWER.md, by: section, description: full charter}
+    - {runtime: knowledge/meta-policy/, max_tokens: 8000, overflow: 'the release refuses a knowledge/meta-policy/ set over max_tokens; the role opens it by section index', description: verified official Meta policy sources with their verification records}   # ◇ builder bound (P-83, P-103), equal to the meta-ads-policy-review skill cap
+    - {runtime: knowledge/golden-copy/, max_tokens: 1500, selection: 'at most 6 examples per pipeline x format, highest owner rating first', description: 'released golden copy few-shot examples (EVALS section 3 step 8, P-91); never offer evidence'}
+    max_fixed_tokens: 32000   # the eager change-set-proposal skill covers WF-B07, rounds and dispatch ownership; estimate ~31 200, ceiling rule estimate + 15 % = 36 000
+skill_mode_change_rule: a charter skill moves from eager to on_demand only with F4-AT-25 and role eval evidence that quality holds, in a reviewed manifest change
+hermes_injection:                  # P-103: Hermes loads the CMO eager prompt from SOUL.md and cuts a file over context_file_max_chars to its head 70 % and tail 20 % (VR-44)
+  file: SOUL.md
+  cap_key: context_file_max_chars
+  cap_rule: 'the release sets context_file_max_chars in the pinned Hermes config to ceil(1.1 x the SOUL.md characters), at most 500000; a SOUL.md that would need more refuses the release'
+  check: F4-AT-28

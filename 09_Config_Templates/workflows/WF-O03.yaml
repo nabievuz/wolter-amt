@@ -1,0 +1,107 @@
+# Project OS workflow definition template; unresolved readiness blocks the relevant live profile.
+schema_version: 1
+bundle_state: template
+workflow_id: WF-O03
+definition_version: 1
+title: Restore check, full drill and credential rotation
+category: operations
+purpose: >-
+  Approved restore-check, full-drill and rotation plans run on schedule (the nightly local snapshot itself is the amt-backup systemd timer whose ledger these runs verify; no copy leaves the AMT PC, Q55); each produces a verified restore or rotated
+  credential, an isolated verification, measured RPO/RTO or access evidence, and operator/owner acceptance. Agents
+  never gain production restore or rotation authority through this workflow.
+accountable: technical_operator
+requirement_refs: [NFR-07, EVO-R11]
+trigger:
+  kinds: [schedule, manual]
+  source: amt-workflow scheduler (daily 04:30 due check, after the 03:30 security updates - the restore check runs when the recovery.restore_check evidence is P25D old; the quarterly full drill starts when the owner schedules it after the kill_drill reminder; rotation calendar); the nightly local snapshot is the amt-backup systemd timer, not this workflow
+  source_refs: [amt-workflow, restore_check, kill_drill, technical_operator, owner]
+  schedule: "30 4 * * *"
+  dedup_key: plan_item_id+scheduled_for
+  correlation_key: plan_item_id
+authorization:
+  may_start: [amt-workflow, technical_operator, owner]
+  may_cancel: [technical_operator, owner]
+  preconditions:
+    - recovery.intake_datasets or recovery.full_datasets approved for the dataset class
+input:
+  schema_ref: BACKUP_RESTORE runbook manifest
+  required_fields: [plan_item_id, kind(restore_check|full_drill|rotation), dataset_class]
+  freshness: [recovery.intake_datasets, recovery.full_datasets]
+steps:
+  - id: S01
+    name: Plan check
+    executor: {type: deterministic, ref: amt-workflow}
+    depends_on: []
+    outputs: [plan item with scope, keys custodian, target RPO/RTO, "waits while apt-daily-upgrade.service is active (security updates never overlap a restore)"]
+    external_effect: none
+    retry: safe_resume
+    timeout: PT5M
+  - id: S02
+    name: Select snapshot (from the amt-backup ledger) or prepare rotation
+    executor: {type: deterministic, ref: amt-backup}
+    depends_on: [S01]
+    outputs: ["latest verified nightly snapshot manifest (hashes) from the amt-backup ledger | rotation prepared for human execution"]
+    external_effect: reversible
+    retry: new_attempt_after_reconcile
+    timeout: PT2H
+  - id: S03
+    name: Isolated verification
+    executor: {type: deterministic, ref: amt-backup}
+    depends_on: [S02]
+    outputs: ["restore check - restore into restore_test; full drill - restore into the isolated restore_drill container on the AMT PC plus rebuild from the staged PII-free source export, with the CAPI resend going to the synthetic endpoint inside the container; both start killed (execution-policy.yaml#restore)", "no credentials, jobs or egress; integrity checks"]
+    external_effect: none
+    retry: safe_resume
+    timeout: P1D
+  - id: S04
+    name: Drill actions (full drill only)
+    executor: {type: deterministic, ref: amt-workflow}
+    depends_on: [S03]
+    outputs: ["full drill - opens the owner task and waits for owner_ack with its evidence: A/B kill races on fixtures against the simulated Meta endpoint inside the container (timed against ops.kill_targets), schema-aware rollback from a pre-upgrade snapshot with the matching code/config/schema manifest, and sudo /opt/wolter-amt/current/bin/amt-kill --self-test in production over SSH via Tailscale (the mode never changes, P-12)", "restore check and rotation - not_applicable is recorded automatically; no human task is opened"]
+    external_effect: none
+    retry: safe_resume
+    timeout: P1D
+  - id: S05
+    name: Measured evidence
+    executor: {type: deterministic, ref: amt-backup}
+    depends_on: [S04]
+    outputs: [measured RPO/RTO per dataset, "full drill - the recovery.full_drill fields of CONFIG_CONTRACT: source_export_ref, rebuild_from_sources_result, capi_resend_counts (resent, terminal_before_loss, unknown_state), kill_a_b_result, schema_rollback_result, production_self_test_ref, production_control_check, host_loss_time_seconds with method measured or estimated per component", access test result for rotated credential]
+    external_effect: none
+    retry: safe_resume
+    timeout: PT1H
+  - id: S06
+    name: Acceptance
+    executor: {type: human, ref: technical_operator}
+    depends_on: [S05]
+    outputs: [operator acceptance; owner acceptance for drills required by gates]
+    external_effect: none
+    retry: never
+    timeout: P2D
+    completes_on: [operator_ack, owner_ack]
+limits:
+  max_duration: P5D
+  max_attempts_per_step: 3
+  cost: {budget_account: none, max_minor: null, currency: null, readiness_ref: null}
+  concurrency: {per_correlation_key: 1, global: 1, on_limit: skip_with_audit}   # the daily due check is skipped while a restore check, drill or rotation run is open
+  escalation:
+    - {after: PT6H, to: technical_operator, channel: ops-bot+independent_monitor}
+    - {after: P1D, to: owner, channel: ops-bot}
+  owner_absent: The amt-backup timer keeps running independently; restore checks run only in isolation; production restore and credential rotation wait for an authorized human.
+continuation:
+  checkpoint: after_every_step_transition
+  timers: [restore_check_due, full_drill_due, rotation_due]
+  signals: [operator_ack, owner_ack]
+  lease_ttl: PT10M
+  cancel: Cancel leaves the previous restore-check or drill evidence as the latest; readiness keys are not refreshed; reason recorded
+  compensation: none
+  uncertain_external_effect: not_applicable
+completion:
+  technical_done: restore check, full drill or rotation verified in isolation with measured evidence; for a restore check or rotation S04 records not_applicable and opens no owner task
+  end_steps: [S06]
+  required_evidence: [manifest hashes, restore log, measured RPO/RTO, "full drill - source_export_ref, rebuild_from_sources_result, capi_resend_counts, kill A/B timings, rollback evidence, production amt-kill --self-test result, production_control_check and host_loss_time_seconds (CONFIG_CONTRACT recovery.full_drill)", operator/owner acceptance]
+  observation: null
+  business_acceptance: "not_applicable: technical acceptance against recovery.intake_datasets and recovery.full_datasets targets"
+failure_paths:
+  missing_input: No verified snapshot for the dataset class in the amt-backup ledger, or no approved RPO/RTO → S02 blocked with a reason code; ALERT_BACKUP_STALE when the last good snapshot is older than target; the readiness key stays pending and the nightly backup is unaffected.
+  cancel_or_escalate: "Acceptance not given within P2D or drill window missed → escalation timers above; recovery.restore_check / recovery.full_drill are not refreshed, so the next gate that needs them (for example /mode sale L1 or /mode <pipeline> L2) is refused until a fresh drill, while capabilities already enabled continue under operational_validity; a failed restore opens an incident (WF-O02) and the technical_operator or owner decides whether to /readiness withdraw the key."
+  uncertain_external_effect: Local snapshot integrity unconfirmed (MANIFEST sha256 verify incomplete) → that snapshot is not used as evidence; the previous verified snapshot is selected; a rotated credential whose access test is unknown is not activated until the test passes.
+tests: [UAT-23, UAT-24, UAT-25, EVO-AT07, EVO-AT12, WF-TEST-O03-E2E, WF-TEST-O03-MISSING, WF-TEST-O03-CANCEL, WF-TEST-O03-UNCERTAIN, WF-TEST-O03-S04-NA]

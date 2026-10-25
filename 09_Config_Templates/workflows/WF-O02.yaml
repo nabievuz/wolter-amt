@@ -1,0 +1,200 @@
+# Project OS workflow definition template; unresolved readiness blocks the relevant live profile.
+schema_version: 1
+bundle_state: template
+workflow_id: WF-O02
+definition_version: 3
+title: Incident and human handback
+category: operations
+purpose: >-
+  Every incident signal is triaged, contained without waiting for slow dependencies, reconciled with vendor truth,
+  recovered, resolved by the authorized cause-specific path (Q63 billing-only automatic clear; other causes human), observed, and closed with an after-action review that may raise an
+  upgrade candidate.
+accountable: technical_operator
+requirement_refs: [FR-GOV-02, FR-GOV-04, FR-GOV-10, EVO-R04, EVO-R15]
+trigger:
+  kinds: [signal, threshold, manual]
+  source: "cost-watchdog, tracking health, intake monitor, cap/pacing guard, kill-criteria job, independent monitor, operator report, gateway (harmful command outcome or harm_flag, WF-B07 S03)"
+  source_refs: [cost-watchdog, sync-worker, amt-control, independent-monitor, technical_operator, owner, ads_approver]
+  schedule: null
+  dedup_key: incident_fingerprint
+  correlation_key: incident_id
+authorization:
+  may_start: [cost-watchdog, sync-worker, amt-control, independent-monitor, owner, technical_operator, ads_approver]
+  may_cancel: [owner]
+  preconditions: []
+input:
+  schema_ref: INCIDENTS runbook severity table
+  required_fields: [incident_id, signal_source, severity, detected_at]
+  freshness: []
+steps:
+  - id: S01
+    name: Signal intake and dedup
+    executor: {type: deterministic, ref: amt-workflow}
+    depends_on: []
+    outputs: [incident record; duplicate signals attached]
+    external_effect: none
+    retry: safe_resume
+    timeout: PT1M
+  - id: S02
+    name: Triage and ACK
+    executor: {type: human, ref: ops_on_call}
+    depends_on: [S01]
+    outputs: ["ACK with the confirmed severity (operations.yaml#severities: critical | degraded) and the ACKing custodian; a downgrade critical → degraded is allowed only when the triggering alert code is catalogued degraded (TELEGRAM §6.2) and arrived as critical by the unknown-severity default; a catalogue-critical code (security/PII, host loss, uncontrolled spend, intake loss) is never downgraded; every downgrade is recorded with the person and shown to the owner in /decisions; a downgrade changes the ACK deadline and escalation only, never containment"]
+    external_effect: none
+    retry: safe_resume
+    timeout: readiness:ops.ack_minutes
+    on_timeout: {action: wait_and_escalate, safe_state: "containment stays applied; S02 stays open while the escalation reaches ops_deputy and then the owner; the first ACK from any of them completes S02 and starts recovery"}
+    completes_on: [ack]
+  - id: S03
+    name: Containment
+    executor: {type: deterministic, ref: amt-control}
+    depends_on: [S01]
+    outputs: ["deterministic protective controls only (operations.yaml#protective_controls: protective_pause, proxy_admission_pause, tracking_read_only, provider_limit_read_only, account_restricted_read_only, kill_criteria_l0, capacity hold); the global kill latch is set only by the owner kill_switch (Telegram or SSH amt-kill)", "containment_causes: initial audit snapshot of this incident causes (including global_kill), with exact raised control_event_id and epoch references; never the resume truth after recovery; S10/S11 re-read current amt-control cause records; may be empty - a capacity hold is not a resume cause", "handback_triggers: the handback_acks triggers this incident raises (kill_criteria for a KC-01 human_handback, zero_qualified_exposure for INC-20, kill_b, protective_pause, foreign_spend for foreign-campaign overspend, incident when the incident class requires a human handback); a handback-only incident has handback_triggers and may have no containment cause", containment time]
+    output_fields: [containment_causes, handback_triggers]
+    external_effect: internal_only
+    retry: safe_resume
+    timeout: PT1M
+  - id: S04
+    name: Reconciliation
+    executor: {type: deterministic, ref: executor}
+    depends_on: [S03]
+    outputs: [uncertain attempts resolved or manual_resolution; intake receipts reconciled]
+    external_effect: none
+    retry: safe_resume
+    timeout: P1D
+  - id: S05
+    name: Recovery
+    executor: {type: human, ref: technical_operator}
+    depends_on: [S02, S04]
+    outputs: [runbook steps evidence; restored service state]
+    external_effect: reversible
+    retry: safe_resume
+    timeout: readiness:recovery.full_datasets
+    completes_on: [recovery_reported]
+  - id: S10
+    name: Refresh current causes and classify authorized resolution paths
+    executor: {type: deterministic, ref: amt-control}
+    depends_on: [S05]
+    inputs: [current cause records and control epoch; incident raised-event references; Q63 billing reconciliation/clear evidence]
+    outputs: ["remaining_owner_causes: fresh active incident causes requiring the existing owner S06 policy actions, excluding billing_unreliable (never sent to agent_resume); already resolved causes require exact matching durable resolution evidence, not a missing flag", "automatic_cause_evidence: for billing_unreliable, verify budgets.yaml#openrouter.billing_resume_policy exact raised control_event_id and clearance_control_epoch plus key/period/policy revision, reconciliation freshness and allowance evidence authenticated at the successful clear transaction; later authorized epoch changes do not invalidate an accepted historical clear; an active billing cause stays unresolved for S11, and no owner task is invented for it; this step never performs the watchdog's clear operation"]
+    output_fields: [remaining_owner_causes, automatic_cause_evidence]
+    external_effect: none
+    retry: safe_resume
+    timeout: PT1M
+  - id: S06
+    name: Resume
+    executor: {type: human, ref: owner}
+    depends_on: [S10]
+    when: {step: S10, output: remaining_owner_causes, non_empty: true}
+    outputs: ["cause-specific owner resume per execution-policy.yaml#resume after recovery; immediately before opening each task and accepting its decision re-read current cause state and exact epoch/raised-event identity, never S03 snapshot; a matching already-recorded authorized owner resolution can satisfy its cause without a duplicate action; new or still-active owner causes retain owner never_auto tasks; Q63 billing_unreliable has no owner approval here and is verified by S11; human handback S09 remains independent"]
+    approval:
+      never_auto: true
+      by_cause:
+      - cause: global_kill
+        policy_actions: [control_resume]
+        effect: "new epoch; each pipeline min(previous, L1); global shadow kept; released entities need owner re-takeover"
+      - cause: kill_criteria_l0
+        policy_actions: [takeover_scope_change, pipeline_mode_change]
+        requires: [C05 RCA accepted, HG-F6-04 manifest for released entities]
+        effect: pipeline stays L0 until the owner mode change to L1
+      - cause: tracking_read_only
+        policy_actions: [control_resume]
+        requires: ["tracking-health.yaml#exit_read_only consecutive pass days (P-18)"]
+        effect: read_only lifted only after the exit rule
+      - cause: provider_limit_read_only
+        policy_actions: [control_resume]
+        requires: [provider spending limit API read-back equals the expected value (vendor.meta_cap)]
+        effect: read_only lifted only after the read-back matches
+      - cause: account_restricted_read_only
+        policy_actions: [control_resume]
+        requires: [account restriction or disable resolved in Meta; owner issue closed]
+        effect: never reopened automatically
+      - cause: protective_pause
+        policy_actions: [entity_activate, creative_activate]
+        approved_in: WF-B03
+        approved_case: re_activation_after_protective_pause
+        requires: [fresh spend data and headroom above the safety margin, "each paused entity is re-activated by its own command in a WF-B03 change set (entity_activate for a campaign or ad set, creative_activate for an ad), with admission and commitment checks"]
+        effect: no bulk resume and no mode change; entities stay paused until each re-activation is approved (never automatic, ARCHITECTURE §11.3)
+      - cause: proxy_admission_pause
+        policy_actions: [agent_resume]
+        requires: ["current non-billing proxy cause is resolved and agent_resume permits that exact reason; billing_unreliable is excluded and uses only the Q63 automatic billing_unreliable_resume path"]
+    external_effect: irreversible
+    retry: never
+    timeout: P2D
+  - id: S09
+    name: Human handback ACK
+    executor: {type: human, ref: handback_custodian}
+    depends_on: [S03]
+    when: {step: S03, output: handback_triggers, non_empty: true}
+    outputs: ["one accepted handback_acks row per active handback trigger, by the pipeline's named custodian (ops.ads_handback_roster or ops.sale_handback_roster), right after containment - it waits neither for the triage ACK (S02) nor for recovery (S05); an alert alone never completes the step (FR-GOV-10)"]
+    acks:
+    - {trigger: kill_criteria, record: handback_acks}
+    - {trigger: zero_qualified_exposure, record: handback_acks}
+    - {trigger: kill_b, record: handback_acks}
+    - {trigger: protective_pause, record: handback_acks}
+    - {trigger: foreign_spend, record: handback_acks}
+    - {trigger: incident, record: handback_acks}
+    external_effect: none
+    retry: never
+    timeout: P2D
+    on_timeout: {action: wait_and_escalate, safe_state: "containment stays; ALERT_HANDBACK_ACK_OVERDUE goes up the roster to the owner; S09 stays open until the custodian or the owner ACKs"}
+    completes_on: [handback_ack]
+  - id: S11
+    name: Verify live cause closure before observation
+    executor: {type: deterministic, ref: amt-control}
+    depends_on: [S05, S06]
+    inputs: [fresh current cause records and epoch; every raised/resolved control_event pair; S10 routing evidence]
+    outputs: ["all_incident_causes_resolved only after every relevant current cause has its exact valid resolution event; billing_unreliable may be satisfied only by a verified Q63 billing_unreliable_resume event for that same raised control_event_id and clearance_control_epoch, key/period and approved policy revision with provider usage freshness and actual+reserved allowance evidence validated against live state AT CLEAR; historical event authentication at clear remains valid across later authorized epoch changes; fresh current cause state is re-read separately, and an old clear can never satisfy a new raised control_event_id; stale, unmatched, replayed or unauthorized-at-clear epoch events never resolve a cause", "recompute remaining causes on containment_cause_changed and immediately before completion; an uncleared billing cause waits for the watchdog, while every other still-active or newly raised cause creates/escalates an owner task under the existing S06 policy mapping (never_auto); S06 being skipped/completed or AI admissions reopening is not closure proof; the barrier releases only with no unresolved cause, and never bypasses kill, other pauses or independent S09 handback"]
+    external_effect: none
+    retry: safe_resume
+    timeout: P2D
+  - id: S07
+    name: Observation
+    executor: {type: deterministic, ref: sync-worker}
+    depends_on: [S05, S06, S09, S11]
+    inputs: ["fresh live zero-unresolved check at admission and every containment_cause_changed event during observation; a new cause blocks observation, preserves its authorized exit rule and restarts the full window after verified closure"]
+    outputs: ["≥24h telemetry and business guard evidence after recovery S05, every applicable S06 owner resume, verified live S11 cause closure and S09 handback ACK; condition_false branches are recorded not_applicable"]
+    external_effect: none
+    retry: safe_resume
+    timeout: P1D
+  - id: S08
+    name: After-action review and upgrade candidate
+    executor: {type: agent, ref: funnel-analyst}
+    depends_on: [S07]
+    outputs: ["AAR (C05/IMP-03) within 48h; a lesson or a warranted change goes as evo.signal.submit to WF-E01; only an owner-accepted improvement-memory record (WF-E01 S10) may feed WF-E04"]
+    external_effect: internal_only
+    retry: safe_resume
+    timeout: P2D
+limits:
+  max_duration: P14D
+  max_attempts_per_step: 5
+  cost: {budget_account: ai_runtime, max_minor: null, max_minor_ref: 'readiness:budget.request_bounds', currency: USD, readiness_ref: budget.request_bounds}
+  concurrency: {per_correlation_key: 1, global: null}
+  escalation:
+    - {after: readiness:ops.ack_minutes, to: ops_deputy, channel: ops-bot+independent_monitor}
+    - {after: readiness:ops.escalation, to: owner, channel: alternate_channel}
+  owner_absent: "Owner-controlled containment stays and owner-required resume waits; Q63 billing_unreliable alone may clear automatically while the owner is absent only when every billing_resume_policy guard is validated, never clearing another cause; human ad management only by a person already authorized in Ads Manager; owner-only authority is never delegated implicitly."
+continuation:
+  checkpoint: after_every_step_transition
+  timers: [ack_deadline, escalation_deadline, aar_48h]
+  signals: [ack, kill, resume, handback_ack, monitor_clear, recovery_reported, containment_cause_changed]
+  lease_ttl: PT1M
+  cancel: Only owner can close an incident without recovery, with reason
+  compensation: emergency pause commands (B mode) are new commands with their own evidence
+  uncertain_external_effect: reconcile_via_command_ledger
+completion:
+  technical_done: "containment, reconciliation and recovery have evidence; S06 owner resume is complete for fresh remaining_owner_causes or skipped condition_false when that owner set is empty; S11 has re-read current state and verified every incident cause resolution, including exact matching Q63 billing-only automatic evidence, with no unresolved/new cause; independently, S09 handback has one accepted handback_acks row per active handback trigger or is skipped condition_false when handback_triggers is empty; skipped branches are recorded not_applicable and visible in the AAR and /decisions; S07 observation and S08 AAR complete, with partial failures listed explicitly"
+  end_steps: [S08]
+  required_evidence: [incident timeline, epoch, exact raised and cleared cause control_event references, S10 current owner cause routing, S11 live zero-unresolved proof including Q63 automatic evidence when applicable, kill_switch_events or mode changes, reconciliation refs, ACKs, AAR]
+  observation: "≥24h after the latest of recovery (S05), all applicable owner resume actions (S06), live cause closure (S11) and accepted handback ACKs (S09); a skipped branch does not move the observation start; a handback-only incident still waits for S05 recovery as well as S09 ACK"
+  business_acceptance: "not_applicable: operations workflow; business harm reported in AAR"
+failure_paths:
+  missing_input: Unknown severity → treated as highest until triaged.
+  cancel_or_escalate: No ACK → deputy then owner via alternate channel; main host/Telegram down → independent monitor path.
+  uncertain_external_effect: Remote pause/write outcome unknown → listed as unverified; reconcile; never reported as all-paused.
+  other:
+    - "Severity routing (INCIDENTS severity table): critical → ACK deadline ops.ack_minutes.critical, ops_on_call → ops_deputy → owner on the alternate channel; degraded → ops.ack_minutes.degraded, ops_on_call → ops_deputy → owner; containment never waits for the ACK"
+    - "No containment cause and no handback trigger (for example INC-19 backup stale or INC-09 Langfuse down) → S10 confirms no remaining owner cause, S06 resume and S09 handback both skipped condition_false, recorded not_applicable; S11 still verifies live zero-unresolved closure; neither resume nor handback task opens; recovery S05, observation S07 and the AAR still run"
+    - "Handback-only incident (INC-20 zero-qualified exposure, foreign-campaign overspend) → S10 remaining_owner_causes is empty so S06 resume is skipped; S11 still verifies live zero-unresolved closure; handback_triggers is non-empty so S09 opens immediately after S03, independently of S02/S05, and completes only with one accepted handback_acks row per active trigger; ALERT_HANDBACK_ACK_OVERDUE escalates a late ACK through the roster to the owner; observation still waits for S05 recovery, S11 live closure and S09 ACK"
+    - "Q63 billing-only incident: S03 audit snapshot may contain proxy_admission_pause/billing_unreliable, but S10 excludes billing from owner tasks; S06 skips when no other owner cause remains; S11 accepts only the exact verified automatic clear event and fresh current zero-remaining state. Billing clear after S10 also wakes S11. A clear invalid at its own clearance epoch, stale-at-clear/unmatched evidence or a concurrent new cause keeps S11 blocked; a previously accepted clear stays valid across later authorized epoch changes and never resolves a new raised cause; unresolved current causes keep S11 blocked and S07 closed; a non-billing cause still needs its owner action. S11 timeout escalates unresolved causes, never claims recovery or auto-approves an owner action."
+tests: [UAT-14, UAT-21, UAT-22, UAT-29, EVO-AT12, WF-TEST-O02-E2E, WF-TEST-O02-MISSING, WF-TEST-O02-CANCEL, WF-TEST-O02-UNCERTAIN, WF-TEST-O02-S06-NA, WF-TEST-O02-SEVERITY, WF-TEST-O02-DEPUTY-ACK, WF-TEST-O02-HANDBACK-ONLY]

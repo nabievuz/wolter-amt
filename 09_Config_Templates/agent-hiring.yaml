@@ -1,0 +1,61 @@
+# Project OS configuration template; unresolved readiness blocks the relevant live profile.
+# The platform creates a needed agent itself inside this envelope (owner decision Q68).
+schema_version: 1
+bundle_state: template
+decision_refs: [Q68, Q03/Q14, Q11, Q06 → Q14, Q07, Q02, Q28, Q08, Q32, Q38, Q44.2, Q44.2★, Q13]
+purpose: >-
+  Owner decision Q68 (2026-10-25): the platform creates the agent it needs without owner approval. Creation is a
+  deterministic WF-E05 run; this file is the envelope every created ("dynamic") agent stays inside. The limits below are
+  not an approval step: each one applies an owner decision that Q68 did not change (scope Q14/Q07/Q02, lead PII Q28,
+  Trust Ramp graduation by the owner Q08, change-set approval Q32/Q38, the hard AI key cap, code and config changes
+  only through a release Q11). ◇ P-167.
+enabled: true
+upstream_skill:
+  repo: paperclipai/paperclip
+  path: skills/paperclip-create-agent
+  commit: 8415f4a679689eab68af5d41331639cacf7fd6cd
+  license: MIT
+  adapted_as: 08_Skills/paperclip-create-agent/SKILL.md
+workflow: WF-E05
+requesters: [cmo]   # only the CMO drafts a hire (C10 recipe, Q13); a created agent never hires
+approval: none      # Q68: no owner approval for creating an agent
+owner_notice: {channel: ops-bot, alert: ALERT_AGENT_HIRED, content: 'slug, role, owned responsibility, tools, model, share_minor, run id; how to stop it (/agent retire <slug>)'}
+paperclip:   # RESEARCH_FACTS VR-46 (Paperclip commit 8415f4a); the builder re-checks it on the pinned version in F4
+  create_call: board_create   # runtime-isolation.yaml#paperclip_bridge.platform_ops agent.create, WF-E05 S03 only; agents never call agent-hires
+  require_board_approval_for_new_agents: true   # stays on: a hire request from an agent principal still waits for the board (owner), a second barrier behind the bridge denial
+  heartbeat_enabled: false   # upstream default; the agent wakes only through WF assignments
+owner_retire: {action: agent_retire, command: '/agent retire <slug>', effect: 'agent paused at once, its open items cancelled, share returned to reserve, Paperclip agent paused'}
+envelope:
+  scope: paid_meta_ads_only   # Q06 → Q14; B2C couriers Q05
+  forbidden_capabilities: [browser_automation, dm_or_comment_replies, organic_social, new_integration, new_credential, new_egress, lead_pii_access, hiring_agents, approval_authority, never_auto_actions, budget_override, review_verdicts, code_or_config_release]
+  allowed_tools: ['meta_read.*', 'meta_write.pause_entity', 'meta_write.activate_entity', 'meta_write.update_budget', 'meta_write.create_campaign_paused', 'meta_write.create_ad_from_creative', 'meta_write.duplicate_adset', 'wh.metrics', 'wh.query', 'fleet.read_utilization', 'offers.read', 'drive.get_asset', 'analytics.umami_query', 'report.submit', 'change_set.propose_manual', 'evo.signal.submit', 'workflow.submit_output', 'workflow.handoff_decide', 'workflow.report_blocker']
+  denied_tools: ['review.*', 'creative.register', 'media.*', 'landing.open_pr', 'offers.propose_pr', 'amo.write_tags', 'amo.write_fields', 'amo.read_leads', 'workflow.start', 'experiment.*', 'change_set.record_outcome', 'meta_write.upload_creative_asset']
+  tools_rule: every requested tool is in allowed_tools and already has a schemas/tools/<tool>.schema.json; a tool the platform does not have yet is a code release (Q11), never part of a hire
+  pii_fields: []      # Q28: agents see sanitized IDs and aggregates only (privacy-policy.yaml#agent_fields)
+  trust_level_max: L1_approve_each   # every external action of a created agent waits for the change-set approval (Q32/Q38); graduation stays the owner's (Q08, HG-L2-01)
+  can_hire: false
+  runtime: {uid: agent-dynamic, runtime: isolated_managed_runner, bridge: 'runtime-isolation.yaml#paperclip_bridge (all denied_ops apply, agent.hire and agent.create included)'}
+  models: {rule: 'one of the models already allowed for the six roles (budgets.yaml#openrouter.provider_policy, Q44.2, Q44.2★); a Claude model runs on claude_local, any other on opencode_local'}
+  prompt: {template: 'prompt-manifest.yaml#roles.<parent role> common kernel + the hire role paragraph (≤ 1 200 characters)', parent_roles: [media-buyer, funnel-analyst, cro, creative-studio]}
+  budget:
+    share_source: reserve   # budgets.yaml#openrouter.shares_minor.reserve; the hard key cap and the six role shares never change
+    rule: 'share_minor > 0 and the sum of active dynamic shares ≤ shares_minor.reserve; an exhausted dynamic share pauses only that agent'
+  reports_to: cmo
+checks:   # WF-E05 S02 (amt-workflow) refuses the proposal when any check fails; no agent is created
+  - requester_in_requesters
+  - slug_new_and_not_a_base_role
+  - scope_paid_meta_ads
+  - tools_subset_of_allowed_and_disjoint_from_denied
+  - no_forbidden_capability
+  - pii_fields_empty
+  - model_allowed
+  - share_fits_reserve
+  - reports_to_cmo
+  - can_hire_false
+verification:   # WF-E05 S04 (gateway) with the new agent's own token; a failure retires the agent at once
+  - paperclip_bridge denied ops refused (agent.hire, agent.create, agent.update, instructions.update, budget.update, routine.create)
+  - a tool outside the granted set refused
+  - a proposed command lands as L1_approve_each
+  - lead PII fields absent from every tool response
+  - share registered and admission works within it
+  - the Paperclip agent is active (not pending_approval) and has no can_create_agents permission

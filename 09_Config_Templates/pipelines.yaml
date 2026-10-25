@@ -1,0 +1,115 @@
+# Project OS configuration template; unresolved readiness blocks the relevant live profile.
+schema_version: 1
+bundle_state: template
+decision_refs: [Q04, Q16, Q17, Q29.1, Q42]
+definition_revision: null
+definition_readiness_ref: business.qualification
+pipelines:
+  sale:
+    amo_pipeline_id: null
+    new_status_ids: []
+    qualified_status_ids: []
+    contract_status_ids: []
+    lost_status_ids: []
+    waitlist_status_ids: []
+    history_counting: first_qualified_event_not_current_stage
+    renewal_is_new_acquisition: false
+  rent:
+    amo_pipeline_id: null
+    new_status_ids: []
+    qualified_status_ids: []
+    contract_status_ids: []
+    lost_status_ids: []
+    waitlist_status_ids: []
+    history_counting: first_qualified_event_not_current_stage
+    renewal_is_new_acquisition: false
+qualified_fact_rule:
+  decision_status: P-19
+  to_status_ids_ref: pipelines.<pipeline>.qualified_status_ids
+  allowed_actor_user_ids: []          # call-center users approved by sales_lead
+  required_evidence_field_ids: []     # optional, approved by sales_lead
+  event_time: transition_occurred_at
+  qa_effect: later QA creates a new measurement revision or invalidation; it does not block real-time CAPI unless the owner decides otherwise
+lifecycle_events:
+- lead_created
+- contacted
+- qualified
+- contract_signed
+- payment_received
+- delivered
+- rental_started
+- renewal
+- cancelled
+- refunded
+lifecycle_is_linear: false
+capi_event_map:
+- 'on': lead_created
+  trigger: landing submission reached crm_confirmed (server Lead); amoCRM add_lead webhook is reconciliation only
+  event_name: Lead
+  action_source: website
+  enabled: true
+- 'on': qualified
+  trigger: qualified_fact_rule satisfied
+  event_name: QualifiedLead
+  action_source: system_generated
+  enabled: true
+- 'on': contract_signed
+  event_name: Contract
+  action_source: system_generated
+  enabled: false
+capi_delivery:                   # Meta answers per request, and a request that errors may still have stored its valid events (VR-37); AMT does not rely on same-source event_id dedup without F2 evidence (VR-33) - so nothing that may already be stored is ever resent; canonical prose TRACKING_CAPI.md#5.3; validator G05
+  batch_policy: realtime_single   # pinned: one event per request; a multi-event policy needs F2 dedup evidence (dedup_evidence_ref) and an owner decision (◇)
+  batch_max_events: 1
+  dedup_evidence_ref: null        # F2-AT-25 (8): the same server event_id + event_name sent twice to a test dataset counts once; informational until the owner decides
+  states: [queued, sending, sent, retry_wait, uncertain, needs_review, rejected, dropped_uncertain, skipped_no_consent, skipped_too_old, skipped_test, skipped_unknown_prior_send]
+  terminal: [sent, rejected, dropped_uncertain, skipped_no_consent, skipped_too_old, skipped_test, skipped_unknown_prior_send]
+  result_transitions:             # capi_attempts.result -> next capi_events.state of the event in the request
+    accepted: sent
+    retryable_error: retry_wait   # throttled before processing (vendor_error_map); counted
+    connect_error: retry_wait     # provably not sent: connection refused, DNS or TLS handshake failure before the request was written (transport below); counted
+    no_response: uncertain        # the request was written but no response came (read timeout, crash): may be stored, never resent (VR-33)
+    unclassified_error: uncertain # 5xx, Graph code 1/2 or any response vendor_error_map does not match: may be stored, never resent
+    batch_rejected: uncertain     # a multi-event request that errored may have stored its valid events (VR-37): never resent; cannot occur under realtime_single
+    permanent_error: needs_review # Meta refused this single event, so it is not stored; never terminal by itself - technical_operator rejects or requeues it (needs_review_exits); the breaker stops a systemic fault from draining the queue
+    config_error: retry_wait      # request-level fault (dataset or pixel ID, API version, top-level parameter): nothing processed; hold, not counted, ALERT_CAPI_FAILED reason config
+    auth_error: retry_wait        # revoked, expired or unpermitted token: hold, not counted, ALERT_CAPI_FAILED reason auth (SECURITY.md#10)
+  counted_results: [retryable_error, connect_error]   # count toward the maximum attempts (capi_events.attempts); attempt_no numbers every request row
+  uncounted_results: [auth_error, config_error]       # holds: the event waits for the credential or config fix, attempts are not spent
+  permanent_error_requires_single_event: true
+  vendor_error_map:               # how a Graph response becomes an attempt result; a row whose result resends applies only after its verify_in case passed in F2 (before that its responses are unclassified_error)
+  - {match: 'HTTP 200 and events_received = 1', result: accepted}
+  - {match: 'HTTP 4xx with error.type OAuthException (invalid or expired token, missing permission)', result: auth_error, basis: '[?] an OAuth failure processes nothing; SECURITY.md#10', verify_in: 'F2-AT-25 (3)'}
+  - {match: 'HTTP 4xx naming the dataset or pixel ID, the API version, the access token parameter or a top-level field outside data', result: config_error, basis: '[?] a request-level parameter error processes nothing', verify_in: 'F2-AT-25 (7)'}
+  - {match: 'HTTP 4xx throttling codes 4, 17, 32, 613, 80001-80014 (80004 Ads Management)', result: retryable_error, basis: 'VR-40 (requests of a throttled app or user fail)', verify_in: 'F2-AT-25 (9)'}
+  - {match: 'HTTP 4xx naming a field of the one event in data (event_time, event_name, user_data, custom_data)', result: permanent_error, basis: 'VR-37 (only valid events are accepted)', verify_in: 'F2-AT-25 (4)'}
+  - {match: 'HTTP 5xx, Graph code 1 or 2, or an error body without a recognised code', result: unclassified_error}
+  - {match: 'no response after the request was written (read timeout, crash)', result: no_response}
+  - {match: 'connection refused, DNS failure or TLS handshake failure before the request was written', result: connect_error, basis: 'transport: no TLS 1.3 early data, no client-side retry', verify_in: 'F2-AT-25 (5)'}
+  unmatched_result: unclassified_error   # a response no row matches is treated as possibly stored
+  permanent_error_breaker:        # a systemic fault (bad mapping, wrong field format) must not drain the queue into needs_review
+    consecutive: 3                # builder candidate, calibrated in F2
+    same_error_code: true
+    on_trip: hold_queue           # no new requests; queued events stay queued; ALERT_CAPI_FAILED reason config
+    cooldown: PT1H                # builder candidate; then one queued event is sent as a half-open probe - the same error holds the queue again
+    alert: ALERT_CAPI_FAILED
+  needs_review_exits:             # technical_operator, audited
+    reject: rejected
+    requeue: queued               # only when no attempt of the event ended in no_response, unclassified_error or batch_rejected (it may be stored)
+    requeue_forbidden_after: [no_response, unclassified_error, batch_rejected]
+  transport: {tls_early_data: false, client_auto_retry: false}   # connect_error is provably unsent only without TLS 1.3 0-RTT and without client-side retries
+  age_check: at_batch_build       # event_time < now - (max_event_age - send_age_margin) -> skipped_too_old before the request is built
+  send_age_margin_ref: vendor.meta_capi.send_age_margin   # covers clock_margin + request time (minutes), not hours
+  uncertain_resolution:           # Meta offers no per-event read-back for production events
+    evidence: late_provider_response_for_the_attempt   # read on the same open connection after the soft deadline (request_hash and trace id)
+    soft_deadline_ref: vendor.meta_capi.request_timeout   # the attempt becomes uncertain here; the socket stays open
+    on_evidence: sent
+    hold_ref: vendor.meta_capi.uncertain_hold   # hard deadline of that read (minutes, longer than request_timeout); the socket is then closed, so nothing can arrive later
+    on_hold_expiry: dropped_uncertain   # terminal at the hard deadline; the event is counted as lost, never resent (VR-33)
+    never_resend: true
+    counted_in: [capi_error_rate, reconciliation_report]
+  after_no_response: single_event_requests_until_one_accepted   # already the case under realtime_single; kept for any future batch policy
+capi_contract_readiness_ref: vendor.meta_capi
+optimization_goal_readiness_ref: vendor.qualified_optimization
+optimization_rule_ref: business-policy.yaml#qualified_optimization_rule
+test_tag: AMT:TEST
+preserve_test_classification_on_backfill: true

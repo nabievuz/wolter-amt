@@ -1,0 +1,38 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "https://wolter.uz/amt/schemas/tools/experiment.close.schema.json",
+ "title": "experiment.close arguments",
+ "description": "Gateway guard 4 argument schema; contract: GUARDRAIL_GATEWAY.md §9.1; DATA_MODEL experiments.",
+ "type": "object",
+ "additionalProperties": false,
+ "properties": {
+  "experiment_id": {
+   "$ref": "_common.schema.json#/$defs/ref"
+  },
+  "expected_revision": {
+   "type": "integer",
+   "minimum": 1
+  },
+  "result": {
+   "$ref": "_common.schema.json#/$defs/outcome"
+  },
+  "data_status": {
+   "$ref": "_common.schema.json#/$defs/data_status"
+  },
+  "evidence_refs": {
+   "type": "array",
+   "items": {
+    "$ref": "_common.schema.json#/$defs/ref"
+   },
+   "maxItems": 20,
+   "minItems": 1
+  }
+ },
+ "required": [
+  "experiment_id",
+  "expected_revision",
+  "result",
+  "data_status",
+  "evidence_refs"
+ ]
+}

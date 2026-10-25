@@ -1,0 +1,38 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "https://wolter.uz/amt/schemas/tools/amo.read_leads.schema.json",
+ "title": "amo.read_leads arguments",
+ "description": "Gateway guard 4 argument schema; contract: GUARDRAIL_GATEWAY.md §9.5.",
+ "type": "object",
+ "additionalProperties": false,
+ "properties": {
+  "pipeline_id": {
+   "$ref": "_common.schema.json#/$defs/amo_id"
+  },
+  "status_ids": {
+   "type": "array",
+   "items": {
+    "$ref": "_common.schema.json#/$defs/amo_id"
+   },
+   "maxItems": 50
+  },
+  "updated_from": {
+   "$ref": "_common.schema.json#/$defs/datetime"
+  },
+  "updated_to": {
+   "$ref": "_common.schema.json#/$defs/datetime"
+  },
+  "limit": {
+   "type": "integer",
+   "minimum": 1,
+   "maximum": 50,
+   "description": "batch ≤ 50 ★"
+  },
+  "cursor": {
+   "$ref": "_common.schema.json#/$defs/ref"
+  }
+ },
+ "required": [
+  "limit"
+ ]
+}

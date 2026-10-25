@@ -1,0 +1,24 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "https://wolter.uz/amt/schemas/tools/drive.list_raw.schema.json",
+ "title": "drive.list_raw arguments",
+ "description": "Gateway guard 4 argument schema; contract: GUARDRAIL_GATEWAY.md §9.1.",
+ "type": "object",
+ "additionalProperties": false,
+ "properties": {
+  "folder_key": {
+   "$ref": "_common.schema.json#/$defs/slug"
+  },
+  "cursor": {
+   "$ref": "_common.schema.json#/$defs/ref"
+  },
+  "limit": {
+   "type": "integer",
+   "minimum": 1,
+   "maximum": 100
+  }
+ },
+ "required": [
+  "folder_key"
+ ]
+}

@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wolter.uz/amt/schemas/verification-result.schema.json",
+  "title": "AMT independent verification result",
+  "description": "Written only by amt-verify under the verifier identity (EVOLUTION_CONTRACT §8). Bound to one manifest digest and one evaluator revision. A candidate never writes or edits this record.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["verification_id", "manifest_digest", "evaluator_revision", "suite_digest", "holdout_digest", "environment", "started_at", "finished_at", "suites", "verdict", "verifier"],
+  "properties": {
+    "verification_id": {"type": "string", "format": "uuid"},
+    "manifest_digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "evaluator_revision": {"type": "string"},
+    "suite_digest": {"type": "string"},
+    "holdout_digest": {"type": "string"},
+    "environment": {"enum": ["isolated", "staging"]},
+    "started_at": {"type": "string", "format": "date-time"},
+    "finished_at": {"type": "string", "format": "date-time"},
+    "suites": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["suite", "result", "counts"],
+        "properties": {
+          "suite": {"enum": ["regression", "contract", "security", "integration_controlled", "holdout", "invariant", "migration", "eval_role", "golden_copy"]},
+          "result": {"enum": ["not_run", "pass", "fail", "blocked", "inconclusive"]},
+          "counts": {"type": "object", "additionalProperties": false, "required": ["total", "passed", "failed", "skipped"], "properties": {"total": {"type": "integer"}, "passed": {"type": "integer"}, "failed": {"type": "integer"}, "skipped": {"type": "integer"}}},
+          "evidence_ref": {"type": "string"}
+        }
+      }
+    },
+    "criteria_changes_detected": {"type": "array", "items": {"type": "string"}, "description": "Any deletion/weakening of protected tests, thresholds or evaluator config compared to the protected baseline — non-empty forces verdict=fail"},
+    "verdict": {"enum": ["pass", "fail", "blocked", "inconclusive"]},
+    "verifier": {"type": "object", "additionalProperties": false, "required": ["identity", "independent_of_author"], "properties": {"identity": {"type": "string"}, "independent_of_author": {"const": true}, "review_report_ref": {"type": "string"}}}
+  }
+}

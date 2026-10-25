@@ -1,0 +1,72 @@
+# Project OS configuration template; unresolved readiness blocks the relevant live profile.
+schema_version: 1
+bundle_state: template
+decision_refs: [Q04, Q16, Q24, Q29.1, Q31, Q36, Q43]
+qualified_definition: contacted_and_courier_and_intent_within_30_days
+north_star: first_qualified_by_pipeline
+events_are_independent: true
+readiness_refs:
+- business.qualification
+- business.outcome_sources
+- business.contribution_policy
+- business.attribution
+- business.baseline
+- business.acceptance
+- business.exposure
+- business.step1_comparison
+- sales.sop
+- sales.qa
+renewals_are_new_acquisition: false
+unknown_is_not_lost_or_zero: true
+operational_vs_cohort_reports_separate: true
+economic_scaling_requires_mature_outcomes: true
+economic_readiness_gate: F5_GO          # P-08; OD-06 may move it to F6_STEP2 or F7 monitoring
+data_status_values:
+- valid
+- no_activity
+- no_spend
+- spend_zero_qualified
+- insufficient_sample
+- not_mature
+- incomparable_baseline
+- missing_data
+- stale_data
+data_status_definitions:
+  valid: spend > 0, sample and maturity rules met, baseline comparable
+  no_activity: spend = 0 and qualified = 0
+  no_spend: spend = 0 and qualified > 0
+  spend_zero_qualified: spend > 0 and qualified = 0
+  insufficient_sample: below the approved minimum sample
+  not_mature: outcome window not closed
+  incomparable_baseline: qualification or tracking definition revision differs from the baseline
+  missing_data: required source rows absent
+  stale_data: source older than the approved freshness cutoff
+weekly_report_metrics_ref: Q24
+weekly_report_metrics:
+- qualified_leads_by_pipeline
+- qualified_cpl_by_pipeline
+- lead_to_contract
+- spend_vs_limit
+- best_and_worst_creative_with_min_n
+- next_week_experiments
+- rent_utilization_and_waitlist
+- data_gaps_and_freshness
+- trust_ramp_state
+- cash_contribution_when_available
+qualified_optimization_rule:
+  decision_ref: Q29.1
+  owner_volume_floor_per_month: 200   # Q29.1 owner text: "~200 lead/oy"
+  requires_all: [account_eligibility_evidence, measured_monthly_volume_at_least_max_of_owner_floor_and_current_official_requirement]
+  otherwise: optimize_for_Lead_with_qualified_as_guardrail
+  readiness_ref: vendor.qualified_optimization
+  decision_rule: Q29_1_VOLUME   # decision-statistics.yaml (P-45)
+  grain: per_pipeline   # each pipeline (sale, rent) meets the floor on its own
+  counted_event: crm_confirmed landing submissions attributed to Meta (the server Lead trigger, P-19), first per lead_id x pipeline
+  window: previous_calendar_month   # the owner's unit "lead/oy" exactly, so the threshold stays 200 per month (P-56; a trailing 28-day count would raise it to about 217)
+  remeasure: monthly on the first Monday 07:30 (operations.yaml schedule qualified_volume_check), per pipeline, recorded with measured_at
+  remeasure_schedule_id: qualified_volume_check
+  vendor_conditions: 'every condition of the current official Meta requirement is stored as {name, value, window, source, retrieved_at} and is evaluated in its own window; all must hold'
+  threshold: max_floor_vendor   # max(owner_volume_floor_per_month, the vendor volume)
+  up_switch: {consecutive_passes: 2, threshold: max_floor_vendor, requires: [account_eligibility_evidence, all_vendor_conditions]}
+  down_switch: {measurements_below: 1, threshold: max_floor_vendor}   # Q29.1 as written; no looser band
+  switch_actor: owner events_manager_change (NEVER_AUTO); the measurement only reports a met switch condition in the weekly report and as a funnel-analyst manual proposal

@@ -1,0 +1,81 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "https://wolter.uz/amt/schemas/cost-model.schema.json",
+ "title": "AMT runtime demand and unit-cost model (build/F4/cost-model.json, F4-AT-19)",
+ "description": "One row per source of billable LLM or media calls (every agent step of every workflow, CMO chat, scheduled agent jobs such as the C12 retro, build evals and media jobs). Every volume and token input carries a kernel evidence tag: D measured (F1 UNIT_COST, F2 volume evidence, provider usage), T assumption with a range, X derived from D and T; an unknown is a T range, never a bare number. Prices come from the llm-proxy pricing revision; cache-aware prices only when F1-AT-29 proved caching for that path. The model does not set budgets: totals are compared with budgets.yaml (shares and the 15 000 USD minor key cap) and a gap goes to the owner (F4 REPORT).",
+ "type": "object",
+ "additionalProperties": false,
+ "required": ["model_revision", "prepared_by", "prepared_at", "price_revision", "unit_cost_ref", "cache_evidence_ref", "rows", "totals"],
+ "properties": {
+  "model_revision": {"type": "string", "minLength": 1, "maxLength": 80},
+  "prepared_by": {"type": "string", "pattern": "^(agent|person):[a-z0-9_.-]+$"},
+  "prepared_at": {"type": "string", "format": "date-time"},
+  "price_revision": {"type": "string", "minLength": 1, "maxLength": 80, "description": "llm-proxy pricing revision used for every row"},
+  "unit_cost_ref": {"type": "string", "minLength": 1, "maxLength": 300, "description": "build/F1/UNIT_COST.md (F1-AT-13 measured calls)"},
+  "cache_evidence_ref": {"type": "string", "minLength": 1, "maxLength": 300, "description": "F1-AT-29 result per proxy path (cache_effective true|false)"},
+  "rows": {"type": "array", "minItems": 1, "maxItems": 400, "items": {"$ref": "#/$defs/row"}},
+  "totals": {"$ref": "#/$defs/totals"}
+ },
+ "$defs": {
+  "int_band": {
+   "type": "object",
+   "additionalProperties": false,
+   "required": ["p50", "p90"],
+   "properties": {"p50": {"type": "integer", "minimum": 0}, "p90": {"type": "integer", "minimum": 0}}
+  },
+  "basis": {
+   "type": "object",
+   "additionalProperties": false,
+   "required": ["volume", "tokens", "evidence_refs"],
+   "properties": {
+    "volume": {"enum": ["D", "T", "X"]},
+    "tokens": {"enum": ["D", "T", "X"]},
+    "evidence_refs": {"type": "array", "minItems": 1, "maxItems": 10, "items": {"type": "string", "minLength": 1, "maxLength": 300}}
+   }
+  },
+  "row": {
+   "type": "object",
+   "additionalProperties": false,
+   "required": ["source", "agent", "model_class", "runs_per_month", "calls_per_run", "input_tokens_per_call", "output_tokens_per_call", "cache_hit_ratio", "usd_minor_per_month", "basis"],
+   "properties": {
+    "source": {"enum": ["workflow_step", "chat", "scheduled_job", "build_eval", "media_job"]},
+    "workflow_id": {"type": ["string", "null"], "pattern": "^WF-[BEO][0-9]{2}$"},
+    "step_id": {"type": ["string", "null"], "pattern": "^S[0-9]{2}$"},
+    "schedule_id": {"type": ["string", "null"], "pattern": "^[a-z0-9_]+$"},
+    "agent": {"enum": ["cmo", "media-buyer", "creative-studio", "cro", "funnel-analyst", "reviewer", "media_generation"]},
+    "model_class": {"type": "string", "minLength": 1, "maxLength": 60},
+    "runs_per_month": {"$ref": "#/$defs/int_band"},
+    "calls_per_run": {"$ref": "#/$defs/int_band"},
+    "input_tokens_per_call": {"$ref": "#/$defs/int_band"},
+    "output_tokens_per_call": {"$ref": "#/$defs/int_band"},
+    "cache_hit_ratio": {"type": "number", "minimum": 0, "maximum": 1, "description": "0 unless F1-AT-29 proved caching for this proxy path"},
+    "usd_minor_per_month": {"$ref": "#/$defs/int_band"},
+    "basis": {"$ref": "#/$defs/basis"}
+   },
+   "allOf": [
+    {"if": {"properties": {"source": {"const": "workflow_step"}}}, "then": {"required": ["workflow_id", "step_id"], "properties": {"workflow_id": {"type": "string"}, "step_id": {"type": "string"}}}},
+    {"if": {"properties": {"source": {"const": "scheduled_job"}}}, "then": {"required": ["schedule_id"], "properties": {"schedule_id": {"type": "string"}}}}
+   ]
+  },
+  "totals": {
+   "type": "object",
+   "additionalProperties": false,
+   "required": ["per_agent", "key_usd_minor", "agents_over_share_p90", "key_over_cap_p90"],
+   "properties": {
+    "per_agent": {
+     "type": "object",
+     "propertyNames": {"enum": ["cmo", "media-buyer", "creative-studio", "cro", "funnel-analyst", "reviewer", "media_generation"]},
+     "additionalProperties": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["usd_minor_per_month", "share_minor"],
+      "properties": {"usd_minor_per_month": {"$ref": "#/$defs/int_band"}, "share_minor": {"type": "integer", "minimum": 0}}
+     }
+    },
+    "key_usd_minor": {"$ref": "#/$defs/int_band"},
+    "agents_over_share_p90": {"type": "array", "uniqueItems": true, "items": {"enum": ["cmo", "media-buyer", "creative-studio", "cro", "funnel-analyst", "reviewer", "media_generation"]}},
+    "key_over_cap_p90": {"type": "boolean"}
+   }
+  }
+ }
+}

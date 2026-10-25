@@ -1,0 +1,132 @@
+# Project OS workflow definition template; unresolved readiness blocks the relevant live profile.
+schema_version: 1
+bundle_state: template
+workflow_id: WF-E02
+definition_version: 1
+title: Harness and workflow upgrade (controller handover)
+category: engineering
+purpose: >-
+  A verified change to the workflow runtime, orchestration or workflow definitions is released without losing any
+  checkpoint, lease, in-flight command, reservation, timer, webhook or audit record, and with exactly one authorized
+  controller dispatching at any time.
+accountable: owner
+requirement_refs: [EVO-R10, EVO-R11, EVO-R15]
+trigger:
+  kinds: [parent_run]
+  source: WF-E01 run whose change class is harness/workflow (class C) after S06 verification
+  source_refs: [WF-E01]
+  schedule: null
+  dedup_key: proposal_id
+  correlation_key: proposal_id
+  parent_workflows: [WF-E01]
+authorization:
+  may_start: [amt-workflow]
+  may_cancel: [owner, amt-workflow]
+  preconditions:
+    - parent WF-E01 verification passed for the exact manifest
+    - "a parent_run start by amt-workflow happens only on behalf of a parent run step that lists this workflow in starts (parent_run_id and parent step recorded)"
+input:
+  schema_ref: schemas/candidate-manifest.schema.json
+  required_fields: [proposal_id, manifest_digest, from_release_id, to_release_id]
+  freshness: []
+steps:
+  - id: S01
+    name: Run inventory
+    executor: {type: deterministic, ref: amt-workflow}
+    depends_on: []
+    outputs: [inventory of runs, checkpoints, leases/epochs, in-flight commands and attempts, reservations, timers, pending webhooks, audit head]
+    external_effect: none
+    retry: safe_resume
+    timeout: PT30M
+  - id: S02
+    name: Per-run disposition plan
+    executor: {type: agent, ref: eng-architect}
+    depends_on: [S01]
+    outputs: ["per active run disposition: finish_on_old_definition | migrate_with_tested_state_migration | cancel_with_reason"]
+    handoff:
+      to: owner
+      accept_when: [every inventoried run has a disposition, migrations have passing tests, irreversible in-flight effects listed]
+      reject_codes: [run_without_disposition, untested_migration]
+      on_reject: {route: producer_retry, max_rounds: 2, after_max: escalate, escalate_to: owner}
+    external_effect: internal_only
+    retry: safe_resume
+    timeout: P2D
+  - id: S03
+    name: Owner handover approval
+    executor: {type: human, ref: owner}
+    depends_on: [S02]
+    outputs: [approved handover plan bound to manifest digest and inventory hash]
+    emits: [handover_plan_approved]
+    approval: {policy_action: harness_handover, never_auto: true}
+    external_effect: none
+    retry: never
+    timeout: P7D
+  - id: S04
+    name: Drain and fence
+    executor: {type: deterministic, ref: amt-release}
+    depends_on: [S03]
+    outputs: [old controller closed for new dispatch; controller epoch incremented; in-flight list frozen]
+    external_effect: internal_only
+    retry: safe_resume
+    timeout: PT30M
+  - id: S05
+    name: State migration
+    executor: {type: deterministic, ref: amt-workflow}
+    depends_on: [S04]
+    outputs: [migrated run states with before/after hashes; pinned runs left untouched]
+    external_effect: internal_only
+    retry: safe_resume
+    timeout: PT1H
+  - id: S06
+    name: Controller handover
+    executor: {type: deterministic, ref: amt-release}
+    depends_on: [S05]
+    outputs: [new controller accepts with handover evidence and new epoch; old controller lease revoked]
+    external_effect: internal_only
+    retry: safe_resume
+    timeout: PT15M
+  - id: S07
+    name: Reconciliation
+    executor: {type: deterministic, ref: executor}
+    depends_on: [S06]
+    outputs: [in-flight attempts reconciled; uncertain items resolved or manual_resolution]
+    external_effect: none
+    retry: safe_resume
+    timeout: P1D
+  - id: S08
+    name: Staged observation
+    executor: {type: deterministic, ref: sync-worker}
+    depends_on: [S07]
+    emits: [rollback_trigger]
+    outputs: [isolated/read-only scope observation first, then normal scope; stop/rollback triggers]
+    external_effect: none
+    retry: safe_resume
+    timeout: readiness:evolution.outcome_policy
+limits:
+  max_duration: P14D
+  max_attempts_per_step: 3
+  cost: {budget_account: engineering, max_minor: null, max_minor_ref: 'readiness:engineering.budget', currency: USD, readiness_ref: engineering.budget}
+  concurrency: {per_correlation_key: 1, global: 1}
+  escalation:
+    - {after: PT1H, to: technical_operator, channel: ops-bot+independent_monitor}
+    - {after: PT4H, to: owner, channel: alternate_channel}
+  owner_absent: Handover does not start; old controller keeps running; if a handover is mid-way, the system stays drained (no new external dispatch) until the owner decides.
+continuation:
+  checkpoint: after_every_step_transition
+  timers: [drain_deadline, observation_window_max]
+  signals: [old_controller_heartbeat, new_controller_ready, rollback_trigger]
+  lease_ttl: PT1M
+  cancel: "Before S04 — cancel freely; after S04 — rollback to old controller with epoch increment, never two active controllers; amt-workflow cancels only under workflow-policy.yaml#child_lifecycle.on_parent_end (cancel_open, no external effect yet)"
+  compensation: restore old release with schema-compatible state or pre-tested repair; remote effects reconciled, not "undone"
+  uncertain_external_effect: reconcile_via_command_ledger
+completion:
+  technical_done: single active controller with new epoch; every inventoried item accounted for; observation clean
+  end_steps: [S08]
+  required_evidence: [inventory hash, disposition plan, epoch change, migration hashes, reconciliation report, observation report]
+  observation: staged scope per evolution.outcome_policy
+  business_acceptance: "not_applicable: technical acceptance plus no-business-harm evidence"
+failure_paths:
+  missing_input: Inventory incomplete or any run without disposition → S02 rejected; no drain.
+  cancel_or_escalate: Old controller reappears after handover → its epoch is stale, every dispatch it attempts is rejected and audited.
+  uncertain_external_effect: In-flight command at drain time → stays uncertain until reconciled by the new controller; never re-sent blindly.
+tests: [EVO-AT06, EVO-AT07, EVO-AT12, WF-TEST-E02-E2E, WF-TEST-E02-MISSING, WF-TEST-E02-CANCEL, WF-TEST-E02-UNCERTAIN]

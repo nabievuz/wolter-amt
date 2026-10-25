@@ -1,0 +1,38 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "https://wolter.uz/amt/schemas/tools/experiment.update.schema.json",
+ "title": "experiment.update arguments",
+ "description": "Gateway guard 4 argument schema; contract: GUARDRAIL_GATEWAY.md §9.1; DATA_MODEL experiments. the primary metric and arms are not updatable after creation",
+ "type": "object",
+ "additionalProperties": false,
+ "properties": {
+  "experiment_id": {
+   "$ref": "_common.schema.json#/$defs/ref"
+  },
+  "expected_revision": {
+   "type": "integer",
+   "minimum": 1
+  },
+  "guardrail_metrics": {
+   "type": "array",
+   "items": {
+    "$ref": "_common.schema.json#/$defs/metric"
+   },
+   "maxItems": 10
+  },
+  "min_sample": {
+   "type": "integer",
+   "minimum": 1
+  },
+  "stop_rule": {
+   "$ref": "_common.schema.json#/$defs/free_text"
+  },
+  "note": {
+   "$ref": "_common.schema.json#/$defs/free_text"
+  }
+ },
+ "required": [
+  "experiment_id",
+  "expected_revision"
+ ]
+}

@@ -1,0 +1,49 @@
+# Project OS configuration template; unresolved readiness blocks the relevant live profile.
+schema_version: 1
+bundle_state: template
+decision_refs: [Q08, Q35, Q42]
+owner_only_changes: true
+registry_state: unconfigured
+offers: []
+facts: []
+activation_requires:
+- immutable_offer_revision
+- owner_approval_ref
+- validity_window
+- verified_price_and_currency
+- approved_claims
+- special_category_decision
+- sale_or_rent_readiness
+- live_artifact_dependency_map
+- asset_rights_cleared
+initial_human_gate: HG-F2-15
+initial_readiness_ref: offers.initial
+revocation_readiness_ref: offers.propagation
+rights_readiness_ref: offers.asset_rights
+snapshot_rule: landing_and_ads_reference_same_approved_revision
+reviewer_blocks_claims_not_in_registry: true
+example_schema:
+  offer_id: string
+  revision: positive_integer
+  pipeline: sale|rent
+  status: draft|active|paused|expired|revoked
+  valid_from: UTC timestamp
+  valid_to: UTC timestamp or explicit open_ended decision
+  price:
+    amount_minor: integer
+    currency: ISO4217
+    period: one_time|day|week|month
+  terms: typed owner-approved business terms
+  claims: approved Uzbek and optional Russian text
+  forbidden_claims: claims the Reviewer must reject for this offer
+  restrictions: eligibility, territory and channel restrictions
+  capacity_bound: rent offers only; capacity band or stock condition under which the offer may run
+  source_approval_ref: evidence reference
+  asset_rights_ref: evidence reference
+  special_ad_category: verified policy choice; unknown blocks activation
+fact_schema:
+  fact_id: string
+  text_uz: approved factual statement usable in copy
+  text_ru: optional
+  source_ref: evidence reference
+  valid_to: UTC timestamp or open_ended

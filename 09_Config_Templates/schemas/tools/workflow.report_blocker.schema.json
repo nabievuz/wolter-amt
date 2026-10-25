@@ -1,0 +1,35 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "https://wolter.uz/amt/schemas/tools/workflow.report_blocker.schema.json",
+ "title": "workflow.report_blocker arguments",
+ "description": "Gateway guard 4 argument schema; contract: WORKFLOW_RUNTIME.md §2.",
+ "type": "object",
+ "additionalProperties": false,
+ "properties": {
+  "run_id": {
+   "$ref": "_common.schema.json#/$defs/uuid"
+  },
+  "step_id": {
+   "$ref": "_common.schema.json#/$defs/step_id"
+  },
+  "blocker_code": {
+   "$ref": "_common.schema.json#/$defs/slug"
+  },
+  "detail": {
+   "$ref": "_common.schema.json#/$defs/free_text"
+  },
+  "evidence_refs": {
+   "type": "array",
+   "items": {
+    "$ref": "_common.schema.json#/$defs/ref"
+   },
+   "maxItems": 20
+  }
+ },
+ "required": [
+  "run_id",
+  "step_id",
+  "blocker_code",
+  "detail"
+ ]
+}

@@ -1,0 +1,68 @@
+# Project OS configuration template; unresolved readiness blocks the relevant live profile.
+schema_version: 1
+bundle_state: template
+decision_refs: [Q43]
+mode: report_only
+source: amt_ro.v_fleet_today
+physical_units: bikes
+throughput_units: transactions_per_month
+historical_owner_context:
+  period: 2026 Jun-Sep
+  monthly_transactions_including_renewals: [570, 557, 540, 512]
+  approx_monthly_transaction_capacity: 600
+  use_as_physical_denominator: false
+balance_invariants:
+- serviceable_bikes = rented_bikes + reserved_bikes + available_bikes
+- total_fleet = serviceable_bikes + maintenance_bikes
+utilization_formula: rented_bikes / serviceable_bikes
+zero_denominator: unknown
+wizard_asks: [rented_bikes, reserved_bikes, available_bikes, maintenance_bikes, waitlist_active, waitlist_eligible_ready, waitlist_oldest_at, expected_returns_next_24h]
+derived_fields: [serviceable_bikes, total_fleet]
+derived_check: total_fleet compared with the previous valid snapshot; a difference needs operator confirmation
+required_fields:
+- report_id
+- observed_at
+- submitted_at
+- reported_by_person_ref
+- total_fleet
+- serviceable_bikes
+- rented_bikes
+- reserved_bikes
+- available_bikes
+- maintenance_bikes
+- waitlist_active
+- waitlist_eligible_ready
+- waitlist_oldest_at
+- expected_returns_next_24h
+- supersedes_report_id
+waitlist_source: OD-07     # interim: snapshot counts drive bands; CRM waitlist statuses are a cross-check
+waitlist_aggregates_table: waitlist_aggregates
+freshness_readiness_ref: fleet.freshness
+waitlist_readiness_ref: fleet.waitlist
+calibration_readiness_ref: fleet.thresholds
+missing_or_invalid: hold_all_ordinary_rent_budget_changes
+protective_controls_unaffected: true
+stale_snapshot_never_valid: true
+freshness_checked_at_proposal_and_dispatch: true
+multiple_reports: append_only_latest_valid_effective
+collection:
+  schedule_ref: operations.schedule
+  ask: '08:00'            # P-06 (OD-14)
+  remind: '09:00'
+  escalate: '14:00'
+  timezone: Asia/Tashkent
+  rent_review_trigger: fleet_snapshot_accepted
+  batch_cutoff: '09:45'
+  after_cutoff: separate change-set item with its own presented_at and TTL
+  no_valid_snapshot_by_escalate: hold_all_ordinary_rent_budget_changes_today
+bands:
+  waitlist_high: when waitlist_eligible_ready >= parameters.waitlist_high, reduce rent toward the owner-approved floor
+  fleet_slack: when available_bikes >= parameters.available_high and waitlist_eligible_ready == 0, increase rent within budget and approval
+  otherwise: no_change
+  hysteresis_days_ref: parameters.hysteresis_days
+shift_to_sale_requires: sale.readiness
+parameters:
+  waitlist_high: null
+  available_high: null
+  rent_floor_daily_minor: null
+  hysteresis_days: null

@@ -1,0 +1,159 @@
+# Project OS configuration template; unresolved readiness blocks the relevant live profile.
+schema_version: 1
+bundle_state: template
+currency: USD
+amount_unit: minor   # 1 USD = 100 minor; USD 150 = 15000 minor; USD 1 500 = 150000 minor
+business_timezone: Asia/Tashkent
+decision_refs: [Q08, Q10, Q33, Q37, Q44, Q61]
+openrouter:
+  key_hard_cap_minor: 15000          # USD 150/oy (Q10/Q33/Q44.1); changed only by a new owner Q
+  shares_minor:
+    creative-studio: 3500
+    cmo: 2000
+    funnel-analyst: 1500
+    media-buyer: 1500
+    cro: 1000
+    reviewer: 500
+    media_generation: 4000
+    reserve: 1000
+  decision_model_calls: Jev pre-screen calls (Q61) are made by the gateway and reserved against the reviewer share (input tokens x approved price; output free)
+  reserve_rule: 'reserve is not pre-assigned; only budget_override (owner) moves it to an agent or media_generation within the key cap; the one exception is WF-E05 (owner decision Q68), which carves the share of an agent it creates from reserve (agent-hiring.yaml#envelope.budget; the sum of active dynamic shares never exceeds reserve and the key cap never changes)'
+  sub_shares:                        # P-89: a share split into parts that cannot starve each other; the split value is the owner's, the parent share does not change
+    cmo:
+      parts: [chat, workflow]
+      sum_rule: 'chat + workflow = shares_minor.cmo'
+      values_ref: budget.request_bounds   # cmo.chat_sub_share_minor; workflow = shares_minor.cmo - chat_sub_share_minor
+      resolution: 'by proxy token: HERMES_LLM_PROXY_TOKEN (the Telegram chat path and voice-note STT) draws on chat; HERMES_LLM_PROXY_WORKFLOW_TOKEN (Hermes API-server runs that amt-workflow starts with provider cmo-workflow) draws on workflow'   # P-101: Hermes forwards no run token
+      provider_selection: 'the Hermes config holds two providers on the llm-proxy /openai path, cmo-chat and cmo-workflow; the Telegram gateway uses cmo-chat and every API-server run names provider cmo-workflow per request (VR-44; F4-AT-31 [T])'
+      run_attribution: 'amt-workflow registers the CMO workflow run with llm-proxy before it starts it; cmo-workflow requests are attributed to that run (ai_requests run_id, step_id); one CMO workflow run at a time'
+      thresholds: 'share_warn_pct and share_stop_pct apply to each part'
+      part_stop: 'a stopped part is recorded in agent_runtime_state as cmo.chat or cmo.workflow; only that part is refused (agent_paused, reason part_stop) and it is not a proxy_admission_causes member; the parent share stop (both parts used up) keeps its global share_stop effect'
+      part_alert: 'ALERT_BUDGET_80 names the part; a part stop raises ALERT_BUDGET_100 with reason part_stop, which is not a proxy_admission_pause'
+      resume: 'owner /agent resume cmo.chat or /agent resume cmo.workflow (agent_resume, typed code)'
+      fallback: 'if F4-AT-31 cannot prove that the two Hermes paths keep their own tokens, the split stays inactive and only the per-person chat limits bound chat'
+      chat_exhausted: 'the Hermes Telegram adapter answers with a fixed notice without an LLM call; the workflow part continues'
+      chat_limits_ref: budget.request_bounds   # cmo.chat_daily_messages_per_person and cmo.chat_max_session_turns, counted per person_ref by the deterministic Hermes Telegram adapter
+      test: F4-AT-31
+  build_eval_max_pct: 40             # builder standard: build-time AT/eval/shadow spend ceiling as % of the monthly key cap
+  build_eval_over_limit_options: [spread_over_two_months, reduce_eval_scope, new_owner_q_changing_Q10]
+  provider_reset_contract_ref: vendor.openrouter_period
+  reservation_required: true
+  unknown_cost_behavior: retain_reservation_until_reconciled
+  resume_after_reset_requires_owner: true
+  share_warn_pct: 80
+  share_stop_pct: 100
+  key_noncritical_stop_pct: 90
+  admission_classes:                 # scope of the key_noncritical_stop_pct, billing_unreliable and Langfuse-outage pauses (P-84)
+    critical: []                     # entries 'agent:WF-xx:Sxx' or 'agent:WF-xx:*'; naming any entry narrows the stop and is an owner decision
+    noncritical: ['*']               # every LLM and media admission: the fail-closed default
+    resolution: 'the proxy resolves the class from the run token (workflow_id, step_id) or, for HERMES_LLM_PROXY_WORKFLOW_TOKEN, from the CMO run registered by amt-workflow; a request without either (CMO chat, media job, gateway Jev call) is noncritical'   # P-101
+    unknown_entry: reject_config_at_load
+    critical_decision_ref: null      # P-98: the owner decision (a ✅ Q-ID in DECISION_LOG) that names the critical entries; required as soon as critical is not empty
+  anomaly_readiness_ref: budget.anomaly
+  per_request_readiness_ref: budget.request_bounds
+  reservation_sizing:                # P-86: upper-bound reservations are sized to the shares, so a burst of holds cannot exhaust a share by itself
+    upper_bound: 'max_input_tokens x the highest input rate the request can incur + max_output_tokens x the output rate of the priced model'   # P-99: never below the worst case
+    input_rate_rule: 'no cache_control in the request: the base input rate; cache_control with the default 5-minute TTL: 1.25 x the base input rate; a 1-hour or unknown TTL: 2 x the base input rate (VR-43); the cache-read rate is never used for a hold'
+    priced_model: 'the models.assignments slot of the role; a build-eval call on a candidate model uses that candidate pricing revision, and a call with no pricing revision is refused with price_unknown'
+    settlement_rule: 'settle at ceil(total_cost x 100) minor per request (the actual price, cache reads and writes included); never rounded down'
+    single_rule: 'upper_bound_minor <= max_cost_minor of the role (budget.request_bounds)'
+    concurrent_rule: 'for every allowance a hold is checked against (an agent share, a CMO part, the media share): the open holds of that allowance (in-flight and unsettled, LLM and media) plus the new upper bound <= the allowance x (share_stop_pct - share_warn_pct) / 100'   # P-101: the band is counted in money per allowance; derived from existing values, no new number
+    band_allowances: [agent_share, cmo_part, media_share]
+    applies_to: [creative-studio, cmo, funnel-analyst, media-buyer, cro, reviewer, media_generation]   # every share that takes a hold; a media job counts in the media share and in the requesting agent share (media_generation.attribution)
+    in_flight_rule: 'at most max_concurrency requests of a role (per model slot for the reviewer) are in flight at once'
+    over_limit_request: queue_in_proxy   # a request that would exceed the band or max_concurrency waits in a per-role FIFO; the wait ends before the pinned adapter timeout (runner_contract.claude_code_env API_TIMEOUT_MS) with slot_wait_exceeded (HTTP 423, GUARDRAIL_GATEWAY.md §10.1)
+    uncertain_hold: 'an uncertain request frees its concurrency slot after one cost-watchdog tick; its money hold stays in the band until it is settled'   # P-101: one stuck request no longer stalls a 1-3 slot role; the money stays held
+    uncertain_settlement:
+      method: openrouter_generation_lookup
+      endpoint: 'GET /api/v1/generation?id=<generation id>'   # returns total_cost and the token counts (VR-38)
+      when: every cost-watchdog tick until the record is found or uncertain_settlement_hold_hours (budget.request_bounds) ends
+      found: settle at the returned total_cost and release the rest of the hold
+      hold_end: 'the hold stays at the upper bound (never free credit) and keeps counting in the band until the daily provider-usage reconciliation settles it; ALERT_AGENT_ERROR with reason uncertain_hold_expired'
+    input_rule: 'a request whose pre-dispatch input count exceeds max_input_tokens is refused with input_over_bound (HTTP 413) and never dispatched'
+    input_count: 'pinned tokenizer of the model family, else a conservative byte estimate; F1-AT-30 shows the count is never below the provider-reported input_tokens'
+    check: F1-AT-30                  # computed per role from the approved budget.request_bounds and pricing; a role that breaks a rule changes its bounds before F1_COST_RUNTIME is approved
+    revision_rule: 'llm-proxy recomputes both rules on every config or pricing revision and does not ACK a revision that breaks one (ALERT_CONFIG_ACK); the previous revision stays active'
+  provider_policy:                   # Q44★ and Q44.3 enforced by llm-proxy on every request (ADR-003 item 3, P-82)
+    claude_family: {order: [anthropic], allow_fallbacks: false}   # Anthropic first-party only; no provider fallback
+    other_families: {provider: pinned_in_models_assignments, allow_fallbacks: false}
+    data_collection: deny
+    cache_control: pass_through      # the proxy forwards cache_control unchanged (F1-AT-29)
+    cache_aware_reservation: never   # P-99: a hold is never priced at the cache-read rate (reservation_sizing.input_rule); F1-AT-29 cache_effective feeds only the F4 cost model and settlement analysis
+  upstream_contract:                 # P-97: how llm-proxy reads every OpenRouter answer (GUARDRAIL_GATEWAY.md §10.1; VR-41, VR-42); every outcome ends in a code that no agent client resends
+    proxy_retries: 0                 # the proxy never resends; another attempt is only a new step call inside max_attempts_per_step
+    result_codes:                    # closed: each upstream outcome sits in exactly one list (validator G09)
+      upstream_unavailable: [http_408, http_429, http_5xx, connect_error, no_response_before_deadline, http_200_error_body, sse_error_event]   # http_5xx includes the 504 timeout error type
+      allowance_exhausted: [http_402, http_403_limit_source]   # error.metadata.limit_source openrouter_key_limit, openrouter_workspace_budget or openrouter_guardrail_budget; the proxy records it (INC-06)
+      upstream_refused: [http_403_guardrail_or_moderation, http_4xx_other]   # a 403 without limit_source; 400, 401, 404, 413 ...; a resend gets the same answer
+    unmatched_result: upstream_refused   # an outcome outside the lists is never passed through to the agent and never retried
+    success_rule: 'HTTP 200 is a success only when the body has no error field and, for a stream, the last event does not end with finish_reason error'
+    stream_error_rule: 'after the agent stream has started, the proxy ends it with a terminal error event that carries the proxy code; it never drops the connection, which an adapter would resend'
+    upstream_deadline_rule: 'shorter than the smallest client timeout of every pinned adapter (Claude Code API_TIMEOUT_MS, its first-byte and stream idle watchdogs and the non-streaming attempt timeout; an SDK client timeout), with a margin; the deadline and the measured timeouts are F1-AT-28 evidence'
+    deadline_readiness_ref: vendor.runner_isolation
+    adapter_client_ref: runtime-isolation.yaml#runner_contract.llm_client
+    reservation_on_error: retain_reservation_until_reconciled   # GUARDRAIL §7.5 and unknown_cost_behavior; releasing the hold of a pre-acceptance error is an owner proposal
+    test: F1-AT-28
+  override_action: budget_override
+  billing_unreliable_noncritical_pause_after_hours: 6   # builder standard: Langfuse/usage reconciliation unavailable this long -> non-critical agents pause (reason_code billing_unreliable)
+  pause_reason_codes: [share_stop, part_stop, key_noncritical_stop, billing_unreliable, month_boundary, anomaly, owner, kill, maintenance]
+  billing_unreliable_resume: automatic after reconciliation is proven; month-boundary pauses still need owner agent_resume
+  billing_resume_policy:
+    decision_ref: Q63
+    mode: automatic_for_matching_billing_cause_only
+    invoker: amt-watchdog
+    control_op: billing_unreliable_resume
+    requires: [fresh reconciled provider usage for the current key and period, durable actual plus reserved ledger within every active allowance, matching pause control_event_id and current control_epoch, unchanged approved policy revision]
+    clears: only the matching billing_unreliable cause by compare-and-set; agent and admission state are recomputed from all remaining causes
+    never_clears: [share_stop, part_stop, key_noncritical_stop, month_boundary, anomaly, owner, kill, maintenance]
+    missing_or_stale_evidence: remain_paused
+    side_effects: no approval, command retry, expired workflow revival, mode increase or live ad activation
+    audit: control_events with reconciliation evidence and exact cleared cause; concurrent new causes remain active
+media_generation:
+  enabled: false
+  enablement_readiness_ref: budget.media
+  attribution:                       # P-90: one reservation owner per job (DATA_MODEL §7.1), checked against three allowances in one transaction
+    reservation_owner: media_generation
+    allowance_checks: [key_cap, media_generation, requesting_agent_share]   # the stricter reading of ad-creative-production §7 until the owner decides (OPEN_ITEMS §4 C-40): the job also counts in the requesting agent's share (its LLM spend + its media spend <= its share)
+    requesting_agents: [creative-studio, cro]   # exactly the agents whose approval-policy.yaml allowlist holds a media.* tool; cro only for landing sketches (tool_constraints)
+  max_cost_minor: null               # per job: the upper-bound reservation of one job (budget.media)
+  max_video_seconds: null            # per job (budget.media)
+  max_video_seconds_per_month: null  # all jobs of a business month (budget.media)
+  max_concurrent_jobs: null          # all media jobs at once (budget.media)
+  price_revision_required: true      # every job records its pricing revision; a model without a price upper bound is refused (price_unknown)
+ads:
+  monthly_cap_minor: 150000          # USD 1 500/oy (Q08/Q37)
+  provider_spend_limit_required: true   # Q37: Ads Manager account spending limit, independent of AI
+  provider_spend_limit_readback_required: true
+  protective_pause_is_additional: true  # never a substitute for the provider limit
+  account_currency: null
+  account_timezone: null
+  counter_basis: null
+  fx_policy: null
+  max_rolling24h_change_pct: 20
+  movement_basis: sum_absolute_ordinary_budget_changes
+  manual_drift_behavior: block_and_reconcile
+  zero_baseline_behavior: owner_review
+  safety_margin_minor: null
+  provider_cap_readiness_ref: vendor.meta_cap
+  fresh_check_readiness_ref: budget.ads_fresh_check
+  pacing_readiness_ref: budget.ads_pacing
+  thresholds_readiness_ref: budget.ads_limits
+  cap_update_formula: spend_cap_native = provider_counter_now_native + to_native(max(0, monthly_cap_minor - verified_mtd_minor - safety_margin_minor))
+  cap_update_rounding: round_down_to_provider_minor_unit
+  cap_update_decision_status: P-02
+  cap_update_human_gate: HG-OPS-01
+  expected_cap_switch: "the expected provider cap (vendor.meta_cap) stays the previous value until a read-back equals the new cap_update_formula value of the business month; that read-back switches it with or without the owner [Qo‘ydim] callback; a read-back equal to neither value is a mismatch (provider_limit_read_only, INC-12); the month change alone never raises read_only"
+  cap_update_workflow: WF-O04
+  cap_update_switch_signal: provider_cap_readback_matched
+  commitment_basis:
+    budget_change: max(0, new_daily_minor - old_daily_minor) * remaining_days_in_business_month
+    entity_activate: daily_budget_minor * remaining_days_in_business_month
+    campaign_activate: daily_budget_minor * remaining_days_in_business_month
+    creative_activate_new_adset: daily_budget_minor * remaining_days_in_business_month
+    entity_pause: 0
+    protective_pause: 0
+  admission_rule: verified_mtd_minor + sum(active_daily_minor * remaining_days) + sum(held_commitments_minor) + requested_minor <= monthly_cap_minor - safety_margin_minor
+  reservation_release_on: [rejected, expired, cancelled, failed_confirmed]
+  reservation_settle_on: [succeeded]
+  foreign_spend_behavior: alert_and_owner_handback_only
+  hard_cap_pass_requires: [provider_spend_limit_readback, gateway_headroom_test, host_down_test_provider_limit_holds]

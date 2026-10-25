@@ -1,0 +1,121 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "https://wolter.uz/amt/schemas/tools/review.submit_verdict.schema.json",
+ "title": "review.submit_verdict arguments",
+ "description": "Gateway guard 4 argument schema; contract: GUARDRAIL_GATEWAY.md §9.3.",
+ "type": "object",
+ "additionalProperties": false,
+ "properties": {
+  "subject_type": {
+   "enum": [
+    "creative_revision",
+    "change_set_item",
+    "offer_pr",
+    "landing_pr",
+    "weekly_report"
+   ]
+  },
+  "subject_ref": {
+   "$ref": "_common.schema.json#/$defs/ref"
+  },
+  "subject_hash": {
+   "$ref": "_common.schema.json#/$defs/sha256"
+  },
+  "policy_revision": {
+   "$ref": "_common.schema.json#/$defs/ref"
+  },
+  "offer_revisions": {
+   "type": "array",
+   "items": {
+    "$ref": "_common.schema.json#/$defs/revision_ref"
+   },
+   "maxItems": 20
+  },
+  "checks": {
+   "type": "array",
+   "items": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+     "check": {
+      "enum": [
+       "offer_registry",
+       "brand_voice",
+       "language_quality_uz",
+       "language_quality_ru",
+       "meta_policy",
+       "special_ad_category",
+       "pii_leakage",
+       "kernel_numbers",
+       "change_set_completeness",
+       "rights_consent",
+       "tracking_impact"
+      ]
+     },
+     "status": {
+      "enum": [
+       "pass",
+       "fail",
+       "needs_owner",
+       "n_a"
+      ]
+     },
+     "reason_uz": {
+      "$ref": "_common.schema.json#/$defs/free_text"
+     },
+     "evidence_ref": {
+      "$ref": "_common.schema.json#/$defs/ref"
+     },
+     "pre_screen_response_uz": {
+      "$ref": "_common.schema.json#/$defs/free_text"
+     }
+    },
+    "required": [
+     "check",
+     "status",
+     "reason_uz",
+     "evidence_ref"
+    ]
+   },
+   "maxItems": 11,
+   "minItems": 1
+  },
+  "required_fixes": {
+   "type": "array",
+   "items": {
+    "$ref": "_common.schema.json#/$defs/free_text"
+   },
+   "maxItems": 20
+  },
+  "confidence": {
+   "type": "object",
+   "additionalProperties": false,
+   "properties": {
+    "level": {
+     "enum": [
+      "low",
+      "medium",
+      "high"
+     ]
+    },
+    "why": {
+     "$ref": "_common.schema.json#/$defs/free_text"
+    }
+   },
+   "required": [
+    "level",
+    "why"
+   ]
+  }
+ },
+ "required": [
+  "subject_type",
+  "subject_ref",
+  "subject_hash",
+  "policy_revision",
+  "offer_revisions",
+  "checks",
+  "required_fixes",
+  "confidence"
+ ]
+}

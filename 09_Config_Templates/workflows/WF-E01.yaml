@@ -1,0 +1,169 @@
+# Project OS workflow definition template; unresolved readiness blocks the relevant live profile.
+schema_version: 1
+bundle_state: template
+workflow_id: WF-E01
+definition_version: 1
+title: Project upgrade (evidence-backed change of the system)
+category: engineering
+purpose: >-
+  An evidenced problem or improvement need becomes a bounded proposal, a design with acceptance criteria, an isolated
+  candidate, independent verification against protected suites, an authorized release, observation, and an
+  accepted/rejected/inconclusive verdict recorded in improvement memory.
+accountable: owner
+requirement_refs: [EVO-R04, EVO-R05, EVO-R06, EVO-R07, EVO-R08, EVO-R09, EVO-R11, EVO-R12, EVO-R13, EVO-R14]
+trigger:
+  kinds: [signal, manual]
+  source: evolution intake (incident AAR, owner request, regression, cost/latency drift, vendor advisory, C12 retro, eval drift)
+  source_refs: ["evolution-policy.yaml#signal_sources", WF-O02, owner, cost-watchdog, WF-E03, retro]
+  schedule: null
+  dedup_key: problem_fingerprint
+  correlation_key: proposal_id
+authorization:
+  may_start: [amt-workflow, owner]
+  may_cancel: [owner]
+  preconditions:
+    - FE_SANDBOX profile approved before any paid engineering step (engineering.budget, engineering.llm_access, capacity.sandbox_host)
+input:
+  schema_ref: schemas/upgrade-proposal.schema.json
+  required_fields: [problem_fingerprint, evidence_refs, baseline_release_id, change_class]
+  freshness: []
+steps:
+  - id: S01
+    name: Signal intake and dedup
+    executor: {type: deterministic, ref: amt-workflow}
+    depends_on: []
+    outputs: [evolution signal record; duplicates attached to the open proposal]
+    external_effect: none
+    retry: safe_resume
+    timeout: PT5M
+  - id: S02
+    name: Triage and proposal
+    executor: {type: agent, ref: eng-planner}
+    depends_on: [S01]
+    outputs: [upgrade proposal (schema-valid) with scope, allowed paths, expected outcome, risk class, cost/time limit, test, migration, observation and recovery plan]
+    handoff:
+      to: owner
+      accept_when: [schema valid, evidence references resolvable, scope lists allowed files/modules, cost within engineering budget remaining]
+      reject_codes: [no_evidence, scope_unbounded, budget_exceeded, duplicate]
+      on_reject: {route: end_run}
+    external_effect: internal_only
+    retry: safe_resume
+    timeout: P2D
+  - id: S03
+    name: Proposal approval
+    executor: {type: human, ref: owner}
+    depends_on: [S02]
+    outputs: [approved proposal revision with spending and time limits]
+    approval: {policy_action: upgrade_proposal_approval, never_auto: true}
+    external_effect: none
+    retry: never
+    timeout: P7D
+  - id: S04
+    name: Design and acceptance criteria
+    executor: {type: agent, ref: eng-architect}
+    depends_on: [S03]
+    outputs: [design note, acceptance criteria (technical and business basis), test plan, migration and rollback/repair plan]
+    handoff:
+      to: eng-implementer
+      accept_when: [criteria measurable, protected-suite impact declared, migration class declared]
+      reject_codes: [criteria_unmeasurable, protected_surface_undeclared]
+      on_reject: {route: producer_retry, max_rounds: 2, after_max: escalate, escalate_to: owner}
+    external_effect: internal_only
+    retry: safe_resume
+    timeout: P3D
+  - id: S05
+    name: Isolated implementation
+    executor: {type: agent, ref: eng-implementer}
+    depends_on: [S04]
+    outputs: [branch/worktree in amt-sandbox, candidate manifest (immutable digests)]
+    handoff:
+      to: eng-verifier
+      accept_when: [manifest complete, diff only within allowed paths, no protected suite/evaluator/policy file touched unless class E]
+      reject_codes: [scope_violation, manifest_incomplete, protected_touch_without_class]
+      on_reject: {route: producer_retry, max_rounds: 2, after_max: escalate, escalate_to: owner, overrides: [{codes: [protected_touch_without_class], route: end_run, notify: owner}]}
+    external_effect: internal_only
+    retry: safe_resume
+    timeout: input:approved_time_limit
+  - id: S06
+    name: Independent verification
+    executor: {type: deterministic, ref: amt-verify}
+    depends_on: [S05]
+    outputs: [verification result bound to manifest digest and evaluator revision; eng-verifier review report]
+    external_effect: none
+    retry: safe_resume
+    timeout: P1D
+  - id: S07
+    name: Class gates and release decision
+    executor: {type: human, ref: owner}
+    depends_on: [S06]
+    outputs: ['owner merge (HG-GIT-01); class gate record (harness handover plan, migration_drills record or independent_reviews record); release_approvals record via /release approve <candidate_id> (HG-REL-01) bound to the verified manifest; owner-signed release tag']
+    starts:
+    - {workflow: WF-E02, key: proposal_id, input: [proposal_id, manifest_digest, from_release_id, to_release_id], await: started, on_parent_end: cancel_open, condition: "change class C (harness or workflow change); the class gate record needs handover_plan_approved from the child's S03, not the whole handover"}
+    approval:
+      never_auto: true
+      by_cause:
+      - {cause: class_A_content, policy_actions: [upgrade_release]}
+      - {cause: class_B_code, policy_actions: [upgrade_release]}
+      - {cause: class_C_workflow_harness, policy_actions: [harness_handover, upgrade_release], requires: [WF-E02 handover plan]}
+      - {cause: class_D_schema_migration, policy_actions: [migration_drill, upgrade_release], requires: [migration_drills record - forward migration and rollback pass on the restore_drill environment with a data check]}
+      - {cause: class_E_protected_surface, policy_actions: [protected_surface_change, upgrade_release], requires: [independent_reviews record - pass by the person holding engineering.independent_reviewer, not the author; with class_e_frozen every class E candidate is refused]}
+      - {cause: engineering_budget_change, policy_actions: [engineering_budget_change, protected_surface_change, upgrade_release], requires: [candidate changes config/engineering-budget.yaml money fields; owner sees old and new values in USD and USD minor (/budget engineering); independent_reviews record as for class E]}
+    external_effect: none
+    retry: never
+    timeout: P7D
+  - id: S08
+    name: Protected release
+    executor: {type: deterministic, ref: amt-release}
+    depends_on: [S07]
+    outputs: [release manifest active with service ACKs; or refusal on manifest mismatch]
+    external_effect: irreversible
+    retry: new_attempt_after_reconcile
+    timeout: PT2H
+  - id: S09
+    name: Observation
+    executor: {type: deterministic, ref: sync-worker}
+    depends_on: [S08]
+    emits: [regression_detected, stop_rule_triggered]
+    outputs: [technical and business guardrail observations over the declared window; stop/hold/recovery events]
+    external_effect: none
+    retry: safe_resume
+    timeout: readiness:evolution.outcome_policy
+  - id: S10
+    name: Verdict and memory
+    executor: {type: human, ref: owner}
+    depends_on: [S09]
+    outputs: ['verdict accepted|rejected|inconclusive; improvement memory record (source, revision, cost, evidence, decision owner)']
+    starts:
+    - {workflow: WF-E04, key: lesson_id, input: [lesson_id, target_artifact, evidence_refs], await: none, on_parent_end: continue, condition: "verdict accepted and the improvement-memory lesson targets a prompt, skill or knowledge artifact"}
+    external_effect: internal_only
+    retry: never
+    timeout: P7D
+    completes_on: [owner_decision]
+limits:
+  max_duration: P60D
+  max_attempts_per_step: 3
+  cost: {budget_account: engineering, max_minor: null, max_minor_ref: 'readiness:engineering.budget', currency: USD, readiness_ref: engineering.budget}
+  concurrency: {per_correlation_key: 1, global: null}
+  escalation:
+    - {after: P2D, to: owner, channel: ops-bot}
+  owner_absent: Proposal, merge and release wait; nothing is released; candidate branches stay isolated; engineering spend stops at its own limit.
+continuation:
+  checkpoint: after_every_step_transition
+  timers: [proposal_ttl, verification_expiry, observation_window_max]
+  signals: [owner_decision, verification_complete, regression_detected, stop_rule_triggered, handover_plan_approved, kill]
+  lease_ttl: PT10M
+  cancel: Owner cancel closes the branch and records a rejected verdict with reason
+  compensation: rollback to previous immutable release or pre-tested repair/restore; remote effects compensated by new authorized commands
+  uncertain_external_effect: reconcile_via_command_ledger
+completion:
+  technical_done: released manifest observed for the declared window without guardrail breach, or rolled back with evidence
+  end_steps: [S10]
+  required_evidence: [proposal revision, manifest digest, verification result, approvals, release_id, observation report, verdict]
+  observation: per evolution.outcome_policy; inconclusive allowed
+  business_acceptance: change-class basis (business guardrail for business-impacting; technical + no-harm for infra/security)
+failure_paths:
+  missing_input: No evidence or unbounded scope → S02 handoff rejected; signal stays in backlog.
+  cancel_or_escalate: Engineering budget/resource limit reached → new engineering work queued/stopped; production unaffected.
+  uncertain_external_effect: Release ACK missing → previous release stays active; publisher reconciles service revisions before any retry.
+  other: [Candidate weakens a protected test or criterion → automatic rejection; separate class E proposal required]
+tests: [EVO-AT03, EVO-AT04, EVO-AT05, EVO-AT08, EVO-AT09, EVO-AT14, WF-TEST-E01-E2E, WF-TEST-E01-MISSING, WF-TEST-E01-CANCEL, WF-TEST-E01-UNCERTAIN]

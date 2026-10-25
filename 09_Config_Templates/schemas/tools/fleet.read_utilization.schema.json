@@ -1,0 +1,20 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "https://wolter.uz/amt/schemas/tools/fleet.read_utilization.schema.json",
+ "title": "fleet.read_utilization arguments",
+ "description": "Gateway guard 4 argument schema; contract: GUARDRAIL_GATEWAY.md §9.1.",
+ "type": "object",
+ "additionalProperties": false,
+ "properties": {
+  "date_from": {
+   "$ref": "_common.schema.json#/$defs/date"
+  },
+  "date_to": {
+   "$ref": "_common.schema.json#/$defs/date"
+  }
+ },
+ "required": [
+  "date_from",
+  "date_to"
+ ]
+}

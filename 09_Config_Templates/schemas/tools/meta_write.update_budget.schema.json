@@ -1,0 +1,44 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "https://wolter.uz/amt/schemas/tools/meta_write.update_budget.schema.json",
+ "title": "meta_write.update_budget arguments",
+ "description": "Gateway guard 4 argument schema; contract: GUARDRAIL_GATEWAY.md §8.",
+ "type": "object",
+ "additionalProperties": false,
+ "properties": {
+  "entity_type": {
+   "enum": [
+    "campaign",
+    "adset"
+   ],
+   "description": "campaign (CBO) or ad set (ABO); lifetime budgets are refused"
+  },
+  "entity_id": {
+   "$ref": "_common.schema.json#/$defs/meta_id"
+  },
+  "pipeline": {
+   "$ref": "_common.schema.json#/$defs/pipeline"
+  },
+  "daily_budget_minor": {
+   "$ref": "_common.schema.json#/$defs/money_minor"
+  },
+  "currency": {
+   "$ref": "_common.schema.json#/$defs/currency"
+  },
+  "expected_effect": {
+   "$ref": "_common.schema.json#/$defs/expected_effect"
+  },
+  "reason": {
+   "$ref": "_common.schema.json#/$defs/free_text"
+  }
+ },
+ "required": [
+  "entity_type",
+  "entity_id",
+  "pipeline",
+  "daily_budget_minor",
+  "currency",
+  "expected_effect",
+  "reason"
+ ]
+}

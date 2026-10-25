@@ -1,0 +1,98 @@
+# Project OS configuration template; unresolved readiness blocks the relevant live profile.
+# Explicit resource registry per environment. Every environment declares every field below (value may be none); the validator requires zero
+# intersection with prod for the must_not_intersect_with_prod fields: every path- or id-like production token is searched as a substring of the other
+# value and bare production names need token equality, so an annotation before, after or glued to a value cannot hide a shared path (FX-72...FX-77).
+schema_version: 1
+bundle_state: template
+environments:
+  prod:
+    db_name: amt
+    queue_namespace: amt
+    storage_bucket: null
+    telegram_bot_ref: TG_OPS_BOT_TOKEN
+    chat_id_ref: TG_GROUP_CHAT_ID
+    gateway_audience: amt-prod
+    credential_set_ref: secrets/prod.sops.yaml
+    egress_allowlist_ref: runtime-isolation.yaml#services
+    capi_test_code_ref: null
+    runtime: host
+    namespace: host
+    control_socket: /run/amt-control/control.sock
+    kill_latch_path: /var/lib/amt-control/kill-state
+    postgres_cluster: main (127.0.0.1:5432)
+    compose_project: amt
+    slice: production
+  staging:
+    db_name: amt_staging
+    queue_namespace: amt_staging
+    storage_bucket: null
+    telegram_bot_ref: TG_STAGING_BOT_TOKEN
+    chat_id_ref: TG_STAGING_CHAT_ID
+    gateway_audience: amt-staging
+    credential_set_ref: secrets/staging.sops.yaml
+    egress_allowlist_ref: staging allowlist (test endpoints and CAPI test events only)
+    capi_test_code_ref: CAPI_TEST_EVENT_CODE
+    test_credentials: test-only (staging Telegram bot, CAPI test event code, test endpoints); never a production ad-account write credential (I14)
+    runtime: 'container (systemd-nspawn, root, --network-veth); AMT services and data stores run as plain processes and units inside it - no Docker inside; egress only through a DOCKER-USER allowlist for its veth ve-amt-staging (Docker sets the iptables FORWARD policy to DROP, so a rule in another table cannot let it through): -i ve-amt-staging -d <staging allowlist, incl. the resolvers 1.1.1.1 and 9.9.9.9 on port 53> ACCEPT, -o ve-amt-staging ESTABLISHED,RELATED ACCEPT, -i ve-amt-staging DROP (other bridges untouched); the stock 80-container-ve.network (DHCP server, masquerade) stays, and ufw lets the container DHCP request in (ufw allow in on ve-amt-staging to any port 67 proto udp), which default deny incoming would drop'
+    namespace: own mount, PID and network namespaces (systemd-nspawn); the production /run/amt-control and /var/lib/amt-control are never bound in
+    control_socket: /run/amt-staging/control.sock
+    kill_latch_path: /var/lib/amt-staging/kill-state
+    postgres_cluster: separate PostgreSQL cluster inside the staging container
+    compose_project: none (no Docker inside the staging container)
+    slice: sandbox
+  sandbox:
+    db_name: amt_sandbox_<candidate>
+    queue_namespace: amt_sandbox_<candidate>
+    storage_bucket: null
+    telegram_bot_ref: none
+    chat_id_ref: none
+    gateway_audience: amt-sandbox
+    credential_set_ref: sandbox.env - ENG_GITHUB_TOKEN (push to cand/* only); no production or staging credentials
+    egress_allowlist_ref: package proxy; GitHub push to cand/* only
+    capi_test_code_ref: none
+    runtime: amt-sandbox runner (FE; default-deny network namespace, package proxy only)
+    namespace: own network namespace per candidate run (FE)
+    control_socket: none
+    kill_latch_path: none
+    postgres_cluster: none until FE (then a separate cluster per sandbox runner)
+    compose_project: none
+    slice: sandbox
+  restore_test:
+    db_name: amt_restore_test
+    queue_namespace: amt_restore_test
+    storage_bucket: null
+    telegram_bot_ref: none
+    chat_id_ref: none
+    gateway_audience: amt-restore-test
+    credential_set_ref: none (restore check from the local snapshot into a temporary separate PostgreSQL cluster on the AMT PC; no jobs, credentials or egress)
+    egress_allowlist_ref: none
+    capi_test_code_ref: none
+    runtime: host (database-only check; no AMT services start)
+    namespace: host (database-only; no services, jobs or sockets)
+    control_socket: none
+    kill_latch_path: none
+    postgres_cluster: restore_test (temporary cluster created with pg_createcluster on 127.0.0.1:5433 for the check and dropped afterwards; pg_restore --no-owner --no-privileges)
+    compose_project: none
+    slice: sandbox
+  restore_drill:
+    db_name: amt_restore_drill
+    queue_namespace: amt_restore_drill
+    storage_bucket: null
+    telegram_bot_ref: none
+    chat_id_ref: none
+    gateway_audience: amt-restore-drill
+    credential_set_ref: none (restored data only; no live credentials, jobs or egress; isolated container on the AMT PC - no DR host, Q55)
+    egress_allowlist_ref: none
+    capi_test_code_ref: none
+    runtime: container (systemd-nspawn, root, --private-network = no network; the local snapshot bound with --bind-ro); AMT services run as units inside it against fixtures; the Langfuse data stores (PostgreSQL, ClickHouse, MinIO) run as plain processes of the same pinned versions - no Docker inside
+    namespace: own mount, PID and network namespaces (systemd-nspawn); the production /run/amt-control and /var/lib/amt-control are never bound in
+    control_socket: /run/amt-drill/control.sock
+    kill_latch_path: /var/lib/amt-drill/kill-state
+    postgres_cluster: separate PostgreSQL cluster inside the container
+    compose_project: none (no Docker inside the drill container)
+    slice: sandbox
+    source_export: PII-free landing receipt metadata (receipt ids, timestamps, consent flags, event ids; no name or phone - Q62) that the owner exports from production, and an amoCRM events export (lead id, pipeline, status, times), staged as read-only files; the CAPI resend goes to a synthetic endpoint inside the container
+    kill_tests: A/B kill races run on fixtures against a simulated Meta endpoint inside the container; the SSH path is proven only by the production amt-kill --self-test, never by a kill inside the drill; the owner-approved PAUSED Meta integration test of F6-AT-08 runs in production in global shadow mode under the F3-AT-05 origin=test exception, never here or in staging; it drives only the pause call that kill B uses, through an origin=test item on the PAUSED test entity - no production kill, so the production control_epoch and kill latch stay unchanged
+    precheck: the production control_epoch and kill latch are read before and after the drill and must be unchanged
+must_not_intersect_with_prod: [db_name, queue_namespace, storage_bucket, telegram_bot_ref, chat_id_ref, gateway_audience, credential_set_ref, control_socket, kill_latch_path, postgres_cluster, compose_project]
+must_declare: [runtime, namespace, slice]   # descriptive isolation fields every environment declares; not compared with prod

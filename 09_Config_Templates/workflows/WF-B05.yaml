@@ -1,0 +1,131 @@
+# Project OS workflow definition template; unresolved readiness blocks the relevant live profile.
+schema_version: 1
+bundle_state: template
+workflow_id: WF-B05
+definition_version: 2
+title: Experiment
+category: business
+purpose: >-
+  A hypothesis is tested with a pre-declared baseline, minimum sample, maturity and maximum exposure; the run ends with
+  met, not_met or inconclusive and an owner-recorded decision. At most one running experiment per pipeline.
+accountable: owner
+requirement_refs: [FR-PLN-04, FR-TRK-04, EVO-R12]
+trigger:
+  kinds: [parent_run, manual]
+  source: WF-B06 plan item or owner request
+  source_refs: [WF-B06, owner]
+  schedule: null
+  dedup_key: experiment_id
+  correlation_key: pipeline
+  parent_workflows: [WF-B06]
+authorization:
+  may_start: [cmo, funnel-analyst, owner, amt-workflow]
+  may_cancel: [owner]
+  preconditions:
+    - no other experiment running in the same pipeline (partial unique index)
+    - comparable baseline exists (business.baseline)
+    - "a parent_run start by amt-workflow happens only on behalf of a parent run step that lists this workflow in starts (parent_run_id and parent step recorded)"
+input:
+  schema_ref: DATA_MODEL §10 experiments
+  required_fields: [experiment_id, pipeline, hypothesis, primary_metric, guardrail_metrics, min_sample, maturity, max_exposure, design]
+  freshness: [business.baseline, tracking.freshness]
+steps:
+  - id: S01
+    name: Hypothesis and design
+    executor: {type: agent, ref: funnel-analyst}
+    depends_on: []
+    outputs: [experiment draft via experiment.create]
+    external_effect: internal_only
+    retry: safe_resume
+    timeout: P2D
+  - id: S02
+    name: Design validation
+    executor: {type: deterministic, ref: gateway}
+    depends_on: [S01]
+    outputs: ['validation report (one-per-pipeline, baseline comparability, min sample, max exposure present; design complete per decision-statistics.yaml EXPERIMENT - decision, mde_pct, alpha, power, min_exposure, max_duration within business.exposure, margin_pct for non-inferiority; planned MDE at the expected volume recorded, and a design whose planned MDE exceeds its plausible effect is labelled exploratory)']
+    decision_rule: EXPERIMENT
+    external_effect: none
+    retry: safe_resume
+    timeout: PT10M
+  - id: S03
+    name: Exposure approval by policy (Q64)
+    executor: {type: human, ref: approver_per_policy}
+    depends_on: [S02]
+    outputs: [approved exposure limits and stop rule bound to the exact experiment revision; current owner or ads_approver membership checked per Q64]
+    approval: {policy_action: experiment_exposure}
+    external_effect: none
+    retry: never
+    timeout: P2D
+  - id: S04
+    name: Launch arms
+    executor: {type: deterministic, ref: amt-workflow}
+    depends_on: [S03]
+    outputs: [child WF-B02/WF-B03/WF-B04 runs referencing experiment_id]
+    starts:
+    - {workflow: WF-B02, key: brief_id, input: [brief_id, pipeline, hypothesis, offer_revision_refs, formats, languages], await: started, on_parent_end: cancel_open, condition: "an arm that needs a new creative"}
+    - {workflow: WF-B03, key: business_date+round, input: [business_date, round, gateway_state_revision, control_epoch, experiment_id], await: started, on_parent_end: cancel_open, input_values: {round: "experiment:<experiment_id>"}, condition: "an arm that changes budgets or entity states (experiment round)"}
+    - {workflow: WF-B04, key: change_request_id, input: [change_request_id, pipeline, "kind(offer|landing_content|tracking)", rationale, evidence_refs], await: started, on_parent_end: cancel_open, condition: "an arm that changes an offer or landing content"}
+    external_effect: internal_only
+    retry: safe_resume
+    timeout: P1D
+  - id: S05
+    name: Observation
+    executor: {type: deterministic, ref: sync-worker}
+    depends_on: [S04]
+    outputs: [cohort metrics with data_status and exposure counter]
+    external_effect: none
+    retry: safe_resume
+    timeout: readiness:business.acceptance
+  - id: S06
+    name: Verdict
+    executor: {type: agent, ref: funnel-analyst}
+    depends_on: [S05]
+    outputs: [result met|not_met|inconclusive under the pre-registered design only, with data_status and DAT-04/DAT-05 checks; an exploratory design or a design revised after S04 gives at best inconclusive on the primary metric]
+    decision_rule: EXPERIMENT
+    handoff:
+      to: owner
+      accept_when: [sample and maturity rules applied, exposure within limit, measurement revision unchanged or comparability re-checked]
+      reject_codes: [incomparable_baseline, immature_cohort, exposure_exceeded]
+      on_reject: {route: producer_retry, producer_step: S06, max_rounds: 2, after_max: escalate, escalate_to: owner, overrides: [{codes: [exposure_exceeded], route: compensate_then_end, notify: owner}]}
+    external_effect: internal_only
+    retry: safe_resume
+    timeout: P2D
+  - id: S07
+    name: Decision
+    executor: {type: human, ref: owner}
+    depends_on: [S06]
+    outputs: [adopt | stop | extend within max exposure; decision record]
+    external_effect: none
+    retry: never
+    timeout: P7D
+    completes_on: [owner_decision]
+limits:
+  max_duration: readiness:business.exposure
+  max_attempts_per_step: 3
+  cost: {budget_account: ai_runtime, max_minor: null, max_minor_ref: 'readiness:budget.request_bounds', currency: USD, readiness_ref: budget.request_bounds, extra_bound_refs: ['readiness:business.exposure']}
+  concurrency: {per_correlation_key: 1, global: 2}
+  escalation:
+    - {after: P1D, to: owner, channel: ops-bot}
+  owner_absent: Running experiment continues only inside the approved exposure; at exposure or time limit it stops and arms revert through authorized commands.
+continuation:
+  checkpoint: after_every_step_transition
+  timers: [exposure_limit_check, max_elapsed_time]
+  signals: [kill_criteria_trigger, measurement_revision_change, child_run_completed, owner_decision, kill]
+  lease_ttl: PT5M
+  cancel: "Owner stop, cancel, failure or kill → workflow-policy.yaml#child_lifecycle.experiment_stop: arm reverts (entity_pause, budget decrease) as urgent items through dispatch_ownership.urgent_entry, cancel_open arm children without external effect cancelled, experiment_lock until the reverts are terminal with remote evidence"
+  compensation: arm-specific pause/revert commands
+  uncertain_external_effect: reconcile_via_command_ledger
+completion:
+  technical_done: verdict recorded with data_status and arms closed
+  end_steps: [S07]
+  required_evidence: [experiment record, baseline revision, cohort metrics, child run ids]
+  observation: per design maturity window
+  business_acceptance: met only with comparable baseline, min sample and maturity; inconclusive is an official result and never a PASS for scale
+failure_paths:
+  missing_input: No comparable baseline or min sample → S02 rejects; experiment not launched.
+  cancel_or_escalate: Exposure/time limit reached or kill criteria → stop and human handback where applicable.
+  other:
+    - "Verdict handoff rejected for immature_cohort or incomparable_baseline → the analyst re-issues a rule-compliant verdict at S06 (at most 2 rounds; usually inconclusive with data_status not_mature or incomparable_baseline); after that the run is blocked for the owner, who may cancel it (arms stopped through workflow-policy.yaml#child_lifecycle); at the S06 timeout the run takes compensate_then_end"
+    - "exposure_exceeded at the verdict → compensate_then_end: arm stops and reverts go as urgent pause or decrease items through dispatch_ownership.urgent_entry, experiment_lock stays until every compensation command is terminal with remote evidence, the owner gets the blocker notice, then the run ends failed"
+  uncertain_external_effect: Arm command uncertain → child run reconciles; experiment observation pauses until resolved.
+tests: [UAT-06, UAT-07, EVO-AT09, EVO-AT10, WF-TEST-B05-E2E, WF-TEST-B05-MISSING, WF-TEST-B05-CANCEL, WF-TEST-B05-UNCERTAIN, WF-TEST-B05-EXPOSURE-REJECT]

@@ -1,0 +1,30 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "https://wolter.uz/amt/schemas/tools/workflow.handoff_decide.schema.json",
+ "title": "workflow.handoff_decide arguments",
+ "description": "Gateway guard 4 argument schema; contract: WORKFLOW_RUNTIME.md §2. reject_code is required with rejected and must be one of the step's handoff.reject_codes",
+ "type": "object",
+ "additionalProperties": false,
+ "properties": {
+  "handoff_id": {
+   "$ref": "_common.schema.json#/$defs/uuid"
+  },
+  "decision": {
+   "enum": [
+    "accepted",
+    "rejected"
+   ]
+  },
+  "reject_code": {
+   "$ref": "_common.schema.json#/$defs/slug"
+  },
+  "reason": {
+   "$ref": "_common.schema.json#/$defs/free_text"
+  }
+ },
+ "required": [
+  "handoff_id",
+  "decision",
+  "reason"
+ ]
+}

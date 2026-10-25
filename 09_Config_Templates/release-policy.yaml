@@ -1,0 +1,345 @@
+# Project OS configuration template; unresolved readiness blocks the relevant live profile.
+schema_version: 1
+bundle_state: template
+decision_refs: [Q11, Q12, Q19, Q46.4, Q65]
+runtime_root: /opt/wolter-amt
+owner: root:root
+source_branch: main
+publisher: amt-release   # root-owned fixed entrypoint; no arbitrary repo scripts
+publisher_egress:   # runtime-isolation.yaml#services amt-release; per-UID nftables cannot tell root services apart
+  enforcement: systemd IPAddressDeny=any + IPAddressAllow=localhost and the GitHub ranges below, on amt-release.service
+  github_ranges_source: GitHub meta API (the git and api address lists), recorded with its fetch date in infra/VERSIONS.lock.md; refreshed by the weekly dependency_check (WF-E03) and applied only through a release
+config_publish: validate_prepare_activate_ack
+artifact_identity: build_once_promote
+merge_rule: fast_forward_or_rebase_with_tree_hash_equality; otherwise new manifest and re-verification
+write_gate_acks: [gateway, executor, llm-proxy, ops-bot, amt-control, amocrm-mcp, quota-coordinator, amt-workflow]
+function_gate_acks: [sync-worker, capi-bridge, cost-watchdog, tg-auth]
+function_gate_behavior:
+  sync-worker: jobs do not run until the new revision is acknowledged
+  capi-bridge: outbox held until the new mapping is acknowledged
+  cost-watchdog: previous thresholds stay active until acknowledged
+  tg-auth: new sessions denied until acknowledged
+version_fields:
+- code_sha
+- config_sha
+- manifest_digest
+- schema_version
+- min_compatible_code
+- max_compatible_code
+- target_profile
+- capabilities_enabled
+- readiness_snapshot
+- active_ack_at
+- tool_schema_digest   # digest of schemas/tools/** - gateway guard 4 argument schemas
+- prompt_digest   # per-role digest of the eager prompt built from prompt-manifest.yaml
+release_approval:
+  record: release_approvals
+  required_from: F1
+  applies_to: every AMT-host release - code, config (offers included), workflow definitions, knowledge and skills, secret-rotation renders and recovery releases
+  candidate: amt-release prepare builds one candidate per merged main commit (candidate_id = first 12 hex characters of manifest_digest); the owner approves that exact candidate
+  readiness_only_candidate: amt-release may build a candidate from the active release commit when only the readiness_snapshot changes (to pin newly approved bundle-bound readiness values); it follows the same approval, tag and activation path
+  bound_to: [manifest_digest, verification_id, verdict, evaluator_revision, proposal_revision, policy_revision, role_revision, control_epoch]   # single list; evolution-policy references it
+  nullable_before_fe_release: [verification_id, verdict, evaluator_revision, proposal_revision]
+  nullable_without_upgrade_proposal: [proposal_revision]   # config, offer and secret-rotation releases
+  created_by: owner via /release approve <candidate_id> (typed code), except the one-time Q65 owner SSH signed initial approval under initial_release
+  human_gate: HG-REL-01
+  tag_only_release: never
+code_release_tags: release-*
+tag_ruleset:
+  create_update_delete: [owner]
+  patterns: [release-*, F*-done]
+  bypass: none
+  signed_annotated_tag_required: true
+  signer_keys_file: /etc/amt/release-signers
+  commit_must_be_reachable_from: main
+  tag_commit_must_equal_manifest_commit: true
+engineering_push_scope: [cand/*]
+builder_token_can_create_release_tags: false
+production_tag_owner_required: true
+root_publish_arbitrary_repo_scripts: false
+build_install_test_as_unprivileged_user: amt-build
+scope: AMT host only
+out_of_scope:
+  landing_and_umami: AMT opens a PR (WF-B04); owner merges and deploys in production Dokploy (Q46.4); AMT verifies the published snapshot read-only
+  release_controller_holds_dokploy_or_landing_credentials: false
+release_classes:
+  normal: any owner-approved release; refused while global mode is killed
+  recovery: owner-approved release whose manifest declares release_class recovery and only restores containment, reconciliation or a previously verified release; allowed while killed
+kill_interaction: non-recovery releases refused while global mode is killed
+maintenance_hold_ref: execution-policy.yaml#maintenance_hold
+db_rollback: explicit_compatibility_forward_repair_or_restore
+old_new_worker_parallel_writes: false
+roles_reload: never_reseed_runtime_DB
+deployment:
+  manifest_field: deployment
+  phases:
+  - F1
+  - F2
+  - F3
+  - F4
+  - F5
+  - F6
+  - F7
+  phase_service_additions:
+    F1:
+    - caddy
+    - cloudflared
+    - tailscaled
+    - sshd
+    - postgres
+    - telegram-bot-api
+    - paperclip
+    - langfuse
+    - managed-runner
+    - amt-release
+    - amt-backup
+    - amt-control
+    - ops-bot
+    - llm-proxy
+    - quota-coordinator
+    - amt-workflow
+    - tg-auth
+    - cost-watchdog
+    F2:
+    - amocrm-mcp
+    - capi-bridge
+    - sync-worker
+    - meta-ads-mcp
+    F3:
+    - gateway
+    - executor
+    F4:
+    - render-worker
+    - hermes
+    F5: []
+    F6: []
+    F7: []
+  phase_floor: cumulative union from F1 through deployment.phase; a phase never falls below the active release phase
+  services_rule: deployment.services is the complete installed/deployed runtime-isolation service_id inventory,
+    including disabled and none-ACK services; compare against staged unit inventory and the prior active inventory,
+    never a caller-selected enabled subset; existing services cannot silently disappear
+  capability_services:
+    llm.billable:
+    - amt-control
+    - llm-proxy
+    - quota-coordinator
+    - cost-watchdog
+    - ops-bot
+    workflow.runtime:
+    - amt-workflow
+    - amt-control
+    - paperclip
+    - ops-bot
+    intake.live_traffic:
+    - amocrm-mcp
+    - quota-coordinator
+    - capi-bridge
+    - sync-worker
+    - amt-control
+    - ops-bot
+    shadow.real_data:
+    - sync-worker
+    - amocrm-mcp
+    - meta-ads-mcp
+    - amt-workflow
+    - amt-control
+    - llm-proxy
+    - cost-watchdog
+    - quota-coordinator
+    - ops-bot
+    meta.remote_test:
+    - gateway
+    - executor
+    - meta-ads-mcp
+    - amt-control
+    - quota-coordinator
+    - ops-bot
+    - amt-workflow
+    agents.run:
+    - hermes
+    - managed-runner
+    - gateway
+    - llm-proxy
+    - quota-coordinator
+    - cost-watchdog
+    - amt-control
+    - ops-bot
+    - amt-workflow
+    - paperclip
+    creative.publish:
+    - render-worker
+    - gateway
+    - executor
+    - amt-control
+    - amt-workflow
+    - ops-bot
+    sandbox.candidate:
+    - amt-sandbox
+    - amt-eng-proxy
+    - amt-verify
+    - managed-runner
+    - amt-control
+    - amt-workflow
+    - amt-release
+    release.manifest:
+    - amt-release
+    - amt-verify
+    - amt-workflow
+    - amt-control
+    - ops-bot
+    release.auto:
+    - amt-release
+    - amt-verify
+    - amt-workflow
+    - amt-control
+    - ops-bot
+    review.pre_screen:
+    - gateway
+    - llm-proxy
+    - quota-coordinator
+    - cost-watchdog
+    - amt-control
+    - ops-bot
+    write_mode.enabled:
+    - tg-auth
+    - ops-bot
+    - gateway
+    - executor
+    - amt-control
+    - amocrm-mcp
+    - quota-coordinator
+    - llm-proxy
+    - capi-bridge
+    - sync-worker
+    - cost-watchdog
+    - amt-workflow
+    pipeline.rent.L1:
+    - tg-auth
+    - ops-bot
+    - gateway
+    - executor
+    - amt-control
+    - amocrm-mcp
+    - quota-coordinator
+    - llm-proxy
+    - capi-bridge
+    - sync-worker
+    - cost-watchdog
+    - amt-workflow
+    pipeline.sale.L1:
+    - tg-auth
+    - ops-bot
+    - gateway
+    - executor
+    - amt-control
+    - amocrm-mcp
+    - quota-coordinator
+    - llm-proxy
+    - capi-bridge
+    - sync-worker
+    - cost-watchdog
+    - amt-workflow
+    pipeline.any.L2:
+    - tg-auth
+    - ops-bot
+    - gateway
+    - executor
+    - amt-control
+    - amocrm-mcp
+    - quota-coordinator
+    - llm-proxy
+    - capi-bridge
+    - sync-worker
+    - cost-watchdog
+    - amt-workflow
+  capability_rule: capability_services keys equal every execution-policy capability_requires_profile key, including
+    transition capabilities; unknown capability or missing dependency is refused, and every enabled/previously active
+    capability keeps its service closure until explicitly disabled by its existing authorized path; capability profile
+    gates remain mandatory
+  ack_rule: deployment.required_acks must equal exactly the deployment.services entries whose runtime-isolation
+    ack_class is write_gate or function_gate; no missing, extra, duplicate, unknown or caller-selected class; both
+    full ACK catalogues stay unchanged
+  gate_rule: prepare and activate recompute phase floors, capability dependencies and required_acks from the trusted
+    registries and current state; target_profile is informational and grants no service exemption; a none-ACK service
+    still requires its registered health/version checks
+  absence_rule: an absent future-phase service is not awaited only when it is outside the current phase floor, prior
+    installed inventory and every enabled capability dependency; an installed protective service can never be omitted
+    from ACKs
+  ack_failure: on update retain the prior current release and close affected gates; on initial retain no current,
+    hold admissions denied and retry only the exact pending candidate/approval/activation identity
+initial_release:
+  decision_ref: Q65
+  scope: the first F1 AMT-host release only; not a rebuild, restore, kill resume, privileged general deployment
+    or recurring offline approval path
+  entrypoint: owner SSH through Tailscale runs a root-owned fixed installer and one-time bootstrap importer, pinned
+    and reviewed by the owner before execution; no arbitrary repo script, shell argument or candidate-provided executable
+    runs as root
+  trust_root: the owner provisions /etc/amt/release-signers and verifies the fixed installer digest and main-reachable
+    owner-signed annotated release tag; artifacts are built/tested once as amt-build, and the same digests are promoted
+  required_absent:
+  - current_symlink
+  - active_release
+  - prior_release_ledger
+  - killed_latch
+  - used_bootstrap
+  initial_manifest:
+    deployment_kind: initial
+    phase: F1
+    base_release_id: null
+    capabilities_enabled: []
+    readiness_snapshot_capabilities: {}
+    release_class: normal
+  approval_source: owner_ssh_signed_initial
+  approval_envelope:
+    canonicalization: canonical JSON without detached signature; exact digest and every nullable binding value are
+      explicit
+    required_fields:
+    - bootstrap_id
+    - host_identity
+    - installer_digest
+    - candidate_id
+    - manifest_digest
+    - main_commit
+    - artifact_digests
+    - owner_person_id
+    - policy_revision
+    - role_revision
+    - control_epoch
+    - nonce_hash
+    - approved_at
+    - expires_at
+    - verification_id
+    - verdict
+    - evaluator_revision
+    - proposal_revision
+    signature: owner detached signature verified against /etc/amt/release-signers, bound to the seeded active owner
+      person and host/bootstrap identity; a signature or tag alone is never a release approval
+  seed_transaction: a one-shot fixed bootstrap function atomically writes typed_confirmations, release_approvals,
+    append-only audit and the singleton bootstrap marker, binding one nonce, candidate, approval and activation
+    identity; importer checks owner identity, role/policy revision, control epoch, expiry, manifest and all signature
+    bindings; no persistent new runtime DB writer grant
+  replay_rule: an exact replay returns the existing seed identities without another write; a different nonce, candidate,
+    envelope or approval is refused once bootstrap is bound; after first ACK the marker is permanently sealed and
+    even exact replay cannot activate another initial release
+  publisher_rule: normal amt-release still requires the durable release_approvals row and owner-signed annotated
+    release-* tag, checks signer/main reachability/exact commit and all ordinary manifest, role/policy, epoch and
+    expiry guards; no tag-only release and no initial killed-latch exception
+  startup:
+    global_mode: shadow
+    pipeline_modes:
+      rent: L0_shadow
+      sale: L0_shadow
+    admission: denied
+    capabilities_enabled: []
+  activation_order: the fixed initializer writes the first control state only when no latch/state exists; candidate
+    services validate/ACK the explicit staged immutable path with admissions denied; current is published only after
+    the full effective ACK set matches; no fake ACK and no old release exists on first failure
+  retry_rule: after interrupted/failed first ACK, use the same pending candidate, approval, nonce and activation
+    identity with their original validity checks; no second seed, no implicit expiry extension, no different manifest;
+    an invalid or irreparable initial attempt stops for an explicit owner recovery decision
+  closeout: record the matching ACKs, publish current atomically, seal bootstrap and demonstrate normal Telegram
+    /release approve with typed code for the next owner-signed update; initial publication enables no billable LLM,
+    media, agent or ad/write capability
+  later_updates: deployment.kind update, nonnull base_release_id equal to current active release, ordinary Telegram
+    typed approval only; owner SSH recovery may restore a previously approved release under the existing recovery
+    runbook, never mint a replacement initial approval

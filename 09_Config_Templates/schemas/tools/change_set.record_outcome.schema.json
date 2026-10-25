@@ -1,0 +1,38 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "https://wolter.uz/amt/schemas/tools/change_set.record_outcome.schema.json",
+ "title": "change_set.record_outcome arguments",
+ "description": "Gateway guard 4 argument schema; contract: GUARDRAIL_GATEWAY.md §9.4.",
+ "type": "object",
+ "additionalProperties": false,
+ "properties": {
+  "command_id": {
+   "$ref": "_common.schema.json#/$defs/ref"
+  },
+  "command_revision": {
+   "type": "integer",
+   "minimum": 1
+  },
+  "outcome": {
+   "$ref": "_common.schema.json#/$defs/outcome"
+  },
+  "data_status": {
+   "$ref": "_common.schema.json#/$defs/data_status"
+  },
+  "evidence_refs": {
+   "type": "array",
+   "items": {
+    "$ref": "_common.schema.json#/$defs/ref"
+   },
+   "maxItems": 20,
+   "minItems": 1
+  }
+ },
+ "required": [
+  "command_id",
+  "command_revision",
+  "outcome",
+  "data_status",
+  "evidence_refs"
+ ]
+}

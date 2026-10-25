@@ -1,0 +1,102 @@
+# Project OS workflow definition template; unresolved readiness blocks the relevant live profile.
+schema_version: 1
+bundle_state: template
+workflow_id: WF-E05
+definition_version: 1
+title: Autonomous agent hire
+category: engineering
+purpose: >-
+  The platform creates the agent it needs without owner approval (✅ Q68): the CMO drafts a hire with the
+  paperclip-create-agent skill, deterministic checks hold it inside agent-hiring.yaml, the gateway creates and verifies
+  the agent, and the owner is told and can retire it at any time.
+accountable: owner
+requirement_refs: [EVO-R16]
+trigger:
+  kinds: [event]
+  source: CMO workflow.start (WF-E05) with a hire proposal drafted with 08_Skills/paperclip-create-agent; only agent-hiring.yaml requesters
+  source_refs: [cmo]
+  schedule: null
+  dedup_key: proposal_slug+proposal_revision
+  correlation_key: proposal_slug
+authorization:
+  may_start: [cmo]
+  may_cancel: [owner]
+  preconditions:
+    - agent-hiring.yaml enabled is true (Q68)
+    - the requester is in agent-hiring.yaml requesters
+input:
+  schema_ref: 08_Skills/paperclip-create-agent/SKILL.md §2 hire proposal
+  required_fields: [proposal_slug, proposal_revision, role, owned_responsibility, parent_role, tools, model, share_minor, currency, evaluation, evidence]
+  freshness: []
+steps:
+  - id: S01
+    name: Hire proposal
+    executor: {type: agent, ref: cmo}
+    depends_on: []
+    outputs: ['hire proposal per the skill §2: slug, role, owned responsibility, parent role, tools with reasons, model, share_minor, evaluation plan, evidence refs']
+    external_effect: internal_only
+    retry: safe_resume
+    timeout: PT2H
+  - id: S02
+    name: Envelope checks
+    executor: {type: deterministic, ref: amt-workflow}
+    depends_on: [S01]
+    outputs: ['every agent-hiring.yaml check passed, or the run ends with the failing check named and nothing created']
+    external_effect: none
+    retry: safe_resume
+    timeout: PT10M
+  - id: S03
+    name: Create agent
+    executor: {type: deterministic, ref: gateway}
+    depends_on: [S02]
+    outputs: ['dynamic agent record with the granted tools and model; share_minor carved from reserve; Paperclip agent created with the platform-only board create call (paperclip_bridge.platform_ops, VR-46) and heartbeat off; requireBoardApprovalForNewAgents stays on']
+    external_effect: reversible
+    retry: new_attempt_after_reconcile
+    timeout: PT30M
+  - id: S04
+    name: Verification with the new agent token
+    executor: {type: deterministic, ref: gateway}
+    depends_on: [S03]
+    outputs: ['agent-hiring.yaml verification items passed; any failure retires the agent at once and raises ALERT_AGENT_HIRED with the failing item']
+    external_effect: internal_only
+    retry: safe_resume
+    timeout: PT30M
+  - id: S05
+    name: Owner notice
+    executor: {type: deterministic, ref: ops-bot}
+    depends_on: [S04]
+    outputs: ['ALERT_AGENT_HIRED to the owner with the agent card and /agent retire <slug>; not an approval']
+    external_effect: internal_only
+    retry: safe_resume
+    timeout: PT10M
+limits:
+  max_duration: PT4H
+  max_attempts_per_step: 3
+  cost: {budget_account: ai_runtime, max_minor: null, max_minor_ref: 'readiness:budget.request_bounds', currency: USD, readiness_ref: budget.request_bounds}
+  concurrency: {per_correlation_key: 1, global: 1, on_limit: queue}
+  escalation:
+    - {after: PT4H, to: owner, channel: ops-bot}
+  owner_absent: >-
+    Runs to the end without the owner (Q68); the owner sees ALERT_AGENT_HIRED afterwards and can retire the agent.
+continuation:
+  checkpoint: after_every_step_transition
+  timers: []
+  signals: [kill]
+  lease_ttl: PT5M
+  cancel: Owner cancel before S03 ends the run with nothing created; after S03 it retires the created agent (share back to reserve, Paperclip agent paused)
+  compensation: retire the created agent (agent_retire semantics without a typed code, recorded as compensation)
+  uncertain_external_effect: reconcile_via_source_system
+completion:
+  technical_done: the agent exists in the AMT dynamic agent record and in Paperclip, S04 verification passed and the owner notice was sent
+  end_steps: [S05]
+  required_evidence: [proposal revision, envelope check results, dynamic agent record id, Paperclip agent id, verification results, owner notice id]
+  observation: none
+  business_acceptance: the owner can see the agent card and stop it; its first 30 days are judged by the evaluation plan in the proposal
+failure_paths:
+  missing_input: a missing or invalid proposal field ends the run before S02 with the field named; nothing is created
+  cancel_or_escalate: owner cancel before S03 creates nothing; after S03 the agent is retired; a run past PT4H escalates to the owner
+  uncertain_external_effect: an unknown Paperclip create result is reconciled from the Paperclip agent list and the AMT record; no second create for the same proposal revision
+  other:
+    - an envelope check fails - run ends, the CMO gets the failing check, no agent is created
+    - S04 verification fails - the agent is retired at once and the owner is alerted
+tests: [WF-TEST-E05-E2E, WF-TEST-E05-MISSING, WF-TEST-E05-CANCEL, WF-TEST-E05-UNCERTAIN, WF-TEST-E05-ENVELOPE]

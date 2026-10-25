@@ -1,0 +1,38 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "https://wolter.uz/amt/schemas/tools/report.submit.schema.json",
+ "title": "report.submit arguments",
+ "description": "Gateway guard 4 argument schema; contract: GUARDRAIL_GATEWAY.md §9.1; TELEGRAM.md §5.3. a weekly report passes the Reviewer pre-check (weekly_report subject) before the outbox",
+ "type": "object",
+ "additionalProperties": false,
+ "properties": {
+  "report_kind": {
+   "$ref": "_common.schema.json#/$defs/slug"
+  },
+  "pipeline": {
+   "$ref": "_common.schema.json#/$defs/pipeline"
+  },
+  "bluf": {
+   "$ref": "_common.schema.json#/$defs/free_text"
+  },
+  "body_artifact_ref": {
+   "$ref": "_common.schema.json#/$defs/ref"
+  },
+  "body_digest": {
+   "$ref": "_common.schema.json#/$defs/sha256"
+  },
+  "evidence_refs": {
+   "type": "array",
+   "items": {
+    "$ref": "_common.schema.json#/$defs/ref"
+   },
+   "maxItems": 50
+  }
+ },
+ "required": [
+  "report_kind",
+  "bluf",
+  "body_artifact_ref",
+  "body_digest"
+ ]
+}

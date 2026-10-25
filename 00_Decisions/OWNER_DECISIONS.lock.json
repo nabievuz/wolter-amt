@@ -1,0 +1,515 @@
+{
+ "schema_version": 1,
+ "purpose": "Hash lock of the owner decision texts in DECISION_LOG sections A–E and I. Validator rule D19 fails when a text or status changes; updating this file is a deliberate, reviewed act tied to an owner decision.",
+ "generated": "2026-10-25",
+ "rows": [
+  {
+   "id": "Q01",
+   "n": 1,
+   "status": "✅",
+   "sha256": "189dcfe84fc8e7c09ffb8dc08fda164bd2a245293f32de87fc886b9cd55baf60"
+  },
+  {
+   "id": "Q02",
+   "n": 1,
+   "status": "✅",
+   "sha256": "becfd381bdbe6a4c1694e81ce49b03b8035db5d4f3631a5a2a94ef5fc0f293f2"
+  },
+  {
+   "id": "Q04",
+   "n": 1,
+   "status": "✅",
+   "sha256": "250301a3fd5a2ffec59971a9bcf06cdb8527ba0f9735c942ad8816a80ad0857f"
+  },
+  {
+   "id": "Q05",
+   "n": 1,
+   "status": "✅",
+   "sha256": "0f8975aefb66fec856a9127c5e343f16b316cec4b81a5d36e0aac371745d1a42"
+  },
+  {
+   "id": "Q06 → Q14",
+   "n": 1,
+   "status": "✅",
+   "sha256": "bb35d175ad9c3979743e7688a747e19ace7757eec13fba4dab5f9d63ff3fffb9"
+  },
+  {
+   "id": "Q16",
+   "n": 1,
+   "status": "✅",
+   "sha256": "2a7e88f019e34f1b508b6341f0f8215cc7cb0e534e1678de0a9d95eec32697d0"
+  },
+  {
+   "id": "Q24",
+   "n": 1,
+   "status": "✅",
+   "sha256": "b8641f2769fce7183ae9c246d24d252c69931c7464e33a9166a7086f447bf281"
+  },
+  {
+   "id": "Q29.1",
+   "n": 1,
+   "status": "✅",
+   "sha256": "edd6cc027c738e1fdf145717099366d9e27b7f9d701c9c48d075a58af7762285"
+  },
+  {
+   "id": "Q43",
+   "n": 1,
+   "status": "✅",
+   "sha256": "5cdf5c5dda72da00c01d982dda856e2bb9c8c4816aa8ca735f5d281756802177"
+  },
+  {
+   "id": "Q43★",
+   "n": 1,
+   "status": "★",
+   "sha256": "44c1817ae9eb9a1ecb8bce86237f3686554bb5c790fc98cea9fa9017c7f07767"
+  },
+  {
+   "id": "Q03/Q14",
+   "n": 1,
+   "status": "✅",
+   "sha256": "90801a689bb84f0aa82e64f64edeade05d2956e3daf7c27c833bed6cb601f969"
+  },
+  {
+   "id": "Q15/Q39",
+   "n": 1,
+   "status": "✅",
+   "sha256": "46049e7cb78faf381370f05346de65596c4cefb9cb0ffc5ae0c4c73c54bef92e"
+  },
+  {
+   "id": "Q13",
+   "n": 1,
+   "status": "✅",
+   "sha256": "e4f7350e08403401c9f25effd2ee4b10991cb10515632b10e3d01e0a11667b6d"
+  },
+  {
+   "id": "Q44.2",
+   "n": 1,
+   "status": "✅",
+   "sha256": "dfaebe638893e44b3fc2d1d401b379cdb93fd404d6f677753d75f4f9957d8e04"
+  },
+  {
+   "id": "Q44.2★",
+   "n": 1,
+   "status": "★ (faktdan kelib chiqadi)",
+   "sha256": "c862c9503c781080f45e58e8793bc8b2df6d748c1e3e832bcb517a4f14141112"
+  },
+  {
+   "id": "Q44.3",
+   "n": 1,
+   "status": "✅",
+   "sha256": "98ba4d3c26857d6ec358d203ce84e7a6eb4d1ea5a3ccb197a45e2198b98a9cc5"
+  },
+  {
+   "id": "Q08",
+   "n": 1,
+   "status": "✅",
+   "sha256": "03d78786f393b1e615e3e1a08f56a560ab32289776fa8ffca997cc1a57dc9899"
+  },
+  {
+   "id": "Q38",
+   "n": 1,
+   "status": "✅",
+   "sha256": "1b1840b010e3c6733e40a2cdc834f829e2feb498a18f0f295b00360a50c26706"
+  },
+  {
+   "id": "Q32",
+   "n": 1,
+   "status": "✅",
+   "sha256": "6783a6b2738741111b1b1ba83e040023f4d523cc59a64c08becee83ef868672f"
+  },
+  {
+   "id": "Q35",
+   "n": 1,
+   "status": "✅",
+   "sha256": "5e7ebab4f2fa305d4c067c9e43944e6fb76f6dd9f1ab6bbda70be97bd4b58530"
+  },
+  {
+   "id": "Q18/Q42",
+   "n": 1,
+   "status": "✅",
+   "sha256": "cdce52f9ee062be18d3723cca29003696d8156a5959a23d932a102baf698d699"
+  },
+  {
+   "id": "Q22→Q36",
+   "n": 1,
+   "status": "✅ (Q22 \"darhol\" ⟲)",
+   "sha256": "ea57925474713672389572af930800e48d9b0a27c535ebd172a52dea596f605a"
+  },
+  {
+   "id": "Q31",
+   "n": 1,
+   "status": "✅",
+   "sha256": "9b1fa3232a920ba1a9fb4e5c771684959c3d1d5060da82a0d58fa681ba72bf54"
+  },
+  {
+   "id": "Q37",
+   "n": 1,
+   "status": "✅",
+   "sha256": "ff409a164f447fb92c46d174f735e5cc2df24259f0c34a8ea9f1d5b85510952d"
+  },
+  {
+   "id": "Q41",
+   "n": 1,
+   "status": "✅",
+   "sha256": "5faca2928cf5ada7d2b6587dd1c5778ae14ff5b5f2842badc1f9dcf27a072ad4"
+  },
+  {
+   "id": "Q42",
+   "n": 1,
+   "status": "✅",
+   "sha256": "1d55965b9ef602d0386861a76332475c123efec7cc1ac4d7a3e734b3c5254a19"
+  },
+  {
+   "id": "Q61",
+   "n": 1,
+   "status": "✅",
+   "sha256": "47a3cbe1048636584902f5f547e72511634cfe3218f751caf8b6cc3e0e97a9f4"
+  },
+  {
+   "id": "Q07",
+   "n": 1,
+   "status": "✅",
+   "sha256": "eef59fb6de134302862ed1063a67c06304b2f2575ab7dade88dcdb893f5eabb2"
+  },
+  {
+   "id": "Q25",
+   "n": 1,
+   "status": "✅",
+   "sha256": "423b57e6a8ff555b6fbdc7494397ecc9f9f1a940d012b095da094ebfe859de11"
+  },
+  {
+   "id": "Q40",
+   "n": 1,
+   "status": "✅",
+   "sha256": "acfe3f771f811eece1731bb9d0a7ba90d6eaa00bc326f3131312574521a5fd9e"
+  },
+  {
+   "id": "Q26",
+   "n": 1,
+   "status": "✅",
+   "sha256": "db5a3c51969bb13d6db9ff0b5e19ba0fae13c6a358ef2da4271f263f4d095627"
+  },
+  {
+   "id": "Q17",
+   "n": 1,
+   "status": "✅",
+   "sha256": "c6b131873d517c4989695d8327d63d8477781488ddc6b0949041d503ac2ec887"
+  },
+  {
+   "id": "Q28",
+   "n": 1,
+   "status": "✅",
+   "sha256": "344faee2188785ccefcc0ddc3970ccb9ce2f2695764964817230cf1f82df6fe5"
+  },
+  {
+   "id": "Q62",
+   "n": 1,
+   "status": "✅",
+   "sha256": "3c1e99566406fbe8da831e8b9618711b258e6081ca6829bae031511c6db05170"
+  },
+  {
+   "id": "Q30/Q45",
+   "n": 1,
+   "status": "✅",
+   "sha256": "6a5be22391ad4a2c89134e1205bfd2fb70744156b370bdd0cf22a00084a453d5"
+  },
+  {
+   "id": "Q30",
+   "n": 1,
+   "status": "✅",
+   "sha256": "445db1570b3d085b3831dd7f71a0c49f505a2f0f462fb89c65b32a13ac1df9f0"
+  },
+  {
+   "id": "Q19",
+   "n": 1,
+   "status": "✅",
+   "sha256": "a86ce83f194e46efe40c7c06dd89f21ba18db170cf4d771bc64d61dcdaee7fc1"
+  },
+  {
+   "id": "Q20/Q29.3",
+   "n": 1,
+   "status": "✅",
+   "sha256": "2bc9f216766b9571e6d40fdac8cb0454e8621c0dc91760a54a371aa1889c5427"
+  },
+  {
+   "id": "Q21",
+   "n": 1,
+   "status": "✅",
+   "sha256": "8216895f7a13b4b304e3e59f75fe498ec6c5039f7399a212d8b97e0f6b7a36ae"
+  },
+  {
+   "id": "Q09/Q27",
+   "n": 1,
+   "status": "⟲ → Q52",
+   "sha256": "da6909fefc53f00c8af98f0caab59721be31ddf681bdff376a3a125ba4b8dce5"
+  },
+  {
+   "id": "Q52",
+   "n": 1,
+   "status": "✅",
+   "sha256": "5f84c7dc68441f0c976090f15c53b621c60ad205e542e9fe8116db70b663c7c2"
+  },
+  {
+   "id": "Q53",
+   "n": 1,
+   "status": "✅",
+   "sha256": "667568ee0fe4c6e4e6a7c868b8a012f774ec6a0c4e3bf9973fbd9ca9c90acc71"
+  },
+  {
+   "id": "Q54",
+   "n": 1,
+   "status": "✅",
+   "sha256": "29363a4d6a9343019959efbd72b593fb64e34394e9a1a3d22bdba8a7643b58bf"
+  },
+  {
+   "id": "Q55",
+   "n": 1,
+   "status": "✅",
+   "sha256": "89d4d9eb29f1ee27ab7df8bd4e6e792605cd6a036a2acac5cf97f3d86a789441"
+  },
+  {
+   "id": "Q56",
+   "n": 1,
+   "status": "✅",
+   "sha256": "a389f446d4f8643c46453cc1616bcde6907e3b36c0f9a21d2f401c0661afc99b"
+  },
+  {
+   "id": "Q46.5",
+   "n": 1,
+   "status": "✅",
+   "sha256": "299b980fd62cd062a176802aa8cb9e86fdb925921c91768d773cf72bce3310fa"
+  },
+  {
+   "id": "Q46.1",
+   "n": 1,
+   "status": "⟲ → Q57",
+   "sha256": "d8c79bf9bdf2c906fdc7b91f37901eac8773ac3f8e4efce1dad7150024c2d0a5"
+  },
+  {
+   "id": "Q46.2",
+   "n": 1,
+   "status": "✅",
+   "sha256": "a9fcd94571e1f11625db52c4887cc1c40d338465d088378307c8ac9fb49ffc60"
+  },
+  {
+   "id": "Q46.3",
+   "n": 1,
+   "status": "⟲ → Q57",
+   "sha256": "2e204f408e9f915610fa29f737e66d45034ec77dcc502700a777ebe193bfffcc"
+  },
+  {
+   "id": "Q46.3★",
+   "n": 1,
+   "status": "⟲ → Q57, Q58",
+   "sha256": "239cb27e9c16294061d42165d2e284ce4a90bf6d23d7e21b225f1b452c0c7f48"
+  },
+  {
+   "id": "Q57",
+   "n": 1,
+   "status": "✅",
+   "sha256": "9b85493130faa5c2995e9488aaabddb32ebcd9f83b7a613e9ca0f1f9ba3bff5e"
+  },
+  {
+   "id": "Q58",
+   "n": 1,
+   "status": "✅",
+   "sha256": "6beff5b3871c23362a00f92c263078ac1b4b296557ecb41012fa57b05907d5c3"
+  },
+  {
+   "id": "Q59",
+   "n": 1,
+   "status": "✅",
+   "sha256": "b907110133de069e0f2b9a55b110a56b6956c63976ef5eeae148b9c22be11b01"
+  },
+  {
+   "id": "Q60",
+   "n": 1,
+   "status": "✅",
+   "sha256": "46381a3ffa3b1d6daca330b5d4b90bb2aa263929cebbb90e134e89d9c4c81357"
+  },
+  {
+   "id": "Q46.4",
+   "n": 1,
+   "status": "✅",
+   "sha256": "6a9fe5008cd03772f9d101d5adcc49059a68af6de712e417e0b91d81d845e764"
+  },
+  {
+   "id": "Q49",
+   "n": 1,
+   "status": "✅",
+   "sha256": "7719eea10d2f2d9f186ac75147abadef42200c0edf32bf377650a0e46fb4aabf"
+  },
+  {
+   "id": "Q49★",
+   "n": 1,
+   "status": "★",
+   "sha256": "9deedfe95da7cef745635b9e3ccbcc7b13306691c187fde8ccbdb6ecf93181c6"
+  },
+  {
+   "id": "Q47",
+   "n": 1,
+   "status": "✅",
+   "sha256": "830d961b3602d090be67e0769ed7c8127eb51082e8218c03c3e4f4f22bd5913d"
+  },
+  {
+   "id": "Q47",
+   "n": 2,
+   "status": "✅",
+   "sha256": "61908e5218526425d2af18f84e0f078e7a18ca07ad5e423b776204a88ab7a716"
+  },
+  {
+   "id": "Q47★",
+   "n": 1,
+   "status": "★",
+   "sha256": "60cd02bb06924fa684bae8b307d038da1fa33bdbb041e14790a9ece657003d1f"
+  },
+  {
+   "id": "Q48",
+   "n": 1,
+   "status": "✅",
+   "sha256": "4633293370f6e8c51823fb073237061ebf3ab98bc6a3b22d0d8a33f00ac3a62e"
+  },
+  {
+   "id": "Q48★",
+   "n": 1,
+   "status": "★",
+   "sha256": "e08cc0e4e2c655d8c0cd2627354a0daaf49b350d151574725bb33bc2c5499eaa"
+  },
+  {
+   "id": "Q10/Q33/Q44.1",
+   "n": 1,
+   "status": "✅",
+   "sha256": "2d415dafec48ca98d587a9ed862a784394caeb6276fe67292d7d87b58a065869"
+  },
+  {
+   "id": "Q44★",
+   "n": 1,
+   "status": "★",
+   "sha256": "1d1de9389d791577e5fec581ca8795ff2abaf0d14ac4032287fb490b97f9c204"
+  },
+  {
+   "id": "Q11",
+   "n": 1,
+   "status": "✅",
+   "sha256": "ed52ef47b167da1c5ac69328b4aa8da8aceb4e62ccb008668cb4b195ee5a82fc"
+  },
+  {
+   "id": "Q12",
+   "n": 1,
+   "status": "✅",
+   "sha256": "bc8eafe02712d810d614ba7c43f02f11bf79d12f083d80e0c0f698ef749bfd16"
+  },
+  {
+   "id": "Q34/Q46★",
+   "n": 1,
+   "status": "★",
+   "sha256": "b6306857ee3adab5efab860d2d9d9bec7ab217022dae1d1ab892ed8eff1dae1d"
+  },
+  {
+   "id": "Q23",
+   "n": 1,
+   "status": "✅",
+   "sha256": "ca30a67baaf72ea016f55897fba44898062629a48f46ff8194dced2d6fb2c93a"
+  },
+  {
+   "id": "Q50",
+   "n": 1,
+   "status": "✅ (qamrov)",
+   "sha256": "afa154193368ec77d5fdcfcc2fb46b14ba4d731dab603d6c9d3ddf0d87fdf355"
+  },
+  {
+   "id": "Q51",
+   "n": 1,
+   "status": "✅ (owner ko‘rsatmasi)",
+   "sha256": "0d6d0107862e89d724653cc9380c66021423ca510cacd1aafe354e63a3397a48"
+  },
+  {
+   "id": "Q63",
+   "n": 1,
+   "status": "✅",
+   "sha256": "3f63f839d5ea766519c677c8d2fbaaedcb41685edc334bea666b7fa79e84a909"
+  },
+  {
+   "id": "Q64",
+   "n": 1,
+   "status": "✅",
+   "sha256": "1aa77e900a26597d0904e22a19870f44ad7a8e55cc224debe5f2dee00f99bc4d"
+  },
+  {
+   "id": "Q65",
+   "n": 1,
+   "status": "✅",
+   "sha256": "3e4bb68a0ec27fbb05a1ba01d2fd6256cbf34581e2a2eabf03cb983cd3769ecc"
+  },
+  {
+   "id": "Q66",
+   "n": 1,
+   "status": "✅",
+   "sha256": "799492ee1ff3fa58a69eb10a35f63dc93a65bd16b6eb763df0ef3553ac75a782"
+  },
+  {
+   "id": "Q67",
+   "n": 1,
+   "status": "✅",
+   "sha256": "f7a4b9c3de0c7a4f075decf85f4976b74aa036417653ce523a934e779ed839f2"
+  },
+  {
+   "id": "Q68",
+   "n": 1,
+   "status": "✅",
+   "sha256": "e360ebbc82d905ec2af9162ed9ae5ba7c744d6181f74d9e2e15fd4bd3de1a922"
+  }
+ ],
+ "change_history": [
+  {
+   "date": "2026-10-23",
+   "reason": "owner decisions from the 2026-10-23 grilling session (G1–G28): host move to the owner PC, tunnel, Tailscale, Omada, no disk encryption, local snapshot only, Jev pre-screen, webhook PII off disk",
+   "added": [
+    "Q52",
+    "Q53",
+    "Q54",
+    "Q55",
+    "Q56",
+    "Q57",
+    "Q58",
+    "Q59",
+    "Q60",
+    "Q61",
+    "Q62"
+   ],
+   "status_changed_to_superseded": [
+    "Q09/Q27",
+    "Q46.1",
+    "Q46.3",
+    "Q46.3★"
+   ]
+  },
+  {
+   "date": "2026-10-25",
+   "reason": "Direct sequential owner answers during the Claude Code handoff remediation: billing-only automatic recovery, experiment approvers, one-time signed initial SSH release, initial-build independent review and FE before F5 eval/shadow. Existing locked decision texts and statuses preserved.",
+   "added": [
+    "Q63",
+    "Q64",
+    "Q65",
+    "Q66",
+    "Q67"
+   ],
+   "status_changed_to_superseded": []
+  },
+  {
+   "date": "2026-10-25",
+   "reason": "owner decision in the 2026-10-25 agent-hiring session: the platform creates the agent it needs itself (paperclip-create-agent skill), mode chosen by the owner: fully autonomous, without approval; builder recommendation (prepare + one typed code) shown and not chosen",
+   "added": [
+    "Q68"
+   ]
+  }
+ ],
+ "last_change": {
+  "date": "2026-10-25",
+  "reason": "owner decision in the 2026-10-25 agent-hiring session: the platform creates the agent it needs itself (paperclip-create-agent skill), mode chosen by the owner: fully autonomous, without approval; builder recommendation (prepare + one typed code) shown and not chosen",
+  "added": [
+   "Q68"
+  ],
+  "existing_rows_unchanged": 75
+ }
+}

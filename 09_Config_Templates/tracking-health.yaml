@@ -1,0 +1,52 @@
+# Project OS configuration template; unresolved readiness blocks the relevant live profile.
+schema_version: 1
+bundle_state: template
+decision_refs: [Q37]
+mode: report_only
+job_time: 09:30 Asia/Tashkent
+schedule_ref: operations.schedule
+live_sequence:
+- F2_LIVE_INTAKE_ready
+- HG-F2-09
+- real_lead_e2e_evidence
+- 14_days_report_only
+- owner_threshold_approval
+- 7_consecutive_all_gate_checks_pass
+- HG-F2-08
+report_only_clock_starts: when every live ad listed in HG-F2-09 points to go.wolter.uz
+fail_days_to_read_only: 2
+fail_day_scope: any_gate_check   # Q37: a day with at least one gate check fail (any check, any pipeline) is a fail day
+fail_streak: {increments_on: fail_day, resets_on: all_gate_checks_pass_day, unchanged_on: [unknown, stale, low_n, warn]}
+single_fail_behavior: alert
+unknown_or_stale: block_risk_increase_by_freshness_policy
+freshness_readiness_ref: tracking.freshness
+check_states: [pass, warn, fail, unknown, stale, low_n, not_applicable]
+streak_rules:
+  counts_as_pass: [pass]
+  breaks_pass_streak: [fail, unknown, stale, low_n]
+  warn: OD-17
+  not_applicable: owner-approved per check only
+exit_read_only:
+  consecutive_pass_days: null   # value approved in tracking.thresholds
+  requires_owner_resume: true
+  decision_status: P-18
+check_schema: [unit, direction, denominator, window, min_sample, warn, fail]
+checks:
+  fbc_share: {gate: true, scope: per_pipeline, thresholds: null, readiness_ref: tracking.thresholds}
+  fbp_share: {gate: true, scope: per_pipeline, thresholds: null, readiness_ref: tracking.thresholds}
+  untagged_leads: {gate: true, scope: per_pipeline, thresholds: null, readiness_ref: tracking.thresholds, depends_on: sales.sop}
+  capi_error_rate: {gate: true, scope: per_pipeline, thresholds: null, readiness_ref: tracking.thresholds, counts: {final: [rejected, dropped_uncertain], unresolved: [uncertain, needs_review]}}
+  pixel_capi_dedup: {gate: true, scope: per_pipeline, thresholds: null, readiness_ref: tracking.thresholds}
+  pixel_vs_crm_leads: {gate: true, scope: per_pipeline, thresholds: null, readiness_ref: tracking.thresholds}
+  accepted_vs_crm_receipts: {gate: true, scope: per_pipeline, thresholds: null, readiness_ref: tracking.thresholds}
+  queue_oldest_age: {gate: true, scope: per_pipeline, thresholds: null, readiness_ref: tracking.thresholds}
+  sync_freshness: {gate: true, scope: per_pipeline, thresholds: null, readiness_ref: tracking.thresholds}
+  capi_lag_p95: {gate: false, target_minutes: 15, normal_load_envelope_ref: ops.resource_envelope}
+  emq: {gate: false, availability_readiness_ref: vendor.meta_capi}
+calibration:
+  readiness_ref: tracking.thresholds
+  pass_evidence_ref: tracking.pass_7d
+  measured_from: null
+  measured_to: null
+  approved_by: null
+  evidence_ref: null

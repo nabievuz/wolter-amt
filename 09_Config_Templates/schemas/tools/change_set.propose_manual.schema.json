@@ -1,0 +1,57 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "https://wolter.uz/amt/schemas/tools/change_set.propose_manual.schema.json",
+ "title": "change_set.propose_manual arguments",
+ "description": "Gateway guard 4 argument schema; contract: GUARDRAIL_GATEWAY.md §9.1.",
+ "type": "object",
+ "additionalProperties": false,
+ "properties": {
+  "action_type": {
+   "enum": [
+    "events_manager_change",
+    "amo_pipeline_change_proposal"
+   ]
+  },
+  "pipeline": {
+   "$ref": "_common.schema.json#/$defs/pipeline"
+  },
+  "steps": {
+   "type": "array",
+   "items": {
+    "$ref": "_common.schema.json#/$defs/free_text"
+   },
+   "maxItems": 20,
+   "minItems": 1
+  },
+  "expected_effect": {
+   "$ref": "_common.schema.json#/$defs/expected_effect",
+   "not": {
+    "properties": {
+     "scope": {
+      "const": "entity"
+     }
+    },
+    "required": [
+     "scope"
+    ]
+   }
+  },
+  "rollback": {
+   "$ref": "_common.schema.json#/$defs/free_text"
+  },
+  "evidence_refs": {
+   "type": "array",
+   "items": {
+    "$ref": "_common.schema.json#/$defs/ref"
+   },
+   "maxItems": 20
+  }
+ },
+ "required": [
+  "action_type",
+  "pipeline",
+  "steps",
+  "expected_effect",
+  "rollback"
+ ]
+}

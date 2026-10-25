@@ -1,0 +1,17 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "https://wolter.uz/amt/schemas/tools/amo.read_pipelines.schema.json",
+ "title": "amo.read_pipelines arguments",
+ "description": "Gateway guard 4 argument schema; contract: GUARDRAIL_GATEWAY.md §9.5.",
+ "type": "object",
+ "additionalProperties": false,
+ "properties": {
+  "pipeline_ids": {
+   "type": "array",
+   "items": {
+    "$ref": "_common.schema.json#/$defs/amo_id"
+   },
+   "maxItems": 50
+  }
+ }
+}

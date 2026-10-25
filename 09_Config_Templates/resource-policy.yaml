@@ -1,0 +1,38 @@
+# Project OS configuration template; unresolved readiness blocks the relevant live profile.
+schema_version: 1
+bundle_state: template
+host_readiness_ref: capacity.sandbox_host
+enforcement: cgroup2_systemd_slices
+slices:
+  # service_ids from runtime-isolation.yaml#services; every service belongs to exactly one slice (validator E08)
+  control: [amt-control, ops-bot, tg-auth, telegram-bot-api, caddy, cost-watchdog, cloudflared, tailscaled, sshd]
+  production: [gateway, executor, llm-proxy, capi-bridge, sync-worker, amocrm-mcp, quota-coordinator, meta-ads-mcp, render-worker, stt-local, managed-runner, paperclip, hermes, amt-workflow, amt-release, postgres, langfuse, amt-backup]
+  sandbox: [amt-sandbox, amt-verify, amt-eng-proxy]
+slice_notes:
+  managed-runner: role workers started by the runner inherit the production slice; engineering roles run in sandbox through amt-sandbox
+  amt-backup: writes the local snapshot (Q55); runs in production with io_weight below the request path; never starves intake or control
+  cloudflared: the only ingress path (Q57); kept in control so intake webhooks and operator UI survive production pressure
+  tailscaled: operator SSH path (Q58); kept in control
+  sshd: reachable only through tailscale0 (Q58); kept in control
+priority: control > production > sandbox
+production_reserve:
+  cpu_pct: null
+  ram_mib: null
+  disk_gib: null
+  io_weight: null
+sandbox_limits:
+  cpu_quota: null
+  memory_max_mib: null
+  pids_max: null
+  disk_quota_gib: null
+  io_max: null
+  wall_time: null
+on_pressure: pause_sandbox_then_queue_engineering_work
+protected_functions:
+- landing intake custody and accepted→CRM reconciliation
+- kill latch, control epoch and dispatch barrier
+- money accounting (llm-proxy reservations, ads spend ledger)
+- operator control (ops-bot, tg-auth, independent monitor)
+separate_build_host:
+  allowed: true
+  requires_owner_money_gate: true

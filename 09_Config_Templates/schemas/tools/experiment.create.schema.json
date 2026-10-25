@@ -1,0 +1,62 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "https://wolter.uz/amt/schemas/tools/experiment.create.schema.json",
+ "title": "experiment.create arguments",
+ "description": "Gateway guard 4 argument schema; contract: GUARDRAIL_GATEWAY.md §9.1; DATA_MODEL experiments.",
+ "type": "object",
+ "additionalProperties": false,
+ "properties": {
+  "pipeline": {
+   "$ref": "_common.schema.json#/$defs/pipeline_single"
+  },
+  "hypothesis": {
+   "$ref": "_common.schema.json#/$defs/free_text"
+  },
+  "arms": {
+   "type": "array",
+   "items": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+     "arm_id": {
+      "$ref": "_common.schema.json#/$defs/slug"
+     },
+     "description": {
+      "$ref": "_common.schema.json#/$defs/free_text"
+     }
+    },
+    "required": [
+     "arm_id",
+     "description"
+    ]
+   },
+   "maxItems": 6,
+   "minItems": 2
+  },
+  "primary_metric": {
+   "$ref": "_common.schema.json#/$defs/metric"
+  },
+  "guardrail_metrics": {
+   "type": "array",
+   "items": {
+    "$ref": "_common.schema.json#/$defs/metric"
+   },
+   "maxItems": 10
+  },
+  "min_sample": {
+   "type": "integer",
+   "minimum": 1
+  },
+  "stop_rule": {
+   "$ref": "_common.schema.json#/$defs/free_text"
+  }
+ },
+ "required": [
+  "pipeline",
+  "hypothesis",
+  "arms",
+  "primary_metric",
+  "min_sample",
+  "stop_rule"
+ ]
+}

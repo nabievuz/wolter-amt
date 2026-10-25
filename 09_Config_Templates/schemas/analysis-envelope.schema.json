@@ -1,0 +1,279 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wolter.uz/amt/schemas/analysis-envelope.schema.json",
+  "title": "Thinking-library analysis envelope (THINKING_MODELS §3.4)",
+  "description": "The `analysis` field of a workflow handoff. Keys and enums follow 10_Reference/THINKING_MODELS.md §3.4 exactly; bounds come from the library (handoff ≤ 7 items, L3 chain ≤ 6 phases with 1–2 models each, so blocks ≤ 12) and from ◇ P-30 (free text ≤ 2 000 characters). The gateway validates it on workflow.submit_output before the runtime records the handoff (workflow-policy.yaml#handoff_validation, validator W19); the serialized size bound lives there.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "kernel_ref",
+    "task",
+    "decision",
+    "cynefin",
+    "depth",
+    "models",
+    "bluf",
+    "findings",
+    "recommendations",
+    "risks",
+    "confidence",
+    "handoff"
+  ],
+  "properties": {
+    "kernel_ref": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "task": {
+      "type": "string",
+      "maxLength": 2000
+    },
+    "decision": {
+      "type": "string",
+      "maxLength": 2000
+    },
+    "cynefin": {
+      "enum": [
+        "clear",
+        "complicated",
+        "complex",
+        "chaotic",
+        "confusion"
+      ]
+    },
+    "depth": {
+      "enum": [
+        "L1",
+        "L2",
+        "L3"
+      ]
+    },
+    "models": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 12,
+      "items": {
+        "type": "string",
+        "pattern": "^[A-Z]{3}-\\d{2}$"
+      }
+    },
+    "bluf": {
+      "type": "string",
+      "maxLength": 2000
+    },
+    "blocks": {
+      "type": "array",
+      "maxItems": 12,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "model",
+          "summary",
+          "decision_impact"
+        ],
+        "properties": {
+          "model": {
+            "type": "string",
+            "pattern": "^[A-Z]{3}-\\d{2}$"
+          },
+          "phase": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 6
+          },
+          "summary": {
+            "type": "string",
+            "maxLength": 2000
+          },
+          "decision_impact": {
+            "type": "string",
+            "maxLength": 2000
+          }
+        }
+      }
+    },
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "text",
+          "tag"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^F\\d+$"
+          },
+          "text": {
+            "type": "string",
+            "maxLength": 2000
+          },
+          "tag": {
+            "enum": [
+              "D",
+              "T",
+              "X",
+              "?"
+            ]
+          },
+          "source": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 300
+          },
+          "model": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[A-Z]{3}-\\d{2}$"
+          }
+        }
+      }
+    },
+    "recommendations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "action",
+          "priority"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^R\\d+$"
+          },
+          "action": {
+            "type": "string",
+            "maxLength": 2000
+          },
+          "priority": {
+            "enum": [
+              "P0",
+              "P1",
+              "P2"
+            ]
+          },
+          "owner": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 100
+          },
+          "due": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date"
+          },
+          "metric": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 300
+          }
+        }
+      }
+    },
+    "risks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "risk",
+          "likelihood",
+          "impact",
+          "mitigation"
+        ],
+        "properties": {
+          "risk": {
+            "type": "string",
+            "maxLength": 2000
+          },
+          "likelihood": {
+            "enum": [
+              "low",
+              "medium",
+              "high"
+            ]
+          },
+          "impact": {
+            "enum": [
+              "low",
+              "medium",
+              "high"
+            ]
+          },
+          "mitigation": {
+            "type": "string",
+            "maxLength": 2000
+          }
+        }
+      }
+    },
+    "assumptions": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "maxLength": 300
+      }
+    },
+    "unknowns": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "maxLength": 300
+      }
+    },
+    "counter_argument": {
+      "type": "string",
+      "maxLength": 2000
+    },
+    "would_change_my_mind": {
+      "type": "string",
+      "maxLength": 2000
+    },
+    "confidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "level",
+        "why"
+      ],
+      "properties": {
+        "level": {
+          "enum": [
+            "low",
+            "medium",
+            "high"
+          ]
+        },
+        "why": {
+          "type": "string",
+          "maxLength": 2000
+        }
+      }
+    },
+    "handoff": {
+      "type": "array",
+      "maxItems": 7,
+      "items": {
+        "type": "string",
+        "maxLength": 300
+      }
+    }
+  }
+}

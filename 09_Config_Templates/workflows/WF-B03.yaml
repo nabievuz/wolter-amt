@@ -1,0 +1,148 @@
+# Project OS workflow definition template; unresolved readiness blocks the relevant live profile.
+schema_version: 1
+bundle_state: template
+workflow_id: WF-B03
+definition_version: 2
+title: Daily ad decision
+category: business
+purpose: >-
+  Each business day the current tracking, fleet, sale-readiness and spend state produces revision-bound change-set
+  items in rounds: the base round at 08:30, the rent round when today's fleet snapshot is accepted, the sale round when
+  today's sale readiness is accepted (from F6_STEP2) and an experiment round for an approved WF-B05 arm (round = experiment:<experiment_id>, so two experiments on one date never share a run); approved items
+  are dispatched only after re-validation and reconciled with the vendor; the effect of every dispatched item is
+  measured against its stated expectation by its own WF-B07 run.
+accountable: owner
+requirement_refs: [FR-ADS-01, FR-ADS-03, FR-ADS-05, FR-GOV-01, FR-GOV-03, FR-GOV-08, FR-GOV-09, EVO-R01, EVO-R02, EVO-R03]
+trigger:
+  kinds: [schedule, signal, parent_run]
+  source: >-
+    amt-workflow scheduler for the base round (media_buyer_daily); fleet_snapshot_accepted starts the rent round
+    (rent_capacity_review); sale_readiness_accepted starts the sale round (from F6_STEP2); a WF-B05 S04 arm launch
+    starts the experiment round (round = experiment:<experiment_id>); urgent_item_submitted (gateway) starts one urgent round per Q38 urgent item at any time
+  source_refs: [amt-workflow, media_buyer_daily, rent_capacity_review, fleet_snapshot_accepted, sale_readiness_accepted, urgent_item_submitted, WF-B05]
+  schedule: "30 8 * * *"
+  signals_by_key: {rent: fleet_snapshot_accepted, sale: sale_readiness_accepted, urgent: urgent_item_submitted}
+  signal_windows:
+    rent: from fleet_ask to fleet_escalate (14:00); a snapshot accepted later starts no rent round and the capacity hold stays for the day
+    sale: until the end of the business date; a later snapshot starts the next day's sale round
+    urgent: "any time of day; each Q38 urgent item (a decrease or a pause only - approval-policy.yaml#change_set.urgent_definition) starts its own round (round = urgent:<item_id>) that presents the item at once with its own presented_at and 12 h TTL; S02 attaches the submitted item and proposes nothing else"
+  dedup_key: business_date+round
+  correlation_key: business_date+round
+  parent_workflows: [WF-B05]
+authorization:
+  may_start: [amt-workflow]
+  may_cancel: [owner, amt-workflow]
+  preconditions:
+    - write_mode is not killed (killed → run records shadow-only analysis, no proposals dispatched)
+    - "a parent_run start by amt-workflow happens only on behalf of a parent run step that lists this workflow in starts (parent_run_id and parent step recorded)"
+input:
+  schema_ref: DATA_MODEL §8 (gateway_state, fleet_snapshots, sale_readiness, tracking_health) and §7.3 ads_spend_snapshots
+  required_fields: [business_date, round, gateway_state_revision, control_epoch]   # round: base | rent | sale | experiment
+  optional_fields: [fleet_snapshot_report_id, sale_readiness_report_id, experiment_id]
+  freshness: [tracking.freshness, fleet.freshness, budget.ads_pacing]   # sale readiness gates only sale increases and rent->sale shifts (guard 12), from F6_STEP2
+steps:
+  - id: S01
+    name: Freshness and readiness snapshot
+    executor: {type: deterministic, ref: gateway}
+    depends_on: []
+    outputs: [readiness snapshot scoped to the round; capacity hold flag if today's fleet snapshot is missing/invalid (base and sale rounds never carry ordinary rent budget items); sale readiness state (sale_readiness snapshot valid_until; from F6_STEP2 it blocks sale increases and rent->sale shifts when missing or expired); open non-terminal commands of earlier rounds per entity (those entities get no new item)]
+    external_effect: none
+    retry: safe_resume
+    timeout: PT10M
+  - id: S02
+    name: Proposals
+    executor: {type: agent, ref: media-buyer}
+    depends_on: [S01]
+    outputs: ["change_set_items (immutable command revisions) with expected_effect, rollback_spec, evidence; in an urgent round only the submitted urgent item"]
+    handoff:
+      to: gateway
+      accept_when: [schema valid, revisions current, within rolling24h and MTD limits, readiness snapshot not stale]
+      reject_codes: [stale_input, limit_exceeded, readiness_hold, unauthorized_action]
+      on_reject: {route: producer_retry, max_rounds: 2, after_max: end_run, overrides: [{codes: [stale_input], route: producer_retry, producer_step: S01}, {codes: [readiness_hold], route: end_run}, {codes: [unauthorized_action], route: end_run, notify: owner}]}
+    external_effect: internal_only
+    retry: safe_resume
+    timeout: PT1H
+  - id: S03
+    name: Review where required
+    executor: {type: agent, ref: reviewer}
+    depends_on: [S02]
+    inputs: [every S02 command whose gateway-set review_required is true, including commands with no creative dependency]
+    outputs: ["a fresh independent Reviewer session per exact change_set_item command_id/revision/payload_hash and issued subject_hash; review.submit_verdict binds the current offer/policy dependencies through gateway bind_command_review; review_required false has deterministic review_not_required, never an agent waiver; any creative verdict is a separate dependency and cannot replace command payload review"]
+    handoff:
+      to: gateway
+      accept_when: ["every review_required command has a current independent exact command_review_bindings pass before S04 presentation or approval freeze; no missing, failed, stale, self-authored or needs_owner verdict is eligible"]
+      reject_codes: [review_fail, stale_command, needs_owner]
+      on_reject: {route: producer_retry, producer_step: S02, max_rounds: 2, after_max: escalate, escalate_to: owner, overrides: [{codes: [needs_owner], route: escalate, escalate_to: owner}]}
+    external_effect: internal_only
+    retry: safe_resume
+    timeout: PT1H
+  - id: S04
+    name: Change set approval (10:00) or valid L2 policy approval
+    executor: {type: human, ref: approver_per_policy}
+    depends_on: [S03]
+    schedule_refs: [batch_cutoff]
+    outputs: [approvals bound to payload/review/offer/policy/role revisions and control_epoch; each item routed by its gateway-set action_type; creative_activate and entity_activate here only re-activate an entity that was already active (dispatch_ownership; creation and first activation are WF-B02)]
+    approval:
+      by_cause:
+      - {cause: budget_change, policy_actions: [budget_change]}
+      - {cause: entity_pause, policy_actions: [entity_pause]}
+      - {cause: entity_activate, policy_actions: [entity_activate]}
+      - {cause: creative_activate, policy_actions: [creative_activate]}
+      - cause: re_activation_after_protective_pause
+        policy_actions: [entity_activate, creative_activate]
+        approvers: [owner]
+        never_auto: true
+        requires: ["the entity was last paused by protective_pause (protective_actions row, no later re-activation command) - the gateway assigns this case before the generic entity_activate / creative_activate cases", fresh spend data and headroom above the safety margin, one command per paused entity with admission and commitment checks]
+        effect: "owner-only and never automatic (ARCHITECTURE §11.3; recorded for WF-O02 S06 protective_pause through approved_case); ads_approver and an L2 policy approval cannot approve it"
+      - {cause: manual_proposal, policy_actions: [events_manager_change, amo_pipeline_change_proposal], never_auto: true, effect: owner performs by hand; recorded as done_manual}
+    external_effect: none
+    retry: never
+    timeout: PT12H
+  - id: S05
+    name: Dispatch with re-validation
+    executor: {type: deterministic, ref: executor}
+    depends_on: [S04]
+    outputs: [execution_attempts; command state succeeded | failed_confirmed | uncertain, "per-item dispositions for the whole change set (workflow-policy.yaml#command_aggregation dispatch): after no item remains approved, claimed or executing, the ordered dispatch rules decide completed, failed or cancelled; uncertain/reconciling/manual_resolution items pass to S06 reconciliation and are never reported as success"]
+    command_actions: [budget_change, entity_pause, entity_activate, creative_activate]
+    serves_cases: {creative_activate: re_activation, entity_activate: re_activation}
+    external_effect: irreversible
+    retry: new_attempt_after_reconcile
+    timeout: PT30M
+  - id: S06
+    name: Reconciliation
+    executor: {type: deterministic, ref: executor}
+    depends_on: [S05]
+    outputs: ["remote evidence per command; a manual_resolution item leaves run custody only with a durable owner task and an I18 accepted handoff under workflow-policy.yaml#command_aggregation.manual_resolution_handoff, binding the exact command revision, unresolved attempt/evidence, receiver/time and preserved reservation/conflict-lock references; a task alone never completes reconciliation", "per-item dispositions (workflow-policy.yaml#command_aggregation reconciliation); owned unresolved items keep the run reconciling/manual_resolution; terminal or accepted custody transfer leads through a running checkpoint to ordinary completion, never direct to completed; WF-B07 starts per command on its own succeeded/done_manual transition (outcome_start), not from this step"]
+    external_effect: none
+    retry: safe_resume
+    timeout: P1D
+limits:
+  max_duration: P2D
+  max_attempts_per_step: 3
+  cost: {budget_account: ai_runtime, max_minor: null, max_minor_ref: 'readiness:budget.request_bounds', currency: USD, readiness_ref: budget.request_bounds}
+  concurrency: {per_correlation_key: 1, global: null}
+  escalation:
+    - {after: PT2H, to: ads_approver, channel: ops-bot}
+    - {after: PT6H, to: owner, channel: ops-bot}
+  owner_absent: >-
+    Items needing owner expire at presented_at+12h; ordinary items may be approved by an active ads_approver within
+    policy; holds (capacity, tracking, sale readiness, read_only) stay in force; no auto-approval.
+continuation:
+  checkpoint: after_every_step_transition
+  timers: [change_set_10_00, approval_ttl_12h]
+  signals: [approval_callback, kill, mode_change, fleet_snapshot_accepted, sale_readiness_accepted]
+  lease_ttl: PT2M
+  cancel: "Unsent approved/pending items become cancelled/expired; claimed items cannot dispatch normally after kill; amt-workflow cancels only under workflow-policy.yaml#child_lifecycle.on_parent_end (cancel_open, no external effect yet)"
+  compensation: rollback is a new command linked by compensates_command_id
+  uncertain_external_effect: reconcile_via_command_ledger
+completion:
+  technical_done: "every item is terminal with its required evidence (remote evidence for succeeded/done_manual), or manual_resolution with a verified durable owner task and accepted custody handoff under command_aggregation.manual_resolution_handoff; handed-off items remain unresolved and are reported separately from success; the run checkpoints through running before ordinary completion"
+  end_steps: [S06]
+  required_evidence: [change_set item ids, approvals, attempts, remote versions, per-item dispositions, WF-B07 run ids of the succeeded commands (outcome_start)]
+  observation: per-item effect is measured in WF-B07 (one run per command, its own expected_effect horizon); this run ends at reconciliation
+  business_acceptance: change_set outcomes recorded by WF-B07 feed Trust Ramp only when met; inconclusive never counts as clean
+failure_paths:
+  missing_input: Today's fleet snapshot missing/invalid → no rent round and capacity hold for ordinary rent budget changes (a snapshot accepted after fleet_escalate starts no round today); stale sale readiness → no sale round, no sale increase or rent→sale shift; tracking stale → risk-increasing items blocked.
+  cancel_or_escalate: Kill or read_only during the run → pending items cancelled/expired, in-flight attempts reconciled; escalation timers above.
+  uncertain_external_effect: Provider timeout → uncertain; reconcile via read-only lookup before any new attempt; never blind resend.
+tests: [UAT-02, UAT-13, UAT-14, UAT-15, UAT-16, UAT-17, EVO-AT01, EVO-AT02, WF-TEST-B03-E2E, WF-TEST-B03-MISSING, WF-TEST-B03-CANCEL, WF-TEST-B03-UNCERTAIN, WF-TEST-B03-ROUNDS, WF-TEST-B03-URGENT, WF-TEST-B03-PROTECTIVE-REACT, WF-TEST-B03-REJECT-BOUND, WF-TEST-B03-PARTIAL]

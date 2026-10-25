@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wolter.uz/amt/schemas/improvement-memory-record.schema.json",
+  "title": "AMT improvement memory record",
+  "description": "One record per closed upgrade (EVOLUTION_CONTRACT §13). Only verdict=accepted records with guidance_eligible=true may feed WF-E04 or planning. Raw logs, external documents and failed proposals never become agent instructions automatically. A guidance-eligible record is accepted and states its lesson (at most 600 characters, P-91), scope and review_by.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["record_id", "proposal_id", "source_refs", "release_ids", "recorded_at", "problem", "prior_state", "hypothesis", "diff_ref", "cost", "test_evidence", "rollout", "observed_result", "verdict", "decision_owner", "guidance_eligible", "status", "pii_secret_checked"],
+  "properties": {
+    "record_id": {"type": "string", "format": "uuid"},
+    "proposal_id": {"type": "string"},
+    "source_refs": {"type": "array", "minItems": 1, "items": {"type": "string"}},
+    "release_ids": {"type": "array", "items": {"type": "string"}},
+    "recorded_at": {"type": "string", "format": "date-time"},
+    "problem": {"type": "string"},
+    "prior_state": {"type": "string"},
+    "hypothesis": {"type": "string"},
+    "diff_ref": {"type": "string"},
+    "cost": {"type": "object", "additionalProperties": false, "required": ["actual_minor", "currency"], "properties": {"actual_minor": {"type": ["integer", "null"], "minimum": 0}, "currency": {"type": "string"}, "unknown_reason": {"type": ["string", "null"]}}},
+    "test_evidence": {"type": "array", "items": {"type": "string"}},
+    "rollout": {"type": "string"},
+    "observed_result": {"type": "string"},
+    "verdict": {"enum": ["accepted", "rejected", "inconclusive"]},
+    "decision_owner": {"type": "string"},
+    "guidance_eligible": {"type": "boolean", "description": "true only when verdict=accepted and the lesson is stated as a verified rule with scope"},
+    "lesson": {"type": ["string", "null"]},
+    "scope": {"type": ["string", "null"]},
+    "status": {"enum": ["active", "superseded", "revoked", "expired"]},
+    "supersedes": {"type": ["string", "null"]},
+    "review_by": {"type": ["string", "null"], "format": "date"},
+    "pii_secret_checked": {"const": true}
+  },
+  "allOf": [
+    {"if": {"properties": {"verdict": {"enum": ["rejected", "inconclusive"]}}}, "then": {"properties": {"guidance_eligible": {"const": false}}}},
+    {"if": {"properties": {"guidance_eligible": {"const": true}}, "required": ["guidance_eligible"]}, "then": {"required": ["lesson", "scope", "review_by"], "properties": {"verdict": {"const": "accepted"}, "lesson": {"type": "string", "minLength": 1, "maxLength": 600}, "scope": {"type": "string", "pattern": "^(cmo|media-buyer|creative-studio|cro|funnel-analyst|reviewer)(:(rent|sale))?$"}, "review_by": {"type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$", "format": "date"}}}}
+  ]
+}

@@ -1,0 +1,1438 @@
+# Project OS configuration template; unresolved readiness blocks the relevant live profile.
+schema_version: 1
+bundle_state: template
+record_states:
+- pending
+- evidenced
+- approved
+- not_applicable
+record_fields:
+- key
+- gate
+- criticality
+- accountable_role
+- co_signers
+- prepared_by
+- description
+- status
+- value
+- evidence_ref
+- evidence_at
+- evidence_prepared_by
+- max_evidence_age
+- approved_by
+- approved_at
+- co_signatures
+- valid_until
+rules:
+  one_gate_per_key: each requirement names exactly one gate profile (the earliest); later profiles inherit it through profiles.requires
+  fresher_evidence: a later gate that needs fuller or fresher evidence uses a separate key with max_evidence_age
+  profile_pass: a profile PASSes at a gate when every requirement of the profile and of all inherited profiles is approved with evidence not older
+    than max_evidence_age, or validly not_applicable
+  gate_time: a gate is a raise of a capability (execution-policy.yaml#capability_enablement) - a release in which a config-gated capability first
+    enters the manifest capabilities_enabled (amt-release evaluates the profile at prepare and again at activate), and the owner's raising
+    transitions global_mode_change shadow -> enabled, pipeline_mode_change L0 -> L1 or L1 -> L2 and trust_graduation L1 -> L2 (amt-control
+    evaluates when it consumes the typed code and binds profile_evaluation_digest); an L2 gate evaluates L2_ENABLE together with that pipeline's
+    L1 profile (rent F6_STEP1, sale F6_STEP2); lowering transitions, routine releases of capabilities already enabled, maintenance_release,
+    control_resume (also the return after a restore) and automatic protective transitions are not gates
+  pass_persistence: a profile that passed a gate stays PASS for the capability it opened (gate_result in the release manifest readiness_snapshot or
+    in control_events); between gates its use is blocked only by operational_validity, and max_evidence_age is applied again only at the next gate
+  operational_validity: on every capability, mode and trust check amt-control requires, for each key of the capability's profile, an effective
+    approval that stands - for a live key the latest approved or not_applicable revision, for a bundle-bound key the revision pinned in the active
+    release snapshot - that no withdrawal has suspended and, for a live key, whose valid_until (recorded with the evidence when the evidence itself
+    expires) has not passed; a newer approved revision of a bundle-bound key takes effect when a release pins it, and a later evidenced revision (a
+    refresh) never suspends an approval; bundle-bound keys carry no valid_until - item expiry inside their value (for example a credential or asset
+    expires_at) is enforced by the consuming service
+  freshness_keys: a key with max_evidence_age is a freshness key and a live key - never bundle-bound, even when a config template references it (the
+    reference requires the check, it does not consume a value), so a refreshed approval replaces the previous one without a release
+  signing_freshness: an approve or cosign signature is refused when its evidence is older than max_evidence_age at signing
+  withdraw: /readiness withdraw <key> <reason> by the owner (any key) or the key's accountable role holder targets one revision and writes a valueless
+    pending revision with the reason; withdrawing the effective approval suspends it, withdrawing a newer revision that is not yet pinned voids only
+    that revision and leaves the pinned approval in force; withdraw is exempt from the preparer and freshness checks
+  agent_preparers: an agent may be prepared_by only for a key whose gate profile inherits F4_AGENTS (agents.run); earlier keys are prepared by the
+    builder; readiness_evidence refuses an evidence_prepared_by that is neither the key's prepared_by nor builder
+  not_applicable: only criticality optional, with rationale and owner sign-off
+  approver: approved_by is a person reference (person:<id>) holding accountable_role at approved_at - RBAC roles (owner, sales_lead, fleet_operator)
+    from amt.roles, responsibility roles (technical_operator, finance_owner, privacy_owner, independent_reviewer) from amt.responsibility_assignments,
+    verified by amt-control - and is not evidence_prepared_by; every co_signer role has a co_signatures entry {role, person, at}; signatures are
+    made with /readiness approve|cosign (typed code, approval-policy action readiness_signoff); withdrawal follows the withdraw rule
+  storage: runtime records live in amt.readiness_records and amt.readiness_signatures (DATA_MODEL section 8), written only by amt-control - evidence through
+    the control op readiness_evidence (amt-workflow for workflow outputs, amt-release for evidence manifests in merged main commits), signatures through
+    readiness_sign (amt-ops after the typed code); status takes only record_states values; this file is the template and the export format
+  agents_and_builder: appear only as prepared_by; never approve
+  runtime_binding: execution-policy.yaml#capability_requires_profile; amt-release writes a readiness_snapshot into the release manifest (per key the
+    effective approval revision and value_hash it pins, per capability the gate result) and refuses to enable a capability whose profile does not
+    pass its gate; keys referenced by config templates (readiness_ref fields) are bundle-bound except freshness keys; to pin a newly approved
+    bundle-bound value amt-release may build a readiness-only candidate from the active commit; amt-control re-evaluates on every capability
+    check (operational_validity)
+  readiness_is_bounded: a readiness value works only inside owner decisions, invariants and contracts; it can never replace an owner-set control
+  approved_record: approved needs a non-null value, evidence_ref, evidence_at <= approved_at <= now, and evidence not older than max_evidence_age at
+    approved_at
+  never_not_applicable: critical keys are never not_applicable; auto_release.decision_ref and evolution.fe_acceptance are critical so AUTO_RELEASE_ENABLE
+    cannot pass while auto-release stays undecided
+  value_constraints:   # an approvable value that is refused while a profile condition holds (OPEN_ITEMS section 4); profile evaluation fails on it
+  - key: engineering.independent_reviewer
+    value: class_e_frozen
+    refused_while: {profile: F5_GO, closure_contains: FE_RELEASE}   # P-11 retained; Q67 additionally requires FE_RELEASE before formal F5 entry
+    conflict: C-28
+    reason: Q67 requires FE_RELEASE and its human baseline signoff before formal F5 eval and real shadow; with FE_RELEASE in closure(F5_GO) every config release (evolution-policy config_coverage_rule) and the HG-F6-06 secret-rotation release
+      (release-policy release_approval.applies_to) are class E; class_e_frozen refuses class E until F7, so the HG-F5-04 protected config change and
+      the HG-F6-06 rotation could never be released and F6_STEP1 would be unreachable
+    until: a new explicit owner decision supersedes Q67 and the protected class E rules; OD-01 is closed, and class_e_frozen remains refused
+  - key: business.exposure   # P-57: a numeric bound, checked on the approved value
+    field: bad_week_streak
+    max: 2   # kill-criteria.yaml rules KC-01 consecutive_weeks (✅ Q31)
+    conflict: C-29
+    reason: the exposure bad-week streak counts the KC streak and must hand back no later than KC-01 triggers
+  phase_entry_profiles:
+    F5:
+      decision_ref: Q67
+      requires_profiles: [FE_RELEASE]
+      before: [formal_eval, real_shadow]
+      missing_or_failed: blocked
+  approvable_values:   # P-57: values a key may be approved with, as data; R20 checks constraints against this list
+    engineering.independent_reviewer: [person_ref, class_e_frozen]   # OD-12 options (a)/(b) person_ref, (c) class_e_frozen
+accountable_roles:
+- owner
+- sales_lead
+- fleet_operator
+- technical_operator
+- finance_owner
+- privacy_owner
+- independent_reviewer
+preparers:
+- builder
+- amt-workflow   # deterministic gate evidence (WF-O01) once the builder has no production access (HG-F6-06)
+- cmo
+- media-buyer
+- creative-studio
+- cro
+- funnel-analyst
+- reviewer
+- sales_lead
+- fleet_operator
+- technical_operator
+profiles:
+  F1_AUTH:
+    requires: []
+    description: Owner identity, tg-auth, break-glass, ops-bot transport
+  F1_COST_RUNTIME:
+    requires: []
+    description: Billable LLM calls through llm-proxy with real reset/accounting window
+  F1_ISOLATION:
+    requires: []
+    description: Pinned components and isolated role-runner prototype
+  F1_WORKFLOW:
+    requires: []
+    description: Durable workflow runtime prototype (restart, timer, handoff, replay)
+  F2_LIVE_INTAKE:
+    requires:
+    - F1_AUTH
+    - F1_COST_RUNTIME
+    - F1_ISOLATION
+    - F1_WORKFLOW
+    description: Real landing traffic with durable intake, consent, recovery and monitoring
+  F2_TRACKING_PASS:
+    requires:
+    - F2_LIVE_INTAKE
+    description: 'Tracking gate: 14 days report-only, approved thresholds, 7 consecutive PASS (HG-F2-08)'
+  F3_CONTROLLED_TEST:
+    requires:
+    - F2_TRACKING_PASS
+    description: Controlled Meta tests on owner-approved PAUSED entities after the tracking gate (Q37 - no write tool before F2 passes); no production write
+  F4_AGENTS:
+    requires:
+    - F3_CONTROLLED_TEST
+    description: Six agents run through gateway/proxy with real role isolation; all pipelines L0
+  F4_CONTENT:
+    requires:
+    - F4_AGENTS
+    description: Offers, asset rights and media bounds for creative publishing
+  FE_SANDBOX:
+    requires:
+    - F1_ISOLATION
+    - F1_WORKFLOW
+    description: Engineering sandbox candidates without production credentials
+  FE_RELEASE:
+    requires:
+    - FE_SANDBOX
+    description: Complete manifest-bound verification, independent human baseline review and owner-approved release via amt-release; Q67 requires PASS before any formal F5 eval or real shadow
+  F5_GO:
+    requires:
+    - F2_TRACKING_PASS
+    - F4_CONTENT
+    - FE_RELEASE
+    description: Global readiness closure, evals and 7-day real shadow; FE_RELEASE must already PASS before formal eval or real shadow starts (Q67); HG-F5-02 go/no-go
+  F6_STEP1:
+    requires:
+    - F5_GO
+    description: Rent pipeline L1 for 14 days; sale stays with the targetologist
+  F6_STEP2:
+    requires:
+    - F6_STEP1
+    description: Sale L1 / full takeover after Step 1 evidence
+  L2_ENABLE:
+    requires:
+    - F6_STEP1
+    description: L2 for a specific action_type x pipeline after graduation (HG-L2-01)
+  PRE_SCREEN:
+    requires:
+    - F5_GO
+    description: Jev pre-screen before the Reviewer (Q61) after the F5 eval; no other profile inherits it, so withdrawing models.pre_screen disables only the pre-screen
+  AUTO_RELEASE_ENABLE:
+    requires:
+    - F6_STEP2
+    - FE_RELEASE
+    description: Narrow auto-release; requires a new owner Q amending Q11
+requirements:
+- key: ops.roles_owner
+  gate: F1_AUTH
+  criticality: critical
+  accountable_role: owner
+  co_signers: []
+  prepared_by: builder
+  description: Owner Telegram ID, person seed, 2FA enrolment and offline break-glass codes
+  status: pending
+  value: null
+  evidence_ref: null
+  evidence_at: null
+  evidence_prepared_by: null
+  max_evidence_age: null
+  approved_by: null
+  approved_at: null
+  co_signatures: []
+  valid_until: null
+- key: ops.roles_roster
+  gate: F2_LIVE_INTAKE
+  criticality: critical
+  accountable_role: owner
+  co_signers: []
+  prepared_by: builder
+  description: 'Intake roster added by owner /role add: sales_lead, intake primary/deputy, fleet_operator (HG-F2-16)'
+  status: pending
+  value: null
+  evidence_ref: null
+  evidence_at: null
+  evidence_prepared_by: null
+  max_evidence_age: null
+  approved_by: null
+  approved_at: null
+  co_signatures: []
+  valid_until: null
+- key: ops.intake_responders
+  gate: F2_LIVE_INTAKE
+  criticality: critical
+  accountable_role: owner
+  co_signers: []
+  prepared_by: builder
+  description: Named intake primary and deputy responders with coverage hours and ops_responder flag
+  status: pending
+  value: null
+  evidence_ref: null
+  evidence_at: null
+  evidence_prepared_by: null
+  max_evidence_age: null
+  approved_by: null
+  approved_at: null
+  co_signatures: []
+  valid_until: null
+- key: ops.independent_monitor
+  gate: F2_LIVE_INTAKE
+  criticality: critical
+  accountable_role: technical_operator
+  co_signers: []
+  prepared_by: builder
+  description: Off-host intake/queue failure alert tested end to end (HG-F2-17); the monitor stores every heartbeat before it ACKs it and keeps the heartbeat history for at least 8 days (the Meta event window plus margin) - the CAPI dispatch lease and host-loss rule 1 rely on both; the value meets the contract in runtime-isolation.yaml#external_dependencies[independent-monitor] (HMAC-verified ACK echo, hosted neither on the AMT PC nor on the production landing host)
+  status: pending
+  value: null
+  evidence_ref: null
+  evidence_at: null
+  evidence_prepared_by: null
+  max_evidence_age: null
+  approved_by: null
+  approved_at: null
+  co_signatures: []
+  valid_until: null
+- key: ops.ack_minutes
+  gate: F2_LIVE_INTAKE
+  criticality: critical
+  accountable_role: owner
+  co_signers: []
+  prepared_by: builder
+  description: ACK and escalation deadlines per severity (critical, degraded) matching real coverage
+  status: pending
+  value: null
+  evidence_ref: null
+  evidence_at: null
+  evidence_prepared_by: null
+  max_evidence_age: null
+  approved_by: null
+  approved_at: null
+  co_signatures: []
+  valid_until: null
+- key: ops.escalation
+  gate: F2_LIVE_INTAKE
+  criticality: critical
+  accountable_role: owner
+  co_signers: []
+  prepared_by: builder
+  description: Primary/deputy routing and owner-unavailable safe operation (protective controls only)
+  status: pending
+  value: null
+  evidence_ref: null
+  evidence_at: null
+  evidence_prepared_by: null
+  max_evidence_age: null
+  approved_by: null
+  approved_at: null
+  co_signatures: []
+  valid_until: null
+- key: ops.credential_inventory
+  gate: F2_LIVE_INTAKE
+  criticality: critical
+  accountable_role: technical_operator
+  co_signers: []
+  prepared_by: builder
+  description: Credential inventory with expiry, owner, rotation steps and T-30/T-7/T-1 alerts
+  status: pending
+  value: null
+  evidence_ref: null
+  evidence_at: null
+  evidence_prepared_by: null
+  max_evidence_age: null
+  approved_by: null
+  approved_at: null
+  co_signatures: []
+  valid_until: null
+- key: ops.kill_targets
+  gate: F3_CONTROLLED_TEST
+  criticality: critical
+  accountable_role: owner
+  co_signers: []
+  prepared_by: builder
+  description: 'Kill targets: local_containment_max_ms, remote_pause_report_max_s, in_flight_report_max_s (proposed default local containment
+    <=5 s, OD-11)'
+  status: pending
+  value: null
+  evidence_ref: null
+  evidence_at: null
+  evidence_prepared_by: null
+  max_evidence_age: null
+  approved_by: null
+  approved_at: null
+  co_signatures: []
+  valid_until: null
+- key: ops.resource_envelope
+  gate: F5_GO
+  criticality: critical
+  accountable_role: technical_operator
+  co_signers:
+  - owner
+  prepared_by: builder
+  description: Measured normal load envelope under real shadow; slice reserves, queue caps, disk/inode actions
+  status: pending
+  value: null
+  evidence_ref: null
+  evidence_at: null
+  evidence_prepared_by: null
+  max_evidence_age: null
+  approved_by: null
+  approved_at: null
+  co_signatures: []
+  valid_until: null
+- key: ops.founder_time_budget
+  gate: F5_GO
+  criticality: optional
+  accountable_role: owner
+  co_signers: []
+  prepared_by: builder
+  description: Founder weekly time budget for AMT operations and the simplification trigger
+  status: pending
+  value: null
+  evidence_ref: null
+  evidence_at: null
+  evidence_prepared_by: null
+  max_evidence_age: null
+  approved_by: null
+  approved_at: null
+  co_signatures: []
+  valid_until: null
+- key: ops.independent_monitor_full
+  gate: F6_STEP1
+  criticality: critical
+  accountable_role: technical_operator
+  co_signers: []
+  prepared_by: builder
+  description: Host, bot and Telegram loss detected off-host with alternate channel tested
+  status: pending
+  value: null
+  evidence_ref: null
+  evidence_at: null
+  evidence_prepared_by: null
+  max_evidence_age: null
+  approved_by: null
+  approved_at: null
+  co_signatures: []
+  valid_until: null
+- key: ops.ads_handback_roster
+  gate: F6_STEP1
+  criticality: critical
+  accountable_role: owner
+  co_signers: []
+  prepared_by: amt-workflow
+  description: Named human custodian for ads handback per pipeline with ACK path; WF-O01 ACK-probes each custodian; re-approved at HG-F6-05, before each gate that needs it and on every roster change
+  status: pending
+  value: null
+  evidence_ref: null
+  evidence_at: null
+  evidence_prepared_by: null
+  max_evidence_age: P7D
+  approved_by: null
+  approved_at: null
+  co_signatures: []
+  valid_until: null
+- key: ops.sale_handback_roster
+  gate: F6_STEP2
+  criticality: critical
+  accountable_role: owner
+  co_signers: []
+  prepared_by: amt-workflow
+  description: Named handback custodian for the sale pipeline before Step 2; WF-O01 ACK-probes the custodian before each gate that needs it
+  status: pending
+  value: null
+  evidence_ref: null
+  evidence_at: null
+  evidence_prepared_by: null
+  max_evidence_age: P7D
+  approved_by: null
+  approved_at: null
+  co_signatures: []
+  valid_until: null
+- key: recovery.intake_datasets
+  gate: F2_LIVE_INTAKE
+  criticality: critical
+  accountable_role: technical_operator
+  co_signers: []
+  prepared_by: builder
+  description: 'Intake dataset custody and RPO/RTO (seconds): landing custody on production Dokploy (HG-F2-18 backup); AMT-side ingest
+    is rebuilt from the landing store and amoCRM after AMT host loss (Q55); process vs host loss separated'
+  status: pending
+  value: null
+  evidence_ref: null
+  evidence_at: null
+  evidence_prepared_by: null
+  max_evidence_age: null
+  approved_by: null
+  approved_at: null
+  co_signatures: []
+  valid_until: null
+- key: recovery.intake_drill
+  gate: F2_LIVE_INTAKE
+  criticality: critical
+  accountable_role: technical_operator
+  co_signers: []
+  prepared_by: builder
+  description: Measured intake recovery drill evidence (landing custody restore into an isolated restore target on the production Dokploy
+    host, never over the live DB + AMT ingest restored from the local snapshot and rebuilt from sources)
+  status: pending
+  value: null
+  evidence_ref: null
+  evidence_at: null
+  evidence_prepared_by: null
+  max_evidence_age: null
+  approved_by: null
+  approved_at: null
+  co_signatures: []
+  valid_until: null
+- key: recovery.full_datasets
+  gate: F6_STEP1
+  criticality: critical
+  accountable_role: technical_operator
+  co_signers: []
+  prepared_by: builder
+  description: Full dataset catalogue incl. workflow ledger and Langfuse; local snapshot coverage on the AMT PC (Q55) and the accepted
+    host-loss scope (AMT history lost, intake and CAPI rebuilt from sources)
+  status: pending
+  value: null
+  evidence_ref: null
+  evidence_at: null
+  evidence_prepared_by: null
+  max_evidence_age: null
+  approved_by: null
+  approved_at: null
+  co_signatures: []
+  valid_until: null
+- key: recovery.restore_check
+  gate: F6_STEP1
+  criticality: critical
+  accountable_role: technical_operator
+  co_signers: []
+  prepared_by: builder
+  description: Isolated restore check (local snapshot sha256 verify + database restore into restore_test) evidence; refreshed about
+    monthly by the daily restore_check due check, which runs at P25D so the evidence never passes P30D (operations.yaml#schedule)
+  status: pending
+  value: null
+  evidence_ref: null
+  evidence_at: null
+  evidence_prepared_by: null
+  max_evidence_age: P30D
+  approved_by: null
+  approved_at: null
+  co_signatures: []
+  valid_until: null
+- key: recovery.full_drill
+  gate: F6_STEP1
+  criticality: critical
+  accountable_role: technical_operator
+  co_signers: []
+  prepared_by: builder
+  description: 'Quarterly full drill in the isolated restore_drill container on the AMT PC: full restore from the local snapshot,
+    rebuild from a staged PII-free source export (landing receipt metadata + amoCRM events) with the CAPI resend simulated without egress,
+    kill A/B on fixtures, schema-aware rollback and the production amt-kill --self-test over SSH via Tailscale (HG-F6-03); the host-loss
+    business recovery time is the sum of components, each marked measured or estimated (F0 install and bootstrap in build mode, the --rebuild delta -
+    measured only in the optional rehearsal -, key and tunnel steps, the rebuild from the staged export and the estimated amoCRM history fetch over the rate-limited API), not an end-to-end rehearsal (no spare PC, Q55); refreshed by the owner-scheduled drill that kill_drill reminds (operations.yaml#schedule)'
+  status: pending
+  value: null
+  evidence_ref: null
+  evidence_at: null
+  evidence_prepared_by: null
+  max_evidence_age: P92D
+  approved_by: null
+  approved_at: null
+  co_signatures: []
+  valid_until: null
+- key: business.qualification
+  gate: F2_LIVE_INTAKE
+  criticality: critical
+  accountable_role: sales_lead
+  co_signers: []
+  prepared_by: builder
+  description: Q16 written status mapping and who/when/QA meaning (HG-F2-06)
+  status: pending
+  value: null
+  evidence_ref: null
+  evidence_at: null
+  evidence_prepared_by: null
+  max_evidence_age: null
+  approved_by: null
+  approved_at: null
+  co_signatures: []
+  valid_until: null
+- key: sales.sop
+  gate: F2_LIVE_INTAKE
+  criticality: critical
+  accountable_role: sales_lead
+  co_signers: []
+  prepared_by: builder
+  description: Contact, retry, disposition ownership and measured qualification lag
+  status: pending
+  value: null
+  evidence_ref: null
+  evidence_at: null
+  evidence_prepared_by: null
+  max_evidence_age: null
+  approved_by: null
+  approved_at: null
+  co_signatures: []
+  valid_until: null
+- key: sales.qa
+  gate: F5_GO
+  criticality: critical
+  accountable_role: sales_lead
+  co_signers: []
+  prepared_by: funnel-analyst
+  description: Qualified semantic sample QA threshold and evidence
+  status: pending
+  value: null
+  evidence_ref: null
+  evidence_at: null
+  evidence_prepared_by: null
+  max_evidence_age: null
+  approved_by: null
+  approved_at: null
+  co_signatures: []
+  valid_until: null
+- key: business.outcome_sources
+  gate: F5_GO
+  criticality: critical
+  accountable_role: owner
+  co_signers: []
+  prepared_by: funnel-analyst
+  description: Contract/payment/refund/fulfilment source references without ERP duplication
+  status: pending
+  value: null
+  evidence_ref: null
+  evidence_at: null
+  evidence_prepared_by: null
+  max_evidence_age: null
+  approved_by: null
+  approved_at: null
+  co_signatures: []
+  valid_until: null
+- key: business.contribution_policy
+  gate: F5_GO
+  criticality: critical
+  accountable_role: finance_owner
+  co_signers:
+  - owner
+  prepared_by: funnel-analyst
+  description: Contribution, deposit and acquisition cost policy
+  status: pending
+  value: null
+  evidence_ref: null
+  evidence_at: null
+  evidence_prepared_by: null
+  max_evidence_age: null
+  approved_by: null
+  approved_at: null
+  co_signatures: []
+  valid_until: null
+- key: business.attribution
+  gate: F5_GO
+  criticality: critical
+  accountable_role: owner
+  co_signers: []
+  prepared_by: funnel-analyst
+  description: First/last/unknown, duplicate, transfer and correction counting rules
+  status: pending
+  value: null
+  evidence_ref: null
+  evidence_at: null
+  evidence_prepared_by: null
+  max_evidence_age: null
+  approved_by: null
+  approved_at: null
+  co_signatures: []
+  valid_until: null
+- key: business.baseline
+  gate: F5_GO
+  criticality: critical
+  accountable_role: owner
+  co_signers: []
+  prepared_by: funnel-analyst
+  description: Comparable qualification/tracking revisions and mature cohort window
+  status: pending
+  value: null
+  evidence_ref: null
+  evidence_at: null
+  evidence_prepared_by: null
+  max_evidence_age: null
+  approved_by: null
+  approved_at: null
+  co_signatures: []
+  valid_until: null
+- key: business.acceptance
+  gate: F5_GO
+  criticality: critical
+  accountable_role: owner
+  co_signers: []
+  prepared_by: funnel-analyst
+  description: Pipeline targets, min sample, maturity, KC-02 threshold, detection latency, the pre-registered Step 2 verdict_rule, the Trust Ramp
+    outcome band width bound and the harm margin (decision-statistics.yaml)
+  status: pending
+  value: null
+  evidence_ref: null
+  evidence_at: null
+  evidence_prepared_by: null
+  max_evidence_age: null
+  approved_by: null
+  approved_at: null
+  co_signatures: []
+  valid_until: null
+- key: business.exposure
+  gate: F5_GO
+  criticality: critical
+  accountable_role: owner
+  co_signers: []
+  prepared_by: funnel-analyst
+  description: Spend>0 zero-qualified max exposure/time, streak and human handback
+  status: pending
+  value: null
+  evidence_ref: null
+  evidence_at: null
+  evidence_prepared_by: null
+  max_evidence_age: null
+  approved_by: null
+  approved_at: null
+  co_signatures: []
+  valid_until: null
+- key: business.step1_comparison
+  gate: F6_STEP2
+  criticality: critical
+  accountable_role: owner
+  co_signers: []
+  prepared_by: funnel-analyst
+  description: Step 1 rent vs baseline comparison incl. second KC-01 evaluation
+  status: pending
+  value: null
+  evidence_ref: null
+  evidence_at: null
+  evidence_prepared_by: null
+  max_evidence_age: null
+  approved_by: null
+  approved_at: null
+  co_signatures: []
+  valid_until: null
+- key: sale.readiness
+  gate: F6_STEP2
+  criticality: critical
+  accountable_role: sales_lead
+  co_signers: []
+  prepared_by: amt-workflow
+  description: Stock/fulfilment/financing/backlog source (/sale_ready), TTL and owner; gate evidence packaged by WF-O01 from the same-day snapshot
+  status: pending
+  value: null
+  evidence_ref: null
+  evidence_at: null
+  evidence_prepared_by: null
+  max_evidence_age: P1D
+  approved_by: null
+  approved_at: null
+  co_signatures: []
+  valid_until: null
+- key: fleet.freshness
+  gate: F5_GO
+  criticality: critical
+  accountable_role: fleet_operator
+  co_signers: []
+  prepared_by: builder
+  description: Today snapshot TTL, reporting ownership and unavailable safe hold
+  status: pending
+  value: null
+  evidence_ref: null
+  evidence_at: null
+  evidence_prepared_by: null
+  max_evidence_age: null
+  approved_by: null
+  approved_at: null
+  co_signatures: []
+  valid_until: null
+- key: fleet.waitlist
+  gate: F5_GO
+  criticality: critical
+  accountable_role: fleet_operator
+  co_signers: []
+  prepared_by: builder
+  description: Waitlist eligibility, age, expiry, renewal and fill rules; source per OD-07
+  status: pending
+  value: null
+  evidence_ref: null
+  evidence_at: null
+  evidence_prepared_by: null
+  max_evidence_age: null
+  approved_by: null
+  approved_at: null
+  co_signatures: []
+  valid_until: null
+- key: fleet.thresholds
+  gate: F5_GO
+  criticality: critical
+  accountable_role: owner
+  co_signers: []
+  prepared_by: funnel-analyst
+  description: Data-calibrated waitlist/available bands, floor and hysteresis
+  status: pending
+  value: null
+  evidence_ref: null
+  evidence_at: null
+  evidence_prepared_by: null
+  max_evidence_age: null
+  approved_by: null
+  approved_at: null
+  co_signatures: []
+  valid_until: null
+- key: offers.initial
+  gate: F2_LIVE_INTAKE
+  criticality: critical
+  accountable_role: owner
+  co_signers: []
+  prepared_by: builder
+  description: Real offers, verified price, scope, claims, special category (landing scope via HG-F2-15)
+  status: pending
+  value: null
+  evidence_ref: null
+  evidence_at: null
+  evidence_prepared_by: null
+  max_evidence_age: null
+  approved_by: null
+  approved_at: null
+  co_signatures: []
+  valid_until: null
+- key: offers.asset_rights
+  gate: F2_LIVE_INTAKE
+  criticality: critical
+  accountable_role: owner
+  co_signers: []
+  prepared_by: builder
+  description: Source/people/product rights and revoke evidence for landing and ads assets
+  status: pending
+  value: null
+  evidence_ref: null
+  evidence_at: null
+  evidence_prepared_by: null
+  max_evidence_age: null
+  approved_by: null
+  approved_at: null
+  co_signatures: []
+  valid_until: null
+- key: offers.propagation
+  gate: F4_CONTENT
+  criticality: critical
+  accountable_role: owner
+  co_signers: []
+  prepared_by: cro
+  description: Expiry/revocation propagation SLA and active artefact owner
+  status: pending
+  value: null
+  evidence_ref: null
+  evidence_at: null
+  evidence_prepared_by: null
+  max_evidence_age: null
+  approved_by: null
+  approved_at: null
+  co_signatures: []
+  valid_until: null
+- key: privacy.purposes
+  gate: F2_LIVE_INTAKE
+  criticality: critical
+  accountable_role: privacy_owner
+  co_signers:
+  - owner
+  prepared_by: builder
+  description: Service vs marketing consent wording, transfer basis, purpose/version and the recipients that see lead data (privacy-policy.yaml#off_host_flows - at least the Cloudflare edge, amoCRM and Meta CAPI)
+  status: pending
+  value: null
+  evidence_ref: null
+  evidence_at: null
+  evidence_prepared_by: null
+  max_evidence_age: null
+  approved_by: null
+  approved_at: null
+  co_signatures: []
+  valid_until: null
+- key: privacy.retention
+  gate: F2_LIVE_INTAKE
+  criticality: critical
+  accountable_role: privacy_owner
+  co_signers:
+  - owner
+  prepared_by: builder
+  description: Custody, retention, withdrawal/deletion and backup rules per dataset
+  status: pending
+  value: null
+  evidence_ref: null
+  evidence_at: null
+  evidence_prepared_by: null
+  max_evidence_age: null
+  approved_by: null
+  approved_at: null
+  co_signatures: []
+  valid_until: null
+- key: privacy.breach_response
+  gate: F2_LIVE_INTAKE
+  criticality: critical
+  accountable_role: privacy_owner
+  co_signers:
+  - owner
+  prepared_by: builder
+  description: Breach recipients, deadlines from the current law text with date, template and owner (OD-16)
+  status: pending
+  value: null
+  evidence_ref: null
+  evidence_at: null
+  evidence_prepared_by: null
+  max_evidence_age: null
+  approved_by: null
+  approved_at: null
+  co_signatures: []
+  valid_until: null
+- key: tracking.freshness
+  gate: F2_LIVE_INTAKE
+  criticality: critical
+  accountable_role: owner
+  co_signers: []
+  prepared_by: builder
+  description: Health/sync missing and stale cutoffs; standalone delivery monitoring
+  status: pending
+  value: null
+  evidence_ref: null
+  evidence_at: null
+  evidence_prepared_by: null
+  max_evidence_age: null
+  approved_by: null
+  approved_at: null
+  co_signatures: []
+  valid_until: null
+- key: tracking.thresholds
+  gate: F2_TRACKING_PASS
+  criticality: critical
+  accountable_role: owner
+  co_signers: []
+  prepared_by: builder
+  description: 14-day measured calibration, per-check thresholds, warn rule and read_only exit N
+  status: pending
+  value: null
+  evidence_ref: null
+  evidence_at: null
+  evidence_prepared_by: null
+  max_evidence_age: null
+  approved_by: null
+  approved_at: null
+  co_signatures: []
+  valid_until: null
+- key: tracking.pass_7d
+  gate: F2_TRACKING_PASS
+  criticality: critical
+  accountable_role: owner
+  co_signers: []
+  prepared_by: builder
+  description: Seven consecutive all-gate PASS days under the approved thresholds
+  status: pending
+  value: null
+  evidence_ref: null
+  evidence_at: null
+  evidence_prepared_by: null
+  max_evidence_age: null
+  approved_by: null
+  approved_at: null
+  co_signatures: []
+  valid_until: null
+- key: vendor.meta_cap
+  gate: F3_CONTROLLED_TEST
+  criticality: critical
+  accountable_role: owner
+  co_signers: []
+  prepared_by: builder
+  description: Account currency/timezone/counter/reset; spending limit set and API read-back equal to expected (HG-F3-02)
+  status: pending
+  value: null
+  evidence_ref: null
+  evidence_at: null
+  evidence_prepared_by: null
+  max_evidence_age: null
+  approved_by: null
+  approved_at: null
+  co_signatures: []
+  valid_until: null
+- key: vendor.meta_access_tier
+  gate: F3_CONTROLLED_TEST
+  criticality: critical
+  accountable_role: technical_operator
+  co_signers: []
+  prepared_by: builder
+  description: Meta app/system-user access tier and rate limits actually granted
+  status: pending
+  value: null
+  evidence_ref: null
+  evidence_at: null
+  evidence_prepared_by: null
+  max_evidence_age: null
+  approved_by: null
+  approved_at: null
+  co_signatures: []
+  valid_until: null
+- key: vendor.meta_capi
+  gate: F2_LIVE_INTAKE
+  criticality: critical
+  accountable_role: technical_operator
+  co_signers: []
+  prepared_by: builder
+  description: Pinned event/dataset/time-window/dedup contract and Test Events evidence; Meta documents event_id + event_name dedup between
+    a browser and a server event within 48 h, the 'single source is not deduplicated' sentence belongs to its fbp/external_id method, and same-source event_id dedup is not
+    proven without F2 evidence (VR-33, VR-37) - so CAPI sends one event per request (pipelines.yaml#capi_delivery.batch_policy) and a resend after host loss covers only events
+    the lost host could not have sent (operations.yaml#host_loss.rebuild_from_sources)
+  status: pending
+  value: null
+  evidence_ref: null
+  evidence_at: null
+  evidence_prepared_by: null
+  max_evidence_age: null
+  approved_by: null
+  approved_at: null
+  co_signatures: []
+  valid_until: null
+- key: vendor.qualified_optimization
+  gate: F5_GO
+  criticality: critical
+  accountable_role: owner
+  co_signers: []
+  prepared_by: builder
+  description: '{supported, measured_monthly_volume, vendor_requirement_ref, selected_goal} per Q29.1'
+  status: pending
+  value: null
+  evidence_ref: null
+  evidence_at: null
+  evidence_prepared_by: null
+  max_evidence_age: null
+  approved_by: null
+  approved_at: null
+  co_signatures: []
+  valid_until: null
+- key: vendor.meta_read_tools
+  gate: F3_CONTROLLED_TEST
+  criticality: critical
+  accountable_role: technical_operator
+  co_signers: []
+  prepared_by: builder
+  description: Concrete pinned read-only tool list and preview subset
+  status: pending
+  value: null
+  evidence_ref: null
+  evidence_at: null
+  evidence_prepared_by: null
+  max_evidence_age: null
+  approved_by: null
+  approved_at: null
+  co_signatures: []
+  valid_until: null
+- key: vendor.amocrm_quota
+  gate: F2_LIVE_INTAKE
+  criticality: critical
+  accountable_role: technical_operator
+  co_signers: []
+  prepared_by: builder
+  description: All-caller allocation inside the Q25 ceiling of 7 req/s; cross-host split
+  status: pending
+  value: null
+  evidence_ref: null
+  evidence_at: null
+  evidence_prepared_by: null
+  max_evidence_age: null
+  approved_by: null
+  approved_at: null
+  co_signatures: []
+  valid_until: null
+- key: vendor.openrouter_period
+  gate: F1_COST_RUNTIME
+  criticality: critical
+  accountable_role: technical_operator
+  co_signers: []
+  prepared_by: builder
+  description: Actual key cap reset/accounting window and two-month boundary fixture
+  status: pending
+  value: null
+  evidence_ref: null
+  evidence_at: null
+  evidence_prepared_by: null
+  max_evidence_age: null
+  approved_by: null
+  approved_at: null
+  co_signatures: []
+  valid_until: null
+- key: vendor.runner_isolation
+  gate: F1_ISOLATION
+  criticality: critical
+  accountable_role: technical_operator
+  co_signers: []
+  prepared_by: builder
+  description: Isolated role-runner prototype with the real Paperclip/Hermes adapter; a fresh session per step, an ephemeral workspace and a read-only home (runner_contract.session_policy, P-88); each adapter's LLM client with its own retries off and every client timeout above the proxy upstream deadline (runner_contract.llm_client, budgets.yaml#openrouter.upstream_contract, F1-AT-28, P-97)
+  status: pending
+  value: null
+  evidence_ref: null
+  evidence_at: null
+  evidence_prepared_by: null
+  max_evidence_age: null
+  approved_by: null
+  approved_at: null
+  co_signatures: []
+  valid_until: null
+- key: vendor.runner_isolation_final
+  gate: F4_AGENTS
+  criticality: critical
+  accountable_role: technical_operator
+  co_signers: []
+  prepared_by: builder
+  description: 'Role isolation evidence (OD-05). Approvable values: all_roles_isolated (six separate UIDs/tokens, negative cross-role tests pass)
+    or residual_risk_l1_l2_blocked (only with the recorded OD-05 owner decision; L2 stays blocked)'
+  status: pending
+  value: null
+  evidence_ref: null
+  evidence_at: null
+  evidence_prepared_by: null
+  max_evidence_age: null
+  approved_by: null
+  approved_at: null
+  co_signatures: []
+  valid_until: null
+- key: vendor.component_locks
+  gate: F1_ISOLATION
+  criticality: critical
+  accountable_role: technical_operator
+  co_signers: []
+  prepared_by: builder
+  description: Runtime versions, advisory check, source hashes and license provenance
+  status: pending
+  value: null
+  evidence_ref: null
+  evidence_at: null
+  evidence_prepared_by: null
+  max_evidence_age: null
+  approved_by: null
+  approved_at: null
+  co_signatures: []
+  valid_until: null
+- key: budget.request_bounds
+  gate: F1_COST_RUNTIME
+  criticality: critical
+  accountable_role: owner
+  co_signers: []
+  prepared_by: builder
+  description: Per-request input/output/cost/concurrency and uncertain settlement limits; cache.min_hit_ratio for F1-AT-29 (P-82); values satisfy budgets.yaml#openrouter.reservation_sizing per role (F1-AT-30, P-86)
+  status: pending
+  value: null
+  evidence_ref: null
+  evidence_at: null
+  evidence_prepared_by: null
+  max_evidence_age: null
+  approved_by: null
+  approved_at: null
+  co_signatures: []
+  valid_until: null
+- key: budget.media
+  gate: F4_CONTENT
+  criticality: optional
+  accountable_role: owner
+  co_signers: []
+  prepared_by: builder
+  description: Media cost/duration/job bounds before media generation is enabled
+  status: pending
+  value: null
+  evidence_ref: null
+  evidence_at: null
+  evidence_prepared_by: null
+  max_evidence_age: null
+  approved_by: null
+  approved_at: null
+  co_signatures: []
+  valid_until: null
+- key: budget.anomaly
+  gate: F5_GO
+  criticality: critical
+  accountable_role: owner
+  co_signers: []
+  prepared_by: builder
+  description: Hourly anomaly and loop-detector thresholds from real shadow
+  status: pending
+  value: null
+  evidence_ref: null
+  evidence_at: null
+  evidence_prepared_by: null
+  max_evidence_age: null
+  approved_by: null
+  approved_at: null
+  co_signatures: []
+  valid_until: null
+- key: budget.ads_pacing
+  gate: F5_GO
+  criticality: critical
+  accountable_role: owner
+  co_signers: []
+  prepared_by: builder
+  description: Spend freshness cutoff and protective_pause trigger headroom (additional to the provider limit)
+  status: pending
+  value: null
+  evidence_ref: null
+  evidence_at: null
+  evidence_prepared_by: null
+  max_evidence_age: null
+  approved_by: null
+  approved_at: null
+  co_signatures: []
+  valid_until: null
+- key: budget.ads_limits
+  gate: F5_GO
+  criticality: critical
+  accountable_role: owner
+  co_signers: []
+  prepared_by: builder
+  description: Safety margin, native currency/FX, floor, split and headroom alerts
+  status: pending
+  value: null
+  evidence_ref: null
+  evidence_at: null
+  evidence_prepared_by: null
+  max_evidence_age: null
+  approved_by: null
+  approved_at: null
+  co_signatures: []
+  valid_until: null
+- key: budget.ads_fresh_check
+  gate: F6_STEP1
+  criticality: critical
+  accountable_role: owner
+  co_signers: []
+  prepared_by: amt-workflow
+  description: Same-day spend cap read-back and headroom check before each gate that needs it; produced by WF-O01 through the gateway
+  status: pending
+  value: null
+  evidence_ref: null
+  evidence_at: null
+  evidence_prepared_by: null
+  max_evidence_age: P1D
+  approved_by: null
+  approved_at: null
+  co_signatures: []
+  valid_until: null
+- key: budget.tco
+  gate: F5_GO
+  criticality: critical
+  accountable_role: owner
+  co_signers: []
+  prepared_by: builder
+  description: Host (owner PC, second disk, UPS, Omada controller), electricity and office internet, monitor/license/human ops, credit
+    fees/tax/FX and paid Meta distinct cost
+  status: pending
+  value: null
+  evidence_ref: null
+  evidence_at: null
+  evidence_prepared_by: null
+  max_evidence_age: null
+  approved_by: null
+  approved_at: null
+  co_signatures: []
+  valid_until: null
+- key: models.assignments
+  gate: F5_GO
+  criticality: critical
+  accountable_role: owner
+  co_signers: []
+  prepared_by: builder
+  description: Role/adapter/model/prompt/tool versions incl. reviewer.language and reviewer.policy_checklist slots and the Jev pre-screen
+    pin (Q61), eval and actual cost
+  status: pending
+  value: null
+  evidence_ref: null
+  evidence_at: null
+  evidence_prepared_by: null
+  max_evidence_age: null
+  approved_by: null
+  approved_at: null
+  co_signatures: []
+  valid_until: null
+- key: models.pre_screen
+  gate: PRE_SCREEN
+  criticality: critical
+  accountable_role: owner
+  co_signers: []
+  prepared_by: builder
+  description: 'Jev pre-screen (Q61): F5 eval on UZ/RU golden copy (F5-AT-14) with per-check, per-language recall and false-flag
+    rate, approved thresholds, the local PII guard false-flag limit and the owner accepting its residual name/address risk, scope (uz_ru | ru_only),
+    pinned model typesafe/jev-1.14 and the served snapshot; while pending or withdrawn
+    the PRE_SCREEN profile fails, review.pre_screen stays off and the Reviewer works unchanged; nothing else depends on this key'
+  status: pending
+  value: null
+  evidence_ref: null
+  evidence_at: null
+  evidence_prepared_by: null
+  max_evidence_age: null
+  approved_by: null
+  approved_at: null
+  co_signatures: []
+  valid_until: null
+- key: config.closure
+  gate: F5_GO
+  criticality: critical
+  accountable_role: owner
+  co_signers: []
+  prepared_by: builder
+  description: Every required setting resolved, typed and evidence-signed
+  status: pending
+  value: null
+  evidence_ref: null
+  evidence_at: null
+  evidence_prepared_by: null
+  max_evidence_age: null
+  approved_by: null
+  approved_at: null
+  co_signatures: []
+  valid_until: null
+- key: workflow.mechanism
+  gate: F1_WORKFLOW
+  criticality: critical
+  accountable_role: technical_operator
+  co_signers: []
+  prepared_by: builder
+  description: Restart/timer/handoff/replay prototype with the Paperclip adapter; issue status is never truth
+  status: pending
+  value: null
+  evidence_ref: null
+  evidence_at: null
+  evidence_prepared_by: null
+  max_evidence_age: null
+  approved_by: null
+  approved_at: null
+  co_signatures: []
+  valid_until: null
+- key: workflow.recovery
+  gate: FE_RELEASE
+  criticality: critical
+  accountable_role: technical_operator
+  co_signers: []
+  prepared_by: builder
+  description: 'Process-loss RPO/RTO for the workflow ledger and its restore from the local snapshot; host_loss_scope: accepted_loss_Q55
+    with rebuild_ref (on AMT host loss the ledger is lost and is not given an RPO/RTO); checkpoint and workflow/schema migration'
+  status: pending
+  value: null
+  evidence_ref: null
+  evidence_at: null
+  evidence_prepared_by: null
+  max_evidence_age: null
+  approved_by: null
+  approved_at: null
+  co_signatures: []
+  valid_until: null
+- key: engineering.budget
+  gate: FE_SANDBOX
+  criticality: optional
+  accountable_role: owner
+  co_signers: []
+  prepared_by: builder
+  description: Engineering money unit, period, cap, per-proposal limit, loop/retry limits; N/A = paid engineering disabled (OD-02)
+  status: pending
+  value: null
+  evidence_ref: null
+  evidence_at: null
+  evidence_prepared_by: null
+  max_evidence_age: null
+  approved_by: null
+  approved_at: null
+  co_signatures: []
+  valid_until: null
+- key: engineering.llm_access
+  gate: FE_SANDBOX
+  criticality: optional
+  accountable_role: owner
+  co_signers: []
+  prepared_by: builder
+  description: Engineering LLM identity/account/key separate from the runtime key; N/A = manual engineering only (OD-02)
+  status: pending
+  value: null
+  evidence_ref: null
+  evidence_at: null
+  evidence_prepared_by: null
+  max_evidence_age: null
+  approved_by: null
+  approved_at: null
+  co_signatures: []
+  valid_until: null
+- key: capacity.sandbox_host
+  gate: FE_SANDBOX
+  criticality: critical
+  accountable_role: technical_operator
+  co_signers:
+  - owner
+  prepared_by: builder
+  description: Measured build/test load on the AMT PC; slice limits and production reserve; separate host = owner money gate
+  status: pending
+  value: null
+  evidence_ref: null
+  evidence_at: null
+  evidence_prepared_by: null
+  max_evidence_age: null
+  approved_by: null
+  approved_at: null
+  co_signatures: []
+  valid_until: null
+- key: verification.custody
+  gate: FE_RELEASE
+  criticality: critical
+  accountable_role: owner
+  co_signers: []
+  prepared_by: builder
+  description: Protected suite/holdout digests, storage, verifier credential separate from authors
+  status: pending
+  value: null
+  evidence_ref: null
+  evidence_at: null
+  evidence_prepared_by: null
+  max_evidence_age: null
+  approved_by: null
+  approved_at: null
+  co_signatures: []
+  valid_until: null
+- key: engineering.independent_reviewer
+  gate: FE_RELEASE
+  criticality: critical
+  accountable_role: owner
+  co_signers: []
+  prepared_by: builder
+  description: 'Named independent technical human for protected-surface (class E) review and the exact initial baseline signoff at FE_RELEASE (Q66). Q67 requires FE_RELEASE before formal F5 eval and real shadow. Approvable values remain person_ref or the legacy class_e_frozen symbol; class_e_frozen is refused under the active FE_RELEASE-in-closure(F5_GO) rule (C-28), so it cannot satisfy the pre-F5 baseline review. OD-01 is closed; no freeze exception or automatic approval is implied'
+  status: pending
+  value: null
+  evidence_ref: null
+  evidence_at: null
+  evidence_prepared_by: null
+  max_evidence_age: null
+  approved_by: null
+  approved_at: null
+  co_signatures: []
+  valid_until: null
+- key: release.scope_observation
+  gate: FE_RELEASE
+  criticality: critical
+  accountable_role: owner
+  co_signers: []
+  prepared_by: builder
+  description: Owner release default; observation scopes, stop rules and windows per change class
+  status: pending
+  value: null
+  evidence_ref: null
+  evidence_at: null
+  evidence_prepared_by: null
+  max_evidence_age: null
+  approved_by: null
+  approved_at: null
+  co_signatures: []
+  valid_until: null
+- key: evolution.outcome_policy
+  gate: FE_RELEASE
+  criticality: critical
+  accountable_role: owner
+  co_signers: []
+  prepared_by: builder
+  description: 'Upgrade verdict policy: baseline, measurement revision, guardrails, sample/maturity, max observation'
+  status: pending
+  value: null
+  evidence_ref: null
+  evidence_at: null
+  evidence_prepared_by: null
+  max_evidence_age: null
+  approved_by: null
+  approved_at: null
+  co_signatures: []
+  valid_until: null
+- key: auto_release.decision_ref
+  gate: AUTO_RELEASE_ENABLE
+  criticality: critical
+  accountable_role: owner
+  co_signers: []
+  prepared_by: builder
+  description: Owner Q amending Q11 with the allowed auto-release scope (OD-03); critical and never not_applicable — while undecided the AUTO_RELEASE_ENABLE
+    profile cannot pass
+  status: pending
+  value: null
+  evidence_ref: null
+  evidence_at: null
+  evidence_prepared_by: null
+  max_evidence_age: null
+  approved_by: null
+  approved_at: null
+  co_signatures: []
+  valid_until: null
+- key: evolution.fe_acceptance
+  gate: AUTO_RELEASE_ENABLE
+  criticality: critical
+  accountable_role: owner
+  co_signers: []
+  prepared_by: builder
+  description: FE phase technically_accepted and EVO-AT14 pass evidence (evolution-policy.yaml#promotion.auto_release.blocked_until)
+  status: pending
+  value: null
+  evidence_ref: null
+  evidence_at: null
+  evidence_prepared_by: null
+  max_evidence_age: null
+  approved_by: null
+  approved_at: null
+  co_signatures: []
+  valid_until: null

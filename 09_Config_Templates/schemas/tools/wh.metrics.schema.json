@@ -1,0 +1,102 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "https://wolter.uz/amt/schemas/tools/wh.metrics.schema.json",
+ "title": "wh.metrics arguments",
+ "description": "Gateway guard 4 argument schema; contract: GUARDRAIL_GATEWAY.md §9.1; DATA_MODEL §10.3. Entity and non-entity metrics cannot be mixed. Entity selectors are a bounded type+ID pair scoped to the server-configured Meta account; ownership, pipeline consistency, calendar validity, ordered dates and maximum rows are checked before querying.",
+ "type": "object",
+ "additionalProperties": false,
+ "properties": {
+  "metrics": {
+   "type": "array",
+   "items": {
+    "$ref": "_common.schema.json#/$defs/metric"
+   },
+   "maxItems": 20,
+   "minItems": 1,
+   "uniqueItems": true
+  },
+  "pipeline": {
+   "$ref": "_common.schema.json#/$defs/pipeline"
+  },
+  "date_from": {
+   "$ref": "_common.schema.json#/$defs/date"
+  },
+  "date_to": {
+   "$ref": "_common.schema.json#/$defs/date"
+  },
+  "grain": {
+   "enum": [
+    "day",
+    "week",
+    "month"
+   ]
+  },
+  "entity_type": {
+   "enum": [
+    "campaign",
+    "adset"
+   ],
+   "description": "managed campaign or ad set; ad-level outcome metrics are not defined"
+  },
+  "entity_id": {
+   "$ref": "_common.schema.json#/$defs/meta_id"
+  }
+ },
+ "required": [
+  "metrics",
+  "date_from",
+  "date_to",
+  "grain"
+ ],
+ "allOf": [
+  {
+   "if": {
+    "properties": {
+     "metrics": {
+      "contains": {
+       "enum": [
+        "entity_spend",
+        "entity_qualified"
+       ]
+      }
+     }
+    },
+    "required": [
+     "metrics"
+    ]
+   },
+   "then": {
+    "required": [
+     "entity_type",
+     "entity_id"
+    ],
+    "properties": {
+     "metrics": {
+      "items": {
+       "enum": [
+        "entity_spend",
+        "entity_qualified"
+       ]
+      }
+     }
+    }
+   },
+   "else": {
+    "not": {
+     "anyOf": [
+      {
+       "required": [
+        "entity_type"
+       ]
+      },
+      {
+       "required": [
+        "entity_id"
+       ]
+      }
+     ]
+    }
+   }
+  }
+ ]
+}

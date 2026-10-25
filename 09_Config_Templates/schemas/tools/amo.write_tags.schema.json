@@ -1,0 +1,34 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "https://wolter.uz/amt/schemas/tools/amo.write_tags.schema.json",
+ "title": "amo.write_tags arguments",
+ "description": "Gateway guard 4 argument schema; contract: GUARDRAIL_GATEWAY.md §9.1.",
+ "type": "object",
+ "additionalProperties": false,
+ "properties": {
+  "lead_id": {
+   "$ref": "_common.schema.json#/$defs/amo_id"
+  },
+  "op": {
+   "enum": [
+    "add",
+    "remove"
+   ]
+  },
+  "tags": {
+   "type": "array",
+   "items": {
+    "type": "string",
+    "maxLength": 44,
+    "pattern": "^AMT:[A-Za-z0-9_-]{1,40}$"
+   },
+   "maxItems": 10,
+   "minItems": 1
+  }
+ },
+ "required": [
+  "lead_id",
+  "op",
+  "tags"
+ ]
+}

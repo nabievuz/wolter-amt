@@ -1,0 +1,3070 @@
+{
+ "schema_version": 1,
+ "date": "2026-10-25",
+ "runtime_status": "not_run",
+ "note": "Requirement-level traceability. Every FR/NFR/EVO-R requirement and every invariant names its owner decisions and at least one existing test (Q03, Q05, Q06); every defined test is bound to a requirement, invariant or workflow (Q07); the PRD and INVARIANTS test columns equal this file (Q08).",
+ "requirements": [
+  {
+   "id": "FR-PLN-01",
+   "source_q": [
+    "Q03/Q14",
+    "Q13"
+   ],
+   "builder_standard": [],
+   "proposals": [],
+   "open_decisions": [],
+   "canonical": [
+    "01_PRD/PRD.md#6"
+   ],
+   "tests": [
+    "F4-AT-09",
+    "WF-TEST-B06-E2E",
+    "EVO-AT13"
+   ]
+  },
+  {
+   "id": "FR-PLN-02",
+   "source_q": [
+    "Q13"
+   ],
+   "builder_standard": [
+    "Q43★"
+   ],
+   "proposals": [],
+   "open_decisions": [],
+   "canonical": [
+    "01_PRD/PRD.md#6"
+   ],
+   "tests": [
+    "F4-AT-09",
+    "WF-TEST-B06-E2E",
+    "WF-TEST-B06-MISSING",
+    "F0-AT-14",
+    "F4-AT-25"
+   ]
+  },
+  {
+   "id": "FR-PLN-03",
+   "source_q": [
+    "Q07",
+    "Q11",
+    "Q13",
+    "Q50"
+   ],
+   "builder_standard": [
+    "(§G Hermes)"
+   ],
+   "proposals": [
+    "P-14"
+   ],
+   "open_decisions": [],
+   "canonical": [
+    "01_PRD/PRD.md#6"
+   ],
+   "tests": [
+    "F7-AT-01",
+    "F7-AT-04",
+    "FE-AT-14",
+    "WF-TEST-E04-E2E",
+    "EVO-AT14",
+    "F7-AT-02",
+    "F7-AT-05"
+   ]
+  },
+  {
+   "id": "FR-PLN-04",
+   "source_q": [
+    "Q41"
+   ],
+   "builder_standard": [],
+   "proposals": [
+    "P-43",
+    "P-161"
+   ],
+   "open_decisions": [],
+   "canonical": [
+    "01_PRD/PRD.md#6"
+   ],
+   "tests": [
+    "F5-AT-12",
+    "UAT-07",
+    "WF-TEST-B05-E2E",
+    "EVO-AT09",
+    "WF-TEST-B05-EXPOSURE-REJECT"
+   ]
+  },
+  {
+   "id": "FR-ADS-01",
+   "source_q": [
+    "Q38",
+    "Q43"
+   ],
+   "builder_standard": [],
+   "proposals": [
+    "P-06"
+   ],
+   "open_decisions": [],
+   "canonical": [
+    "01_PRD/PRD.md#6"
+   ],
+   "tests": [
+    "F4-AT-04",
+    "F4-AT-13",
+    "WF-TEST-B03-E2E"
+   ]
+  },
+  {
+   "id": "FR-ADS-02",
+   "source_q": [
+    "Q25",
+    "Q32",
+    "Q40"
+   ],
+   "builder_standard": [
+    "Q32 (§H)"
+   ],
+   "proposals": [],
+   "open_decisions": [],
+   "canonical": [
+    "01_PRD/PRD.md#6"
+   ],
+   "tests": [
+    "F3-AT-01",
+    "F3-AT-05",
+    "F3-AT-20",
+    "F4-AT-12",
+    "F6-AT-03b",
+    "F3-AT-32"
+   ]
+  },
+  {
+   "id": "FR-ADS-03",
+   "source_q": [
+    "Q08",
+    "Q32",
+    "Q37"
+   ],
+   "builder_standard": [
+    "Q37 (§H)"
+   ],
+   "proposals": [
+    "P-01",
+    "P-02",
+    "P-21",
+    "P-43"
+   ],
+   "open_decisions": [],
+   "canonical": [
+    "01_PRD/PRD.md#6"
+   ],
+   "tests": [
+    "F3-AT-02",
+    "F3-AT-03",
+    "F3-AT-04",
+    "F3-AT-17",
+    "F3-AT-27",
+    "UAT-16",
+    "UAT-17",
+    "UAT-18",
+    "WF-TEST-B03-PROTECTIVE-REACT",
+    "F3-AT-32"
+   ]
+  },
+  {
+   "id": "FR-ADS-04",
+   "source_q": [
+    "Q40",
+    "Q41"
+   ],
+   "builder_standard": [],
+   "proposals": [
+    "P-44"
+   ],
+   "open_decisions": [],
+   "canonical": [
+    "01_PRD/PRD.md#6"
+   ],
+   "tests": [
+    "F3-AT-01",
+    "F5-AT-02",
+    "F5-AT-06"
+   ]
+  },
+  {
+   "id": "FR-ADS-05",
+   "source_q": [
+    "Q43"
+   ],
+   "builder_standard": [
+    "Q43★"
+   ],
+   "proposals": [
+    "P-06",
+    "P-09"
+   ],
+   "open_decisions": [
+    "OD-07"
+   ],
+   "canonical": [
+    "01_PRD/PRD.md#6"
+   ],
+   "tests": [
+    "F3-AT-12",
+    "F6-AT-04",
+    "UAT-01",
+    "UAT-02",
+    "WF-TEST-O01-E2E"
+   ]
+  },
+  {
+   "id": "FR-ADS-06",
+   "source_q": [
+    "Q17",
+    "Q29.1"
+   ],
+   "builder_standard": [],
+   "proposals": [
+    "P-45"
+   ],
+   "open_decisions": [],
+   "canonical": [
+    "01_PRD/PRD.md#6"
+   ],
+   "tests": [
+    "F2-AT-07",
+    "F2-AT-13",
+    "F5-AT-09"
+   ]
+  },
+  {
+   "id": "FR-CRV-01",
+   "source_q": [
+    "Q20/Q29.3",
+    "Q21"
+   ],
+   "builder_standard": [
+    "(§G Kreativ)"
+   ],
+   "proposals": [],
+   "open_decisions": [],
+   "canonical": [
+    "01_PRD/PRD.md#6"
+   ],
+   "tests": [
+    "F4-AT-05",
+    "UAT-31",
+    "WF-TEST-B02-E2E"
+   ]
+  },
+  {
+   "id": "FR-CRV-02",
+   "source_q": [
+    "Q08",
+    "Q35"
+   ],
+   "builder_standard": [],
+   "proposals": [],
+   "open_decisions": [],
+   "canonical": [
+    "01_PRD/PRD.md#6"
+   ],
+   "tests": [
+    "F2-AT-02",
+    "F3-AT-26",
+    "F4-AT-06",
+    "F4-AT-21",
+    "UAT-26",
+    "F4-AT-15"
+   ]
+  },
+  {
+   "id": "FR-CRV-03",
+   "source_q": [
+    "Q42"
+   ],
+   "builder_standard": [],
+   "proposals": [
+    "P-15"
+   ],
+   "open_decisions": [
+    "OD-08"
+   ],
+   "canonical": [
+    "01_PRD/PRD.md#6"
+   ],
+   "tests": [
+    "F4-AT-07",
+    "F5-AT-03",
+    "UAT-31"
+   ]
+  },
+  {
+   "id": "FR-CRV-04",
+   "source_q": [
+    "Q10/Q33/Q44.1",
+    "Q20/Q29.3"
+   ],
+   "builder_standard": [],
+   "proposals": [],
+   "open_decisions": [],
+   "canonical": [
+    "01_PRD/PRD.md#6"
+   ],
+   "tests": [
+    "F1-AT-16",
+    "F1-AT-22",
+    "F4-AT-22",
+    "UAT-19",
+    "F4-AT-32"
+   ]
+  },
+  {
+   "id": "FR-CRV-05",
+   "source_q": [
+    "Q61",
+    "Q42",
+    "Q44.3",
+    "Q28"
+   ],
+   "builder_standard": [
+    "Q44★"
+   ],
+   "proposals": [],
+   "open_decisions": [],
+   "canonical": [
+    "01_PRD/PRD.md#6",
+    "09_Config_Templates/approval-policy.yaml"
+   ],
+   "tests": [
+    "F4-AT-26",
+    "F5-AT-14"
+   ]
+  },
+  {
+   "id": "FR-CRO-01",
+   "source_q": [
+    "Q19",
+    "Q35",
+    "Q46.4"
+   ],
+   "builder_standard": [
+    "(§G Landing)"
+   ],
+   "proposals": [],
+   "open_decisions": [],
+   "canonical": [
+    "01_PRD/PRD.md#6"
+   ],
+   "tests": [
+    "F2-AT-01",
+    "F2-AT-02",
+    "F4-AT-08",
+    "F6-AT-07"
+   ]
+  },
+  {
+   "id": "FR-CRO-02",
+   "source_q": [
+    "Q35",
+    "Q47"
+   ],
+   "builder_standard": [],
+   "proposals": [],
+   "open_decisions": [],
+   "canonical": [
+    "01_PRD/PRD.md#6"
+   ],
+   "tests": [
+    "F4-AT-08",
+    "F6-AT-07",
+    "UAT-26",
+    "WF-TEST-B04-E2E"
+   ]
+  },
+  {
+   "id": "FR-CRO-03",
+   "source_q": [
+    "Q19",
+    "Q41"
+   ],
+   "builder_standard": [],
+   "proposals": [],
+   "open_decisions": [],
+   "canonical": [
+    "01_PRD/PRD.md#6"
+   ],
+   "tests": [
+    "F6-AT-07",
+    "UAT-06",
+    "WF-TEST-B04-E2E"
+   ]
+  },
+  {
+   "id": "FR-CRO-04",
+   "source_q": [
+    "Q12",
+    "Q46.4"
+   ],
+   "builder_standard": [],
+   "proposals": [],
+   "open_decisions": [],
+   "canonical": [
+    "01_PRD/PRD.md#6"
+   ],
+   "tests": [
+    "F6-AT-07",
+    "WF-TEST-B04-E2E",
+    "WF-TEST-B04-UNCERTAIN"
+   ]
+  },
+  {
+   "id": "FR-INT-01",
+   "source_q": [
+    "Q26",
+    "Q48"
+   ],
+   "builder_standard": [],
+   "proposals": [],
+   "open_decisions": [],
+   "canonical": [
+    "01_PRD/PRD.md#6"
+   ],
+   "tests": [
+    "F2-AT-17",
+    "F2-AT-18",
+    "F2-AT-19",
+    "UAT-08",
+    "UAT-09",
+    "UAT-10",
+    "UAT-12",
+    "F2-AT-16"
+   ]
+  },
+  {
+   "id": "FR-INT-02",
+   "source_q": [
+    "Q37",
+    "Q48"
+   ],
+   "builder_standard": [],
+   "proposals": [],
+   "open_decisions": [],
+   "canonical": [
+    "01_PRD/PRD.md#6"
+   ],
+   "tests": [
+    "F2-AT-21",
+    "UAT-10",
+    "UAT-29"
+   ]
+  },
+  {
+   "id": "FR-TRK-01",
+   "source_q": [
+    "Q17",
+    "Q26",
+    "Q28",
+    "Q30/Q45"
+   ],
+   "builder_standard": [],
+   "proposals": [],
+   "open_decisions": [],
+   "canonical": [
+    "01_PRD/PRD.md#6"
+   ],
+   "tests": [
+    "F2-AT-03",
+    "F2-AT-04",
+    "F2-AT-05",
+    "F2-AT-15",
+    "UAT-05",
+    "F2-AT-11"
+   ]
+  },
+  {
+   "id": "FR-TRK-02",
+   "source_q": [
+    "Q17",
+    "Q26",
+    "Q28"
+   ],
+   "builder_standard": [],
+   "proposals": [
+    "P-19"
+   ],
+   "open_decisions": [],
+   "canonical": [
+    "01_PRD/PRD.md#6"
+   ],
+   "tests": [
+    "F2-AT-06",
+    "F2-AT-07",
+    "F2-AT-10",
+    "F2-AT-12",
+    "F2-AT-20",
+    "F2-AT-23",
+    "UAT-11",
+    "UAT-12",
+    "F2-AT-24",
+    "F2-AT-25",
+    "F2-AT-26"
+   ]
+  },
+  {
+   "id": "FR-TRK-03",
+   "source_q": [
+    "Q37"
+   ],
+   "builder_standard": [],
+   "proposals": [
+    "P-18"
+   ],
+   "open_decisions": [
+    "OD-17"
+   ],
+   "canonical": [
+    "01_PRD/PRD.md#6"
+   ],
+   "tests": [
+    "F2-AT-14",
+    "F3-AT-08",
+    "UAT-13",
+    "F2-AT-GATE"
+   ]
+  },
+  {
+   "id": "FR-TRK-04",
+   "source_q": [
+    "Q31",
+    "Q37"
+   ],
+   "builder_standard": [
+    "Q43★"
+   ],
+   "proposals": [],
+   "open_decisions": [],
+   "canonical": [
+    "01_PRD/PRD.md#6"
+   ],
+   "tests": [
+    "F2-AT-13",
+    "UAT-04",
+    "UAT-06",
+    "EVO-AT10",
+    "F2-AT-GATE"
+   ]
+  },
+  {
+   "id": "FR-TRK-05",
+   "source_q": [
+    "Q28"
+   ],
+   "builder_standard": [],
+   "proposals": [],
+   "open_decisions": [],
+   "canonical": [
+    "01_PRD/PRD.md#6"
+   ],
+   "tests": [
+    "F2-AT-08",
+    "F3-AT-09"
+   ]
+  },
+  {
+   "id": "FR-BIZ-01",
+   "source_q": [
+    "Q04"
+   ],
+   "builder_standard": [],
+   "proposals": [
+    "P-08"
+   ],
+   "open_decisions": [
+    "OD-06"
+   ],
+   "canonical": [
+    "01_PRD/PRD.md#6"
+   ],
+   "tests": [
+    "UAT-03",
+    "F6-AT-05",
+    "F7-AT-06",
+    "WF-TEST-B01-E2E"
+   ]
+  },
+  {
+   "id": "FR-BIZ-02",
+   "source_q": [
+    "Q04",
+    "Q43"
+   ],
+   "builder_standard": [],
+   "proposals": [
+    "P-08",
+    "P-09"
+   ],
+   "open_decisions": [],
+   "canonical": [
+    "01_PRD/PRD.md#6"
+   ],
+   "tests": [
+    "UAT-02",
+    "F6-AT-04",
+    "F6-AT-06",
+    "F6-AT-15",
+    "WF-TEST-O01-E2E"
+   ]
+  },
+  {
+   "id": "FR-GOV-01",
+   "source_q": [
+    "Q32",
+    "Q38"
+   ],
+   "builder_standard": [],
+   "proposals": [],
+   "open_decisions": [],
+   "canonical": [
+    "01_PRD/PRD.md#6"
+   ],
+   "tests": [
+    "F3-AT-05",
+    "F3-AT-06",
+    "F3-AT-07",
+    "WF-TEST-B03-E2E",
+    "WF-TEST-B03-URGENT",
+    "F3-AT-34"
+   ]
+  },
+  {
+   "id": "FR-GOV-02",
+   "source_q": [
+    "Q38"
+   ],
+   "builder_standard": [],
+   "proposals": [],
+   "open_decisions": [],
+   "canonical": [
+    "01_PRD/PRD.md#6"
+   ],
+   "tests": [
+    "F2-AT-21",
+    "F3-AT-28",
+    "UAT-29",
+    "WF-TEST-O02-E2E",
+    "F3-AT-21",
+    "WF-TEST-O02-DEPUTY-ACK"
+   ]
+  },
+  {
+   "id": "FR-GOV-03",
+   "source_q": [
+    "Q08",
+    "Q38"
+   ],
+   "builder_standard": [
+    "(§G Trust Ramp)"
+   ],
+   "proposals": [
+    "P-04",
+    "P-42",
+    "P-43"
+   ],
+   "open_decisions": [],
+   "canonical": [
+    "01_PRD/PRD.md#6"
+   ],
+   "tests": [
+    "F4-AT-12",
+    "F7-AT-03",
+    "UAT-27",
+    "F6-AT-02",
+    "WF-TEST-B07-CLASSIFY",
+    "WF-TEST-B07-STREAK"
+   ]
+  },
+  {
+   "id": "FR-GOV-04",
+   "source_q": [
+    "Q37"
+   ],
+   "builder_standard": [
+    "FR-GOV-04 (§H)"
+   ],
+   "proposals": [
+    "P-03"
+   ],
+   "open_decisions": [
+    "OD-04"
+   ],
+   "canonical": [
+    "01_PRD/PRD.md#6"
+   ],
+   "tests": [
+    "F1-AT-17",
+    "F3-AT-15",
+    "F3-AT-25",
+    "F6-AT-08",
+    "UAT-14",
+    "UAT-21",
+    "UAT-22",
+    "F6-AT-01",
+    "F1-AT-27"
+   ]
+  },
+  {
+   "id": "FR-GOV-05",
+   "source_q": [
+    "Q25",
+    "Q47"
+   ],
+   "builder_standard": [
+    "Q47★"
+   ],
+   "proposals": [
+    "P-07"
+   ],
+   "open_decisions": [
+    "OD-05"
+   ],
+   "canonical": [
+    "01_PRD/PRD.md#6"
+   ],
+   "tests": [
+    "F1-AT-15",
+    "F1-AT-21",
+    "F4-AT-07",
+    "F4-AT-20",
+    "UAT-27",
+    "UAT-28",
+    "F3-AT-29",
+    "F4-AT-23"
+   ]
+  },
+  {
+   "id": "FR-GOV-06",
+   "source_q": [
+    "Q47",
+    "Q49"
+   ],
+   "builder_standard": [
+    "Q49★"
+   ],
+   "proposals": [],
+   "open_decisions": [],
+   "canonical": [
+    "01_PRD/PRD.md#6"
+   ],
+   "tests": [
+    "F1-AT-06",
+    "F1-AT-07",
+    "F1-AT-08",
+    "F1-AT-09",
+    "F4-AT-11",
+    "F1-AT-10",
+    "F5-AT-05"
+   ]
+  },
+  {
+   "id": "FR-GOV-07",
+   "source_q": [
+    "Q20/Q29.3",
+    "Q28",
+    "Q47"
+   ],
+   "builder_standard": [],
+   "proposals": [],
+   "open_decisions": [],
+   "canonical": [
+    "01_PRD/PRD.md#6"
+   ],
+   "tests": [
+    "F3-AT-13",
+    "F4-AT-21",
+    "UAT-31",
+    "F1-AT-20"
+   ]
+  },
+  {
+   "id": "FR-GOV-08",
+   "source_q": [
+    "Q43"
+   ],
+   "builder_standard": [],
+   "proposals": [
+    "P-06"
+   ],
+   "open_decisions": [
+    "OD-14"
+   ],
+   "canonical": [
+    "01_PRD/PRD.md#6"
+   ],
+   "tests": [
+    "F3-AT-12",
+    "F6-AT-04",
+    "UAT-02",
+    "WF-TEST-O01-E2E",
+    "WF-TEST-O01-MISSING"
+   ]
+  },
+  {
+   "id": "FR-GOV-09",
+   "source_q": [
+    "Q25",
+    "Q32",
+    "Q35"
+   ],
+   "builder_standard": [],
+   "proposals": [],
+   "open_decisions": [],
+   "canonical": [
+    "01_PRD/PRD.md#6"
+   ],
+   "tests": [
+    "F3-AT-24",
+    "F3-AT-26",
+    "UAT-13",
+    "UAT-15",
+    "EVO-AT02",
+    "F3-AT-33",
+    "F3-AT-34"
+   ]
+  },
+  {
+   "id": "FR-GOV-10",
+   "source_q": [
+    "Q31"
+   ],
+   "builder_standard": [],
+   "proposals": [
+    "P-40",
+    "P-41",
+    "P-59"
+   ],
+   "open_decisions": [],
+   "canonical": [
+    "01_PRD/PRD.md#6",
+    "11_Production_Contracts/BUSINESS_CONTRACT.md#8.7",
+    "09_Config_Templates/decision-statistics.yaml"
+   ],
+   "tests": [
+    "F6-AT-03",
+    "F6-AT-14",
+    "UAT-29",
+    "WF-TEST-O02-HANDBACK-ONLY"
+   ]
+  },
+  {
+   "id": "FR-OBS-01",
+   "source_q": [
+    "Q44.2",
+    "Q44.3",
+    "Q48"
+   ],
+   "builder_standard": [
+    "Q48★"
+   ],
+   "proposals": [],
+   "open_decisions": [],
+   "canonical": [
+    "01_PRD/PRD.md#6"
+   ],
+   "tests": [
+    "F1-AT-11",
+    "F1-AT-13",
+    "F4-AT-16",
+    "F4-AT-22",
+    "F5-AT-13",
+    "F5-AT-01",
+    "F5-AT-04"
+   ]
+  },
+  {
+   "id": "FR-OBS-02",
+   "source_q": [
+    "Q10/Q33/Q44.1"
+   ],
+   "builder_standard": [
+    "Q44★",
+    "(§G Watchdog)",
+    "(billing 6 soat)"
+   ],
+   "proposals": [],
+   "open_decisions": [],
+   "canonical": [
+    "01_PRD/PRD.md#6"
+   ],
+   "tests": [
+    "F1-AT-12",
+    "F1-AT-22",
+    "F3-AT-14",
+    "F4-AT-14",
+    "F4-AT-19",
+    "UAT-19",
+    "UAT-20",
+    "F1-AT-28",
+    "F1-AT-29",
+    "F4-AT-28",
+    "F3-AT-33",
+    "F1-AT-30",
+    "F4-AT-31",
+    "F4-AT-32"
+   ]
+  },
+  {
+   "id": "FR-RPT-01",
+   "source_q": [
+    "Q24"
+   ],
+   "builder_standard": [],
+   "proposals": [],
+   "open_decisions": [],
+   "canonical": [
+    "01_PRD/PRD.md#6"
+   ],
+   "tests": [
+    "F4-AT-09",
+    "WF-TEST-B06-E2E",
+    "WF-TEST-B06-UNCERTAIN"
+   ]
+  },
+  {
+   "id": "FR-RPT-02",
+   "source_q": [
+    "Q15/Q39",
+    "Q44.3",
+    "Q47"
+   ],
+   "builder_standard": [],
+   "proposals": [],
+   "open_decisions": [],
+   "canonical": [
+    "01_PRD/PRD.md#6"
+   ],
+   "tests": [
+    "F4-AT-10",
+    "F4-AT-11",
+    "F4-AT-22",
+    "EVO-AT13",
+    "F4-AT-24",
+    "F4-AT-29",
+    "F4-AT-31"
+   ]
+  },
+  {
+   "id": "EVO-R01",
+   "source_q": [
+    "Q50"
+   ],
+   "builder_standard": [],
+   "proposals": [],
+   "open_decisions": [],
+   "canonical": [
+    "01_PRD/PRD.md#6"
+   ],
+   "tests": [
+    "EVO-AT13",
+    "WF-TEST-B01-E2E",
+    "WF-TEST-B02-E2E",
+    "WF-TEST-B03-E2E",
+    "WF-TEST-B04-E2E",
+    "WF-TEST-B05-E2E",
+    "WF-TEST-B06-E2E",
+    "WF-TEST-B07-E2E",
+    "WF-TEST-O01-E2E",
+    "WF-TEST-O02-E2E",
+    "WF-TEST-O03-E2E",
+    "WF-TEST-E01-E2E",
+    "WF-TEST-E02-E2E",
+    "WF-TEST-E03-E2E",
+    "WF-TEST-E04-E2E",
+    "F0-AT-13"
+   ]
+  },
+  {
+   "id": "EVO-R02",
+   "source_q": [
+    "Q50"
+   ],
+   "builder_standard": [],
+   "proposals": [],
+   "open_decisions": [],
+   "canonical": [
+    "01_PRD/PRD.md#6"
+   ],
+   "tests": [
+    "EVO-AT01",
+    "EVO-AT02",
+    "WF-TEST-RT-CRASH",
+    "WF-TEST-RT-TIMER",
+    "WF-TEST-RT-DUPSIG",
+    "WF-TEST-RT-LATE",
+    "WF-TEST-RT-LONGWAIT",
+    "WF-TEST-RT-CONCURRENCY",
+    "WF-TEST-RT-CHILD-START",
+    "UAT-15"
+   ]
+  },
+  {
+   "id": "EVO-R03",
+   "source_q": [
+    "Q50"
+   ],
+   "builder_standard": [],
+   "proposals": [],
+   "open_decisions": [],
+   "canonical": [
+    "01_PRD/PRD.md#6"
+   ],
+   "tests": [
+    "EVO-AT02",
+    "EVO-AT13",
+    "WF-TEST-RT-HANDOFF",
+    "WF-TEST-RT-DRIFT",
+    "UAT-13"
+   ]
+  },
+  {
+   "id": "EVO-R04",
+   "source_q": [
+    "Q50"
+   ],
+   "builder_standard": [],
+   "proposals": [],
+   "open_decisions": [],
+   "canonical": [
+    "01_PRD/PRD.md#6"
+   ],
+   "tests": [
+    "EVO-AT14",
+    "WF-TEST-E01-E2E",
+    "WF-TEST-O02-E2E"
+   ]
+  },
+  {
+   "id": "EVO-R05",
+   "source_q": [
+    "Q50"
+   ],
+   "builder_standard": [],
+   "proposals": [],
+   "open_decisions": [
+    "OD-12"
+   ],
+   "canonical": [
+    "01_PRD/PRD.md#6"
+   ],
+   "tests": [
+    "EVO-AT03",
+    "FE-AT-01",
+    "FE-AT-05",
+    "FE-AT-13"
+   ]
+  },
+  {
+   "id": "EVO-R06",
+   "source_q": [
+    "Q50"
+   ],
+   "builder_standard": [],
+   "proposals": [],
+   "open_decisions": [],
+   "canonical": [
+    "01_PRD/PRD.md#6"
+   ],
+   "tests": [
+    "EVO-AT04",
+    "EVO-AT05",
+    "FE-AT-01",
+    "FE-AT-02"
+   ]
+  },
+  {
+   "id": "EVO-R07",
+   "source_q": [
+    "Q50"
+   ],
+   "builder_standard": [],
+   "proposals": [],
+   "open_decisions": [],
+   "canonical": [
+    "01_PRD/PRD.md#6"
+   ],
+   "tests": [
+    "EVO-AT06",
+    "EVO-AT08",
+    "FE-AT-06",
+    "F0-AT-01",
+    "F0-AT-11",
+    "F0-AT-14",
+    "F1-AT-02"
+   ]
+  },
+  {
+   "id": "EVO-R08",
+   "source_q": [
+    "Q50"
+   ],
+   "builder_standard": [],
+   "proposals": [],
+   "open_decisions": [],
+   "canonical": [
+    "01_PRD/PRD.md#6"
+   ],
+   "tests": [
+    "EVO-AT03",
+    "EVO-AT11",
+    "FE-AT-04",
+    "FE-AT-05",
+    "FE-AT-11"
+   ]
+  },
+  {
+   "id": "EVO-R09",
+   "source_q": [
+    "Q11",
+    "Q50"
+   ],
+   "builder_standard": [],
+   "proposals": [],
+   "open_decisions": [
+    "OD-03"
+   ],
+   "canonical": [
+    "01_PRD/PRD.md#6"
+   ],
+   "tests": [
+    "EVO-AT03",
+    "EVO-AT08",
+    "FE-AT-07",
+    "F6-AT-07"
+   ]
+  },
+  {
+   "id": "EVO-R10",
+   "source_q": [
+    "Q50"
+   ],
+   "builder_standard": [],
+   "proposals": [],
+   "open_decisions": [],
+   "canonical": [
+    "01_PRD/PRD.md#6"
+   ],
+   "tests": [
+    "EVO-AT06",
+    "EVO-AT07",
+    "FE-AT-09",
+    "WF-TEST-RT-EPOCH",
+    "WF-TEST-E02-E2E"
+   ]
+  },
+  {
+   "id": "EVO-R11",
+   "source_q": [
+    "Q11",
+    "Q12",
+    "Q50"
+   ],
+   "builder_standard": [],
+   "proposals": [],
+   "open_decisions": [],
+   "canonical": [
+    "01_PRD/PRD.md#6"
+   ],
+   "tests": [
+    "EVO-AT03",
+    "EVO-AT07",
+    "EVO-AT12",
+    "FE-AT-08",
+    "FE-AT-10",
+    "F6-AT-10",
+    "UAT-25",
+    "F1-AT-24",
+    "F2-AT-16"
+   ]
+  },
+  {
+   "id": "EVO-R12",
+   "source_q": [
+    "Q41",
+    "Q50"
+   ],
+   "builder_standard": [],
+   "proposals": [
+    "P-43"
+   ],
+   "open_decisions": [],
+   "canonical": [
+    "01_PRD/PRD.md#6"
+   ],
+   "tests": [
+    "EVO-AT09",
+    "EVO-AT10",
+    "UAT-06",
+    "UAT-07"
+   ]
+  },
+  {
+   "id": "EVO-R13",
+   "source_q": [
+    "Q50"
+   ],
+   "builder_standard": [],
+   "proposals": [],
+   "open_decisions": [],
+   "canonical": [
+    "01_PRD/PRD.md#6"
+   ],
+   "tests": [
+    "EVO-AT14",
+    "FE-AT-14",
+    "FE-AT-16"
+   ]
+  },
+  {
+   "id": "EVO-R14",
+   "source_q": [
+    "Q10/Q33/Q44.1",
+    "Q50"
+   ],
+   "builder_standard": [],
+   "proposals": [],
+   "open_decisions": [
+    "OD-02"
+   ],
+   "canonical": [
+    "01_PRD/PRD.md#6"
+   ],
+   "tests": [
+    "EVO-AT05",
+    "FE-AT-03",
+    "FE-AT-12",
+    "UAT-33",
+    "UAT-34"
+   ]
+  },
+  {
+   "id": "EVO-R15",
+   "source_q": [
+    "Q50"
+   ],
+   "builder_standard": [],
+   "proposals": [],
+   "open_decisions": [],
+   "canonical": [
+    "01_PRD/PRD.md#6"
+   ],
+   "tests": [
+    "EVO-AT06",
+    "EVO-AT12",
+    "FE-AT-15",
+    "WF-TEST-E02-E2E"
+   ]
+  },
+  {
+   "id": "NFR-01",
+   "source_q": [
+    "Q10/Q33/Q44.1"
+   ],
+   "builder_standard": [],
+   "proposals": [
+    "P-63"
+   ],
+   "open_decisions": [],
+   "canonical": [
+    "01_PRD/PRD.md#7"
+   ],
+   "tests": [
+    "F1-AT-12",
+    "F1-AT-22",
+    "F3-AT-14",
+    "F4-AT-14",
+    "F5-AT-08",
+    "UAT-19",
+    "UAT-20",
+    "WF-TEST-RT-COSTCAP",
+    "F1-AT-28",
+    "F1-AT-29",
+    "F4-AT-28",
+    "F1-AT-30",
+    "F4-AT-30",
+    "F4-AT-31"
+   ]
+  },
+  {
+   "id": "NFR-02",
+   "source_q": [
+    "Q08",
+    "Q32",
+    "Q37"
+   ],
+   "builder_standard": [],
+   "proposals": [
+    "P-01"
+   ],
+   "open_decisions": [],
+   "canonical": [
+    "01_PRD/PRD.md#7"
+   ],
+   "tests": [
+    "F3-AT-02",
+    "F3-AT-03",
+    "F3-AT-04",
+    "F3-AT-17",
+    "F3-AT-27",
+    "UAT-16",
+    "UAT-17",
+    "UAT-18",
+    "F3-AT-30",
+    "F3-AT-31"
+   ]
+  },
+  {
+   "id": "NFR-03",
+   "source_q": [
+    "Q57",
+    "Q58",
+    "Q59"
+   ],
+   "builder_standard": [],
+   "proposals": [],
+   "open_decisions": [],
+   "canonical": [
+    "01_PRD/PRD.md#7"
+   ],
+   "tests": [
+    "F0-AT-02",
+    "F0-AT-03",
+    "F0-AT-04",
+    "F0-AT-05",
+    "F0-AT-16",
+    "F1-AT-05",
+    "F3-AT-19",
+    "F0-AT-06",
+    "F0-AT-07",
+    "F0-AT-08",
+    "F1-AT-25",
+    "F1-AT-26",
+    "F2-AT-09",
+    "F3-AT-16",
+    "F6-AT-12",
+    "F0-AT-21",
+    "F0-AT-22",
+    "F2-AT-27"
+   ]
+  },
+  {
+   "id": "NFR-04",
+   "source_q": [
+    "Q28"
+   ],
+   "builder_standard": [],
+   "proposals": [],
+   "open_decisions": [
+    "OD-16"
+   ],
+   "canonical": [
+    "01_PRD/PRD.md#7"
+   ],
+   "tests": [
+    "F2-AT-08",
+    "F2-AT-20",
+    "F3-AT-09",
+    "UAT-11",
+    "F1-AT-04",
+    "F2-AT-11",
+    "F2-AT-22",
+    "F0-AT-20",
+    "F2-AT-27",
+    "F3-AT-32",
+    "F4-AT-27",
+    "F4-AT-29",
+    "F4-AT-30"
+   ]
+  },
+  {
+   "id": "NFR-05",
+   "source_q": [
+    "Q25",
+    "Q47"
+   ],
+   "builder_standard": [],
+   "proposals": [],
+   "open_decisions": [],
+   "canonical": [
+    "01_PRD/PRD.md#7"
+   ],
+   "tests": [
+    "F3-AT-05",
+    "F3-AT-23",
+    "F3-AT-24",
+    "F3-AT-28",
+    "UAT-13",
+    "UAT-15"
+   ]
+  },
+  {
+   "id": "NFR-06",
+   "source_q": [
+    "Q37"
+   ],
+   "builder_standard": [],
+   "proposals": [],
+   "open_decisions": [],
+   "canonical": [
+    "01_PRD/PRD.md#7"
+   ],
+   "tests": [
+    "F2-AT-10",
+    "F3-AT-17",
+    "UAT-18",
+    "UAT-22",
+    "F2-AT-25",
+    "F2-AT-26"
+   ]
+  },
+  {
+   "id": "NFR-07",
+   "source_q": [
+    "Q52",
+    "Q53",
+    "Q55"
+   ],
+   "builder_standard": [
+    "(§G Server)"
+   ],
+   "proposals": [
+    "P-16"
+   ],
+   "open_decisions": [],
+   "canonical": [
+    "01_PRD/PRD.md#7"
+   ],
+   "tests": [
+    "F0-AT-09",
+    "F0-AT-10",
+    "F0-AT-12",
+    "F0-AT-17",
+    "F0-AT-19",
+    "F2-AT-21",
+    "F6-AT-09",
+    "UAT-23",
+    "UAT-24",
+    "F1-AT-03",
+    "F7-AT-07",
+    "UAT-34"
+   ]
+  },
+  {
+   "id": "NFR-08",
+   "source_q": [],
+   "builder_standard": [],
+   "proposals": [],
+   "open_decisions": [],
+   "canonical": [
+    "01_PRD/PRD.md#7"
+   ],
+   "tests": [
+    "F2-AT-07",
+    "F2-AT-24"
+   ]
+  },
+  {
+   "id": "NFR-09",
+   "source_q": [
+    "Q12",
+    "Q21",
+    "Q42"
+   ],
+   "builder_standard": [],
+   "proposals": [],
+   "open_decisions": [
+    "OD-08"
+   ],
+   "canonical": [
+    "01_PRD/PRD.md#7"
+   ],
+   "tests": [
+    "F4-AT-05",
+    "UAT-31"
+   ]
+  },
+  {
+   "id": "NFR-10",
+   "source_q": [
+    "Q48"
+   ],
+   "builder_standard": [
+    "Q48★",
+    "(billing 6 soat)"
+   ],
+   "proposals": [],
+   "open_decisions": [],
+   "canonical": [
+    "01_PRD/PRD.md#7"
+   ],
+   "tests": [
+    "F1-AT-11",
+    "F1-AT-13",
+    "F5-AT-13",
+    "UAT-20",
+    "F1-AT-10"
+   ]
+  },
+  {
+   "id": "EVO-R16",
+   "source_q": [
+    "Q68",
+    "Q11",
+    "Q03/Q14"
+   ],
+   "builder_standard": [],
+   "proposals": [
+    "P-167"
+   ],
+   "open_decisions": [],
+   "canonical": [
+    "01_PRD/PRD.md#6",
+    "09_Config_Templates/agent-hiring.yaml"
+   ],
+   "tests": [
+    "WF-TEST-E05-E2E",
+    "WF-TEST-E05-MISSING",
+    "WF-TEST-E05-CANCEL",
+    "WF-TEST-E05-UNCERTAIN",
+    "WF-TEST-E05-ENVELOPE"
+   ]
+  }
+ ],
+ "invariants": {
+  "I01": {
+   "source_q": [
+    "Q01",
+    "Q02",
+    "Q03/Q14",
+    "Q05",
+    "Q06→Q14",
+    "Q15/Q39",
+    "Q18/Q42",
+    "Q50"
+   ],
+   "builder_standard": [],
+   "proposals": [],
+   "open_decisions": [],
+   "tests": [
+    "F4-AT-01",
+    "F4-AT-02",
+    "F4-AT-17",
+    "FE-AT-01",
+    "FE-AT-13",
+    "F1-AT-01",
+    "F1-AT-14"
+   ]
+  },
+  "I02": {
+   "source_q": [
+    "Q10/Q33/Q44.1",
+    "Q25",
+    "Q26"
+   ],
+   "builder_standard": [
+    "Q25 (§H)",
+    "Q10/Q44 (§H)"
+   ],
+   "proposals": [
+    "P-07"
+   ],
+   "open_decisions": [
+    "OD-05"
+   ],
+   "tests": [
+    "F1-AT-15",
+    "F1-AT-21",
+    "F3-AT-01",
+    "F3-AT-10",
+    "F3-AT-11",
+    "F3-AT-19",
+    "F3-AT-22",
+    "F4-AT-03",
+    "F4-AT-07",
+    "F4-AT-16",
+    "F4-AT-20",
+    "UAT-27",
+    "F1-AT-25"
+   ]
+  },
+  "I03": {
+   "source_q": [
+    "Q08",
+    "Q18/Q42",
+    "Q30",
+    "Q32",
+    "Q35",
+    "Q42",
+    "Q64"
+   ],
+   "builder_standard": [
+    "Q32 (§H)"
+   ],
+   "proposals": [
+    "P-15",
+    "P-20"
+   ],
+   "open_decisions": [
+    "OD-08"
+   ],
+   "tests": [
+    "F3-AT-07",
+    "F3-AT-20",
+    "F4-AT-06",
+    "F4-AT-07",
+    "F6-AT-07",
+    "UAT-31",
+    "F3-AT-18",
+    "F5-AT-05",
+    "F3-AT-34"
+   ]
+  },
+  "I04": {
+   "source_q": [
+    "Q08",
+    "Q37"
+   ],
+   "builder_standard": [
+    "Q37 (§H)"
+   ],
+   "proposals": [
+    "P-16",
+    "P-18"
+   ],
+   "open_decisions": [
+    "OD-17"
+   ],
+   "tests": [
+    "F0-AT-18",
+    "F3-AT-08",
+    "F3-AT-15",
+    "F4-AT-12",
+    "UAT-13",
+    "UAT-24",
+    "F3-AT-21",
+    "F5-AT-07",
+    "F6-AT-02"
+   ]
+  },
+  "I05": {
+   "source_q": [
+    "Q25",
+    "Q26",
+    "Q32",
+    "Q38"
+   ],
+   "builder_standard": [],
+   "proposals": [],
+   "open_decisions": [],
+   "tests": [
+    "F3-AT-05",
+    "F3-AT-06",
+    "F3-AT-24",
+    "UAT-15",
+    "EVO-AT02"
+   ]
+  },
+  "I06": {
+   "source_q": [
+    "Q25",
+    "Q32",
+    "Q35",
+    "Q38"
+   ],
+   "builder_standard": [],
+   "proposals": [],
+   "open_decisions": [],
+   "tests": [
+    "F3-AT-24",
+    "F3-AT-25",
+    "F3-AT-26",
+    "F3-AT-28",
+    "UAT-13",
+    "EVO-AT08",
+    "F3-AT-16",
+    "F3-AT-18",
+    "F4-AT-15",
+    "F3-AT-34"
+   ]
+  },
+  "I07": {
+   "source_q": [
+    "Q31",
+    "Q37"
+   ],
+   "builder_standard": [
+    "FR-GOV-04 (§H)"
+   ],
+   "proposals": [
+    "P-03"
+   ],
+   "open_decisions": [
+    "OD-04",
+    "OD-11"
+   ],
+   "tests": [
+    "F1-AT-17",
+    "F3-AT-15",
+    "F3-AT-25",
+    "F6-AT-08",
+    "F6-AT-14",
+    "UAT-14",
+    "UAT-21",
+    "UAT-22"
+   ]
+  },
+  "I08": {
+   "source_q": [
+    "Q17",
+    "Q26",
+    "Q28",
+    "Q37"
+   ],
+   "builder_standard": [],
+   "proposals": [
+    "P-19"
+   ],
+   "open_decisions": [],
+   "tests": [
+    "F2-AT-06",
+    "F2-AT-17",
+    "F2-AT-18",
+    "F2-AT-19",
+    "UAT-08",
+    "UAT-09",
+    "UAT-10",
+    "UAT-12",
+    "F2-AT-22"
+   ]
+  },
+  "I09": {
+   "source_q": [
+    "Q04",
+    "Q16",
+    "Q17",
+    "Q28"
+   ],
+   "builder_standard": [],
+   "proposals": [
+    "P-08"
+   ],
+   "open_decisions": [
+    "OD-06"
+   ],
+   "tests": [
+    "F2-AT-08",
+    "F2-AT-12",
+    "F2-AT-20",
+    "F3-AT-09",
+    "UAT-03",
+    "UAT-11"
+   ]
+  },
+  "I10": {
+   "source_q": [
+    "Q43"
+   ],
+   "builder_standard": [
+    "Q43★"
+   ],
+   "proposals": [
+    "P-06",
+    "P-09"
+   ],
+   "open_decisions": [
+    "OD-07",
+    "OD-14"
+   ],
+   "tests": [
+    "F3-AT-12",
+    "F6-AT-04",
+    "UAT-01",
+    "UAT-02"
+   ]
+  },
+  "I11": {
+   "source_q": [
+    "Q08",
+    "Q10/Q33/Q44.1",
+    "Q37",
+    "Q63"
+   ],
+   "builder_standard": [
+    "Q37 (§H)",
+    "Q44★",
+    "(billing 6 soat)"
+   ],
+   "proposals": [
+    "P-02",
+    "P-21"
+   ],
+   "open_decisions": [],
+   "tests": [
+    "F1-AT-12",
+    "F1-AT-22",
+    "F3-AT-03",
+    "F3-AT-04",
+    "F3-AT-14",
+    "F3-AT-17",
+    "F4-AT-19",
+    "F5-AT-08",
+    "UAT-17",
+    "UAT-18",
+    "UAT-19",
+    "UAT-20",
+    "F3-AT-30"
+   ]
+  },
+  "I12": {
+   "source_q": [
+    "Q04",
+    "Q08",
+    "Q32"
+   ],
+   "builder_standard": [],
+   "proposals": [
+    "P-01"
+   ],
+   "open_decisions": [],
+   "tests": [
+    "F3-AT-02",
+    "F3-AT-27",
+    "UAT-16"
+   ]
+  },
+  "I13": {
+   "source_q": [
+    "Q11",
+    "Q12",
+    "Q19",
+    "Q46.4",
+    "Q47",
+    "Q65"
+   ],
+   "builder_standard": [
+    "Q12 (§H)",
+    "Q47★",
+    "Q11 (§H)"
+   ],
+   "proposals": [
+    "P-05"
+   ],
+   "open_decisions": [],
+   "tests": [
+    "F0-AT-15",
+    "F1-AT-18",
+    "F1-AT-19",
+    "F6-AT-11",
+    "FE-AT-06",
+    "FE-AT-07",
+    "FE-AT-08",
+    "UAT-28",
+    "EVO-AT08",
+    "F4-AT-18",
+    "F1-AT-24"
+   ]
+  },
+  "I14": {
+   "source_q": [
+    "Q37",
+    "Q48"
+   ],
+   "builder_standard": [
+    "(§G Server)"
+   ],
+   "proposals": [
+    "P-16"
+   ],
+   "open_decisions": [],
+   "tests": [
+    "F0-AT-10",
+    "F0-AT-17",
+    "F0-AT-18",
+    "F1-AT-23",
+    "F2-AT-21",
+    "F6-AT-09",
+    "F6-AT-10",
+    "UAT-23",
+    "UAT-24",
+    "UAT-25",
+    "F6-AT-12"
+   ]
+  },
+  "I15": {
+   "source_q": [
+    "Q22→Q36",
+    "Q31",
+    "Q37",
+    "Q48"
+   ],
+   "builder_standard": [
+    "(§G Trust Ramp)",
+    "(§G Targetolog)"
+   ],
+   "proposals": [
+    "P-04",
+    "P-13",
+    "P-17"
+   ],
+   "open_decisions": [],
+   "tests": [
+    "F5-AT-06",
+    "F5-AT-09",
+    "F5-AT-11",
+    "F5-AT-12",
+    "F6-AT-05",
+    "F6-AT-13",
+    "F6-AT-15",
+    "UAT-07",
+    "UAT-30",
+    "UAT-32",
+    "F5-AT-10"
+   ]
+  },
+  "I16": {
+   "source_q": [
+    "Q26",
+    "Q50"
+   ],
+   "builder_standard": [],
+   "proposals": [],
+   "open_decisions": [],
+   "tests": [
+    "EVO-AT01",
+    "EVO-AT02",
+    "EVO-AT13",
+    "WF-TEST-RT-DRIFT",
+    "F4-AT-23"
+   ]
+  },
+  "I17": {
+   "source_q": [
+    "Q50"
+   ],
+   "builder_standard": [],
+   "proposals": [],
+   "open_decisions": [],
+   "tests": [
+    "EVO-AT01",
+    "WF-TEST-RT-CRASH",
+    "WF-TEST-RT-TIMER",
+    "WF-TEST-RT-DUPSIG",
+    "WF-TEST-RT-LATE",
+    "WF-TEST-RT-LONGWAIT"
+   ]
+  },
+  "I18": {
+   "source_q": [
+    "Q50"
+   ],
+   "builder_standard": [],
+   "proposals": [],
+   "open_decisions": [],
+   "tests": [
+    "EVO-AT13",
+    "WF-TEST-RT-HANDOFF"
+   ]
+  },
+  "I19": {
+   "source_q": [
+    "Q11",
+    "Q50"
+   ],
+   "builder_standard": [],
+   "proposals": [],
+   "open_decisions": [],
+   "tests": [
+    "EVO-AT08",
+    "FE-AT-06",
+    "FE-AT-07"
+   ]
+  },
+  "I20": {
+   "source_q": [
+    "Q11",
+    "Q50",
+    "Q66",
+    "Q67"
+   ],
+   "builder_standard": [],
+   "proposals": [],
+   "open_decisions": [
+    "OD-12"
+   ],
+   "tests": [
+    "EVO-AT03",
+    "EVO-AT04",
+    "FE-AT-01",
+    "FE-AT-02",
+    "FE-AT-04",
+    "FE-AT-05",
+    "FE-AT-08",
+    "FE-AT-13",
+    "F0-AT-06",
+    "F1-AT-26"
+   ]
+  },
+  "I21": {
+   "source_q": [
+    "Q11",
+    "Q12",
+    "Q50"
+   ],
+   "builder_standard": [],
+   "proposals": [],
+   "open_decisions": [
+    "OD-03"
+   ],
+   "tests": [
+    "F6-AT-07",
+    "FE-AT-07",
+    "EVO-AT03",
+    "EVO-AT08",
+    "F1-AT-24"
+   ]
+  },
+  "I22": {
+   "source_q": [
+    "Q50"
+   ],
+   "builder_standard": [],
+   "proposals": [],
+   "open_decisions": [],
+   "tests": [
+    "EVO-AT06",
+    "FE-AT-09",
+    "WF-TEST-RT-EPOCH",
+    "WF-TEST-RT-LEASE"
+   ]
+  },
+  "I23": {
+   "source_q": [
+    "Q41",
+    "Q50"
+   ],
+   "builder_standard": [],
+   "proposals": [],
+   "open_decisions": [],
+   "tests": [
+    "EVO-AT09",
+    "EVO-AT10",
+    "EVO-AT14"
+   ]
+  },
+  "I24": {
+   "source_q": [
+    "Q07",
+    "Q11",
+    "Q50"
+   ],
+   "builder_standard": [
+    "(§G Hermes)"
+   ],
+   "proposals": [
+    "P-14"
+   ],
+   "open_decisions": [],
+   "tests": [
+    "FE-AT-14",
+    "EVO-AT14",
+    "F4-AT-24",
+    "F4-AT-29",
+    "F4-AT-30",
+    "FE-AT-16"
+   ]
+  },
+  "I25": {
+   "source_q": [
+    "Q10/Q33/Q44.1",
+    "Q23",
+    "Q50"
+   ],
+   "builder_standard": [],
+   "proposals": [],
+   "open_decisions": [
+    "OD-02"
+   ],
+   "tests": [
+    "EVO-AT05",
+    "FE-AT-03",
+    "FE-AT-12"
+   ]
+  }
+ },
+ "workflows": {
+  "WF-B01": {
+   "requirement_refs": [
+    "FR-INT-01",
+    "FR-INT-02",
+    "FR-TRK-01",
+    "FR-TRK-02",
+    "FR-BIZ-01",
+    "EVO-R01",
+    "EVO-R02",
+    "EVO-R03"
+   ],
+   "tests": [
+    "UAT-08",
+    "UAT-09",
+    "UAT-10",
+    "UAT-11",
+    "UAT-12",
+    "UAT-03",
+    "UAT-05",
+    "EVO-AT01",
+    "EVO-AT02",
+    "WF-TEST-B01-E2E",
+    "WF-TEST-B01-MISSING",
+    "WF-TEST-B01-CANCEL",
+    "WF-TEST-B01-UNCERTAIN"
+   ]
+  },
+  "WF-B02": {
+   "requirement_refs": [
+    "FR-CRV-01",
+    "FR-CRV-02",
+    "FR-CRV-03",
+    "FR-ADS-02",
+    "EVO-R01",
+    "EVO-R03"
+   ],
+   "tests": [
+    "UAT-13",
+    "UAT-26",
+    "UAT-31",
+    "EVO-AT13",
+    "WF-TEST-B02-E2E",
+    "WF-TEST-B02-MISSING",
+    "WF-TEST-B02-CANCEL",
+    "WF-TEST-B02-UNCERTAIN",
+    "WF-TEST-B02-REPAIR-BOUND"
+   ]
+  },
+  "WF-B03": {
+   "requirement_refs": [
+    "FR-ADS-01",
+    "FR-ADS-03",
+    "FR-ADS-05",
+    "FR-GOV-01",
+    "FR-GOV-03",
+    "FR-GOV-08",
+    "FR-GOV-09",
+    "EVO-R01",
+    "EVO-R02",
+    "EVO-R03"
+   ],
+   "tests": [
+    "UAT-02",
+    "UAT-13",
+    "UAT-14",
+    "UAT-15",
+    "UAT-16",
+    "UAT-17",
+    "EVO-AT01",
+    "EVO-AT02",
+    "WF-TEST-B03-E2E",
+    "WF-TEST-B03-MISSING",
+    "WF-TEST-B03-CANCEL",
+    "WF-TEST-B03-UNCERTAIN",
+    "WF-TEST-B03-ROUNDS",
+    "WF-TEST-B03-REJECT-BOUND",
+    "WF-TEST-B03-PARTIAL",
+    "WF-TEST-B03-URGENT",
+    "WF-TEST-B03-PROTECTIVE-REACT"
+   ]
+  },
+  "WF-B04": {
+   "requirement_refs": [
+    "FR-CRO-01",
+    "FR-CRO-02",
+    "FR-CRO-03",
+    "FR-CRO-04",
+    "FR-CRV-02",
+    "EVO-R01",
+    "EVO-R03"
+   ],
+   "tests": [
+    "UAT-26",
+    "UAT-31",
+    "EVO-AT08",
+    "WF-TEST-B04-E2E",
+    "WF-TEST-B04-MISSING",
+    "WF-TEST-B04-CANCEL",
+    "WF-TEST-B04-UNCERTAIN"
+   ]
+  },
+  "WF-B05": {
+   "requirement_refs": [
+    "FR-PLN-04",
+    "FR-TRK-04",
+    "EVO-R12"
+   ],
+   "tests": [
+    "UAT-06",
+    "UAT-07",
+    "EVO-AT09",
+    "EVO-AT10",
+    "WF-TEST-B05-E2E",
+    "WF-TEST-B05-MISSING",
+    "WF-TEST-B05-CANCEL",
+    "WF-TEST-B05-UNCERTAIN",
+    "WF-TEST-B05-EXPOSURE-REJECT"
+   ]
+  },
+  "WF-B06": {
+   "requirement_refs": [
+    "FR-PLN-01",
+    "FR-RPT-01",
+    "FR-RPT-02",
+    "EVO-R01",
+    "EVO-R15"
+   ],
+   "tests": [
+    "EVO-AT13",
+    "EVO-AT14",
+    "WF-TEST-B06-E2E",
+    "WF-TEST-B06-MISSING",
+    "WF-TEST-B06-CANCEL",
+    "WF-TEST-B06-UNCERTAIN",
+    "WF-TEST-B06-REVIEW-BOUND",
+    "WF-TEST-B06-REPORTSIZE"
+   ]
+  },
+  "WF-B07": {
+   "requirement_refs": [
+    "FR-GOV-01",
+    "FR-GOV-03",
+    "EVO-R01",
+    "EVO-R02",
+    "EVO-R03"
+   ],
+   "tests": [
+    "WF-TEST-B07-E2E",
+    "WF-TEST-B07-MISSING",
+    "WF-TEST-B07-CANCEL",
+    "WF-TEST-B07-UNCERTAIN",
+    "WF-TEST-B07-CLASSIFY",
+    "WF-TEST-B07-STREAK"
+   ]
+  },
+  "WF-E01": {
+   "requirement_refs": [
+    "EVO-R04",
+    "EVO-R05",
+    "EVO-R06",
+    "EVO-R07",
+    "EVO-R08",
+    "EVO-R09",
+    "EVO-R11",
+    "EVO-R12",
+    "EVO-R13",
+    "EVO-R14"
+   ],
+   "tests": [
+    "EVO-AT03",
+    "EVO-AT04",
+    "EVO-AT05",
+    "EVO-AT08",
+    "EVO-AT09",
+    "EVO-AT14",
+    "WF-TEST-E01-E2E",
+    "WF-TEST-E01-MISSING",
+    "WF-TEST-E01-CANCEL",
+    "WF-TEST-E01-UNCERTAIN"
+   ]
+  },
+  "WF-E02": {
+   "requirement_refs": [
+    "EVO-R10",
+    "EVO-R11",
+    "EVO-R15"
+   ],
+   "tests": [
+    "EVO-AT06",
+    "EVO-AT07",
+    "EVO-AT12",
+    "WF-TEST-E02-E2E",
+    "WF-TEST-E02-MISSING",
+    "WF-TEST-E02-CANCEL",
+    "WF-TEST-E02-UNCERTAIN"
+   ]
+  },
+  "WF-E03": {
+   "requirement_refs": [
+    "EVO-R07",
+    "EVO-R08",
+    "EVO-R11",
+    "FR-OBS-01"
+   ],
+   "tests": [
+    "EVO-AT08",
+    "EVO-AT11",
+    "UAT-30",
+    "WF-TEST-E03-E2E",
+    "WF-TEST-E03-MISSING",
+    "WF-TEST-E03-CANCEL",
+    "WF-TEST-E03-UNCERTAIN"
+   ]
+  },
+  "WF-E04": {
+   "requirement_refs": [
+    "EVO-R08",
+    "EVO-R13",
+    "FR-PLN-03"
+   ],
+   "tests": [
+    "EVO-AT03",
+    "EVO-AT11",
+    "WF-TEST-E04-E2E",
+    "WF-TEST-E04-MISSING",
+    "WF-TEST-E04-CANCEL",
+    "WF-TEST-E04-UNCERTAIN"
+   ]
+  },
+  "WF-O01": {
+   "requirement_refs": [
+    "FR-ADS-05",
+    "FR-BIZ-02",
+    "FR-GOV-08",
+    "EVO-R01",
+    "EVO-R02"
+   ],
+   "tests": [
+    "UAT-01",
+    "UAT-02",
+    "EVO-AT01",
+    "WF-TEST-O01-E2E",
+    "WF-TEST-O01-MISSING",
+    "WF-TEST-O01-CANCEL",
+    "WF-TEST-O01-UNCERTAIN"
+   ]
+  },
+  "WF-O02": {
+   "requirement_refs": [
+    "FR-GOV-02",
+    "FR-GOV-04",
+    "FR-GOV-10",
+    "EVO-R04",
+    "EVO-R15"
+   ],
+   "tests": [
+    "UAT-14",
+    "UAT-21",
+    "UAT-22",
+    "UAT-29",
+    "EVO-AT12",
+    "WF-TEST-O02-E2E",
+    "WF-TEST-O02-MISSING",
+    "WF-TEST-O02-CANCEL",
+    "WF-TEST-O02-UNCERTAIN",
+    "WF-TEST-O02-S06-NA",
+    "WF-TEST-O02-SEVERITY",
+    "WF-TEST-O02-HANDBACK-ONLY",
+    "WF-TEST-O02-DEPUTY-ACK"
+   ]
+  },
+  "WF-O03": {
+   "requirement_refs": [
+    "NFR-07",
+    "EVO-R11"
+   ],
+   "tests": [
+    "UAT-23",
+    "UAT-24",
+    "UAT-25",
+    "EVO-AT07",
+    "EVO-AT12",
+    "WF-TEST-O03-E2E",
+    "WF-TEST-O03-MISSING",
+    "WF-TEST-O03-CANCEL",
+    "WF-TEST-O03-UNCERTAIN",
+    "WF-TEST-O03-S04-NA"
+   ]
+  },
+  "WF-O04": {
+   "requirement_refs": [
+    "FR-ADS-03"
+   ],
+   "tests": [
+    "UAT-18",
+    "WF-TEST-O04-E2E",
+    "WF-TEST-O04-MISSING",
+    "WF-TEST-O04-CANCEL",
+    "WF-TEST-O04-UNCERTAIN",
+    "WF-TEST-O04-LATE"
+   ]
+  },
+  "WF-O05": {
+   "requirement_refs": [
+    "FR-PLN-03"
+   ],
+   "tests": [
+    "WF-TEST-O05-E2E",
+    "WF-TEST-O05-MISSING",
+    "WF-TEST-O05-CANCEL",
+    "WF-TEST-O05-UNCERTAIN"
+   ]
+  },
+  "WF-E05": {
+   "requirement_refs": [
+    "EVO-R16"
+   ],
+   "tests": [
+    "WF-TEST-E05-E2E",
+    "WF-TEST-E05-MISSING",
+    "WF-TEST-E05-CANCEL",
+    "WF-TEST-E05-UNCERTAIN",
+    "WF-TEST-E05-ENVELOPE"
+   ]
+  }
+ },
+ "phase_acceptance_ids": {
+  "F0_Server.md": [
+   "F0-AT-01",
+   "F0-AT-02",
+   "F0-AT-03",
+   "F0-AT-04",
+   "F0-AT-05",
+   "F0-AT-06",
+   "F0-AT-07",
+   "F0-AT-08",
+   "F0-AT-09",
+   "F0-AT-10",
+   "F0-AT-11",
+   "F0-AT-12",
+   "F0-AT-13",
+   "F0-AT-14",
+   "F0-AT-15",
+   "F0-AT-16",
+   "F0-AT-17",
+   "F0-AT-18",
+   "F0-AT-19",
+   "F0-AT-20",
+   "F0-AT-21",
+   "F0-AT-22"
+  ],
+  "F1_Platform.md": [
+   "F1-AT-01",
+   "F1-AT-02",
+   "F1-AT-03",
+   "F1-AT-04",
+   "F1-AT-05",
+   "F1-AT-06",
+   "F1-AT-07",
+   "F1-AT-08",
+   "F1-AT-09",
+   "F1-AT-10",
+   "F1-AT-11",
+   "F1-AT-12",
+   "F1-AT-13",
+   "F1-AT-14",
+   "F1-AT-15",
+   "F1-AT-16",
+   "F1-AT-17",
+   "F1-AT-18",
+   "F1-AT-19",
+   "F1-AT-20",
+   "F1-AT-21",
+   "F1-AT-22",
+   "F1-AT-23",
+   "F1-AT-24",
+   "F1-AT-25",
+   "F1-AT-26",
+   "F1-AT-27",
+   "F1-AT-28",
+   "F1-AT-29",
+   "F1-AT-30"
+  ],
+  "F2_Landing_Tracking.md": [
+   "F2-AT-01",
+   "F2-AT-02",
+   "F2-AT-03",
+   "F2-AT-04",
+   "F2-AT-05",
+   "F2-AT-06",
+   "F2-AT-07",
+   "F2-AT-08",
+   "F2-AT-09",
+   "F2-AT-10",
+   "F2-AT-11",
+   "F2-AT-12",
+   "F2-AT-13",
+   "F2-AT-14",
+   "F2-AT-15",
+   "F2-AT-16",
+   "F2-AT-GATE",
+   "F2-AT-17",
+   "F2-AT-18",
+   "F2-AT-19",
+   "F2-AT-20",
+   "F2-AT-21",
+   "F2-AT-22",
+   "F2-AT-23",
+   "F2-AT-24",
+   "F2-AT-25",
+   "F2-AT-26",
+   "F2-AT-27"
+  ],
+  "F3_Integrations.md": [
+   "F3-AT-01",
+   "F3-AT-02",
+   "F3-AT-03",
+   "F3-AT-04",
+   "F3-AT-05",
+   "F3-AT-06",
+   "F3-AT-07",
+   "F3-AT-08",
+   "F3-AT-09",
+   "F3-AT-10",
+   "F3-AT-11",
+   "F3-AT-12",
+   "F3-AT-13",
+   "F3-AT-14",
+   "F3-AT-15",
+   "F3-AT-16",
+   "F3-AT-17",
+   "F3-AT-18",
+   "F3-AT-19",
+   "F3-AT-20",
+   "F3-AT-21",
+   "F3-AT-22",
+   "F3-AT-23",
+   "F3-AT-24",
+   "F3-AT-25",
+   "F3-AT-26",
+   "F3-AT-27",
+   "F3-AT-28",
+   "F3-AT-29",
+   "F3-AT-30",
+   "F3-AT-31",
+   "F3-AT-32",
+   "F3-AT-33",
+   "F3-AT-34"
+  ],
+  "F4_Agents.md": [
+   "F4-AT-01",
+   "F4-AT-02",
+   "F4-AT-03",
+   "F4-AT-04",
+   "F4-AT-05",
+   "F4-AT-06",
+   "F4-AT-07",
+   "F4-AT-08",
+   "F4-AT-09",
+   "F4-AT-10",
+   "F4-AT-11",
+   "F4-AT-12",
+   "F4-AT-13",
+   "F4-AT-14",
+   "F4-AT-15",
+   "F4-AT-16",
+   "F4-AT-17",
+   "F4-AT-18",
+   "F4-AT-19",
+   "F4-AT-20",
+   "F4-AT-21",
+   "F4-AT-22",
+   "F4-AT-23",
+   "F4-AT-24",
+   "F4-AT-25",
+   "F4-AT-26",
+   "F4-AT-27",
+   "F4-AT-28",
+   "F4-AT-29",
+   "F4-AT-30",
+   "F4-AT-31",
+   "F4-AT-32"
+  ],
+  "F5_Eval_Shadow.md": [
+   "F5-AT-01",
+   "F5-AT-02",
+   "F5-AT-03",
+   "F5-AT-04",
+   "F5-AT-05",
+   "F5-AT-06",
+   "F5-AT-07",
+   "F5-AT-08",
+   "F5-AT-09",
+   "F5-AT-10",
+   "F5-AT-11",
+   "F5-AT-12",
+   "F5-AT-13",
+   "F5-AT-14"
+  ],
+  "F6_GoLive.md": [
+   "F6-AT-01",
+   "F6-AT-02",
+   "F6-AT-03",
+   "F6-AT-03b",
+   "F6-AT-04",
+   "F6-AT-05",
+   "F6-AT-06",
+   "F6-AT-07",
+   "F6-AT-08",
+   "F6-AT-09",
+   "F6-AT-10",
+   "F6-AT-11",
+   "F6-AT-12",
+   "F6-AT-13",
+   "F6-AT-14",
+   "F6-AT-15"
+  ],
+  "F7_Retro.md": [
+   "F7-AT-01",
+   "F7-AT-02",
+   "F7-AT-03",
+   "F7-AT-04",
+   "F7-AT-05",
+   "F7-AT-06",
+   "F7-AT-07"
+  ],
+  "FE_Evolution.md": [
+   "FE-AT-01",
+   "FE-AT-02",
+   "FE-AT-03",
+   "FE-AT-04",
+   "FE-AT-05",
+   "FE-AT-06",
+   "FE-AT-07",
+   "FE-AT-08",
+   "FE-AT-09",
+   "FE-AT-10",
+   "FE-AT-11",
+   "FE-AT-12",
+   "FE-AT-13",
+   "FE-AT-14",
+   "FE-AT-15",
+   "FE-AT-16"
+  ]
+ },
+ "acceptance_ids": {
+  "PRODUCTION_ACCEPTANCE.md": [
+   "UAT-01",
+   "UAT-02",
+   "UAT-03",
+   "UAT-04",
+   "UAT-05",
+   "UAT-06",
+   "UAT-07",
+   "UAT-08",
+   "UAT-09",
+   "UAT-10",
+   "UAT-11",
+   "UAT-12",
+   "UAT-13",
+   "UAT-14",
+   "UAT-15",
+   "UAT-16",
+   "UAT-17",
+   "UAT-18",
+   "UAT-19",
+   "UAT-20",
+   "UAT-21",
+   "UAT-22",
+   "UAT-23",
+   "UAT-24",
+   "UAT-25",
+   "UAT-26",
+   "UAT-27",
+   "UAT-28",
+   "UAT-29",
+   "UAT-30",
+   "UAT-31",
+   "UAT-32",
+   "UAT-33",
+   "UAT-34",
+   "EVO-AT01",
+   "EVO-AT02",
+   "EVO-AT03",
+   "EVO-AT04",
+   "EVO-AT05",
+   "EVO-AT06",
+   "EVO-AT07",
+   "EVO-AT08",
+   "EVO-AT09",
+   "EVO-AT10",
+   "EVO-AT11",
+   "EVO-AT12",
+   "EVO-AT13",
+   "EVO-AT14"
+  ],
+  "WORKFLOW_TESTS.md": [
+   "WF-TEST-RT-CRASH",
+   "WF-TEST-RT-TIMER",
+   "WF-TEST-RT-DUPSIG",
+   "WF-TEST-RT-LATE",
+   "WF-TEST-RT-HANDOFF",
+   "WF-TEST-RT-DRIFT",
+   "WF-TEST-RT-LEASE",
+   "WF-TEST-RT-EPOCH",
+   "WF-TEST-RT-LONGWAIT",
+   "WF-TEST-RT-CONCURRENCY",
+   "WF-TEST-RT-CHILD-START",
+   "WF-TEST-RT-COSTCAP",
+   "WF-TEST-B01-E2E",
+   "WF-TEST-B01-MISSING",
+   "WF-TEST-B01-CANCEL",
+   "WF-TEST-B01-UNCERTAIN",
+   "WF-TEST-B02-E2E",
+   "WF-TEST-B02-MISSING",
+   "WF-TEST-B02-CANCEL",
+   "WF-TEST-B02-UNCERTAIN",
+   "WF-TEST-B02-REPAIR-BOUND",
+   "WF-TEST-B03-E2E",
+   "WF-TEST-B03-MISSING",
+   "WF-TEST-B03-CANCEL",
+   "WF-TEST-B03-UNCERTAIN",
+   "WF-TEST-B03-ROUNDS",
+   "WF-TEST-B03-REJECT-BOUND",
+   "WF-TEST-B03-PARTIAL",
+   "WF-TEST-B04-E2E",
+   "WF-TEST-B04-MISSING",
+   "WF-TEST-B04-CANCEL",
+   "WF-TEST-B04-UNCERTAIN",
+   "WF-TEST-B05-E2E",
+   "WF-TEST-B05-MISSING",
+   "WF-TEST-B05-CANCEL",
+   "WF-TEST-B05-UNCERTAIN",
+   "WF-TEST-B05-EXPOSURE-REJECT",
+   "WF-TEST-B06-E2E",
+   "WF-TEST-B06-MISSING",
+   "WF-TEST-B06-CANCEL",
+   "WF-TEST-B06-UNCERTAIN",
+   "WF-TEST-B06-REVIEW-BOUND",
+   "WF-TEST-B06-REPORTSIZE",
+   "WF-TEST-B07-E2E",
+   "WF-TEST-B07-MISSING",
+   "WF-TEST-B07-CANCEL",
+   "WF-TEST-B07-UNCERTAIN",
+   "WF-TEST-E01-E2E",
+   "WF-TEST-E01-MISSING",
+   "WF-TEST-E01-CANCEL",
+   "WF-TEST-E01-UNCERTAIN",
+   "WF-TEST-E02-E2E",
+   "WF-TEST-E02-MISSING",
+   "WF-TEST-E02-CANCEL",
+   "WF-TEST-E02-UNCERTAIN",
+   "WF-TEST-E03-E2E",
+   "WF-TEST-E03-MISSING",
+   "WF-TEST-E03-CANCEL",
+   "WF-TEST-E03-UNCERTAIN",
+   "WF-TEST-E04-E2E",
+   "WF-TEST-E04-MISSING",
+   "WF-TEST-E04-CANCEL",
+   "WF-TEST-E04-UNCERTAIN",
+   "WF-TEST-O01-E2E",
+   "WF-TEST-O01-MISSING",
+   "WF-TEST-O01-CANCEL",
+   "WF-TEST-O01-UNCERTAIN",
+   "WF-TEST-O02-E2E",
+   "WF-TEST-O02-MISSING",
+   "WF-TEST-O02-CANCEL",
+   "WF-TEST-O02-UNCERTAIN",
+   "WF-TEST-O03-E2E",
+   "WF-TEST-O03-MISSING",
+   "WF-TEST-O03-CANCEL",
+   "WF-TEST-O03-UNCERTAIN",
+   "WF-TEST-O03-S04-NA",
+   "WF-TEST-B07-CLASSIFY",
+   "WF-TEST-B07-STREAK",
+   "WF-TEST-O02-S06-NA",
+   "WF-TEST-O02-SEVERITY",
+   "WF-TEST-O02-HANDBACK-ONLY",
+   "WF-TEST-O04-E2E",
+   "WF-TEST-O04-MISSING",
+   "WF-TEST-O04-CANCEL",
+   "WF-TEST-O04-UNCERTAIN",
+   "WF-TEST-O04-LATE",
+   "WF-TEST-O05-E2E",
+   "WF-TEST-O05-MISSING",
+   "WF-TEST-O05-CANCEL",
+   "WF-TEST-O05-UNCERTAIN",
+   "WF-TEST-O02-DEPUTY-ACK",
+   "WF-TEST-B03-URGENT",
+   "WF-TEST-B03-PROTECTIVE-REACT",
+   "WF-TEST-E05-E2E",
+   "WF-TEST-E05-MISSING",
+   "WF-TEST-E05-CANCEL",
+   "WF-TEST-E05-UNCERTAIN",
+   "WF-TEST-E05-ENVELOPE"
+  ]
+ },
+ "decisions": {
+  "Q01": [
+   "01_PRD/PRD.md"
+  ],
+  "Q02": [
+   "01_PRD/PRD.md"
+  ],
+  "Q04": [
+   "11_Production_Contracts/BUSINESS_CONTRACT.md"
+  ],
+  "Q05": [
+   "01_PRD/PRD.md"
+  ],
+  "Q06": [
+   "01_PRD/PRD.md"
+  ],
+  "Q14": [
+   "01_PRD/PRD.md",
+   "02_Team_Charter/TEAM.md"
+  ],
+  "Q16": [
+   "09_Config_Templates/pipelines.yaml"
+  ],
+  "Q24": [
+   "09_Config_Templates/business-policy.yaml",
+   "03_Architecture/TELEGRAM.md"
+  ],
+  "Q29.1": [
+   "09_Config_Templates/business-policy.yaml",
+   "03_Architecture/TRACKING_CAPI.md"
+  ],
+  "Q43": [
+   "09_Config_Templates/capacity-policy.yaml",
+   "04_ADR/ADR-014-capacity-aware-rent-objective.md"
+  ],
+  "Q03": [
+   "02_Team_Charter/TEAM.md"
+  ],
+  "Q15": [
+   "04_ADR/ADR-004-hermes-cmo-no-openclaw.md"
+  ],
+  "Q39": [
+   "04_ADR/ADR-004-hermes-cmo-no-openclaw.md"
+  ],
+  "Q13": [
+   "10_Reference/THINKING_MODELS.md",
+   "08_Skills/thinking-kernel/SKILL.md"
+  ],
+  "Q44.2": [
+   "04_ADR/ADR-016-model-selection-by-eval.md"
+  ],
+  "Q44.3": [
+   "03_Architecture/ARCHITECTURE.md"
+  ],
+  "Q08": [
+   "11_Production_Contracts/INVARIANTS.md",
+   "09_Config_Templates/approval-policy.yaml",
+   "09_Config_Templates/budgets.yaml"
+  ],
+  "Q38": [
+   "09_Config_Templates/approval-policy.yaml",
+   "03_Architecture/GUARDRAIL_GATEWAY.md"
+  ],
+  "Q32": [
+   "09_Config_Templates/approval-policy.yaml"
+  ],
+  "Q35": [
+   "09_Config_Templates/offers.yaml"
+  ],
+  "Q18": [
+   "03_Architecture/GUARDRAIL_GATEWAY.md"
+  ],
+  "Q42": [
+   "03_Architecture/GUARDRAIL_GATEWAY.md",
+   "09_Config_Templates/approval-policy.yaml",
+   "02_Team_Charter/agents/REVIEWER.md",
+   "04_ADR/ADR-016-model-selection-by-eval.md"
+  ],
+  "Q22": [
+   "05_Build_Phases/F6_GoLive.md",
+   "05_Build_Phases/PHASES.md"
+  ],
+  "Q36": [
+   "05_Build_Phases/F6_GoLive.md",
+   "05_Build_Phases/PHASES.md"
+  ],
+  "Q31": [
+   "09_Config_Templates/kill-criteria.yaml",
+   "04_ADR/ADR-013-staged-golive-kill-criteria.md"
+  ],
+  "Q37": [
+   "09_Config_Templates/tracking-health.yaml",
+   "09_Config_Templates/budgets.yaml",
+   "04_ADR/ADR-029-money-model-minor-units-and-independent-cap.md"
+  ],
+  "Q41": [
+   "07_Evals/EVALS.md",
+   "02_Team_Charter/agents/CRO.md"
+  ],
+  "Q61": [
+   "04_ADR/ADR-034-jev-review-pre-screen.md",
+   "07_Evals/EVALS.md"
+  ],
+  "Q07": [
+   "03_Architecture/ARCHITECTURE.md"
+  ],
+  "Q25": [
+   "03_Architecture/GUARDRAIL_GATEWAY.md",
+   "09_Config_Templates/approval-policy.yaml",
+   "03_Architecture/SECURITY.md",
+   "04_ADR/ADR-022-isolated-managed-runners.md"
+  ],
+  "Q40": [
+   "04_ADR/ADR-005-meta-read-mcp-write-sdk.md"
+  ],
+  "Q26": [
+   "04_ADR/ADR-007-deterministic-hot-paths.md"
+  ],
+  "Q17": [
+   "03_Architecture/TRACKING_CAPI.md"
+  ],
+  "Q28": [
+   "09_Config_Templates/privacy-policy.yaml",
+   "04_ADR/ADR-008-pii-minimization.md"
+  ],
+  "Q62": [
+   "04_ADR/ADR-008-pii-minimization.md",
+   "03_Architecture/TRACKING_CAPI.md"
+  ],
+  "Q30": [
+   "04_ADR/ADR-011-analytics-pixel-capi-umami-clarity.md",
+   "03_Architecture/GUARDRAIL_GATEWAY.md"
+  ],
+  "Q45": [
+   "04_ADR/ADR-011-analytics-pixel-capi-umami-clarity.md"
+  ],
+  "Q19": [
+   "04_ADR/ADR-012-landing-separate-repo-pr-only.md"
+  ],
+  "Q20": [
+   "08_Skills/ad-creative-production/SKILL.md",
+   "09_Config_Templates/operations.yaml"
+  ],
+  "Q29.3": [
+   "08_Skills/ad-creative-production/SKILL.md",
+   "09_Config_Templates/operations.yaml"
+  ],
+  "Q21": [
+   "08_Skills/wolter-brand-voice/SKILL.md"
+  ],
+  "Q09": [
+   "04_ADR/ADR-002-hetzner-ex44-ubuntu-2404.md"
+  ],
+  "Q27": [
+   "04_ADR/ADR-002-hetzner-ex44-ubuntu-2404.md"
+  ],
+  "Q52": [
+   "04_ADR/ADR-032-owner-pc-office-host.md"
+  ],
+  "Q53": [
+   "04_ADR/ADR-032-owner-pc-office-host.md"
+  ],
+  "Q54": [
+   "04_ADR/ADR-032-owner-pc-office-host.md",
+   "06_Runbooks/INCIDENTS.md"
+  ],
+  "Q55": [
+   "04_ADR/ADR-032-owner-pc-office-host.md",
+   "06_Runbooks/BACKUP_RESTORE.md"
+  ],
+  "Q56": [
+   "06_Runbooks/BACKUP_RESTORE.md"
+  ],
+  "Q46.5": [
+   "05_Build_Phases/F0_Server.md"
+  ],
+  "Q46.1": [
+   "03_Architecture/SECURITY.md"
+  ],
+  "Q46.2": [
+   "03_Architecture/SECURITY.md",
+   "03_Architecture/TELEGRAM.md"
+  ],
+  "Q46.3": [
+   "03_Architecture/SECURITY.md",
+   "04_ADR/ADR-017-caddy-cloudflare-proxy-origin-lock.md"
+  ],
+  "Q57": [
+   "04_ADR/ADR-033-tunnel-tailscale-omada-access.md",
+   "03_Architecture/SECURITY.md"
+  ],
+  "Q58": [
+   "04_ADR/ADR-033-tunnel-tailscale-omada-access.md"
+  ],
+  "Q59": [
+   "04_ADR/ADR-033-tunnel-tailscale-omada-access.md"
+  ],
+  "Q60": [
+   "04_ADR/ADR-033-tunnel-tailscale-omada-access.md"
+  ],
+  "Q46.4": [
+   "09_Config_Templates/release-policy.yaml"
+  ],
+  "Q49": [
+   "03_Architecture/TELEGRAM.md",
+   "04_ADR/ADR-009-telegram-approvals-and-2fa.md",
+   "09_Config_Templates/roles.yaml"
+  ],
+  "Q47": [
+   "03_Architecture/TELEGRAM.md",
+   "03_Architecture/RBAC.md",
+   "09_Config_Templates/roles.yaml",
+   "04_ADR/ADR-018-rbac-registry.md",
+   "09_Config_Templates/approval-policy.yaml"
+  ],
+  "Q48": [
+   "04_ADR/ADR-010-langfuse-mandatory.md",
+   "03_Architecture/OBSERVABILITY.md"
+  ],
+  "Q10": [
+   "09_Config_Templates/budgets.yaml",
+   "04_ADR/ADR-003-openrouter-single-key-watchdog.md",
+   "09_Config_Templates/runtime-isolation.yaml"
+  ],
+  "Q33": [
+   "09_Config_Templates/budgets.yaml",
+   "04_ADR/ADR-003-openrouter-single-key-watchdog.md"
+  ],
+  "Q44.1": [
+   "09_Config_Templates/budgets.yaml",
+   "04_ADR/ADR-003-openrouter-single-key-watchdog.md"
+  ],
+  "Q44": [
+   "04_ADR/ADR-003-openrouter-single-key-watchdog.md",
+   "09_Config_Templates/runtime-isolation.yaml"
+  ],
+  "Q11": [
+   "CLAUDE.md",
+   "11_Production_Contracts/EVOLUTION_CONTRACT.md",
+   "05_Build_Phases/F0_Server.md",
+   "05_Build_Phases/PHASES.md"
+  ],
+  "Q12": [
+   "README.md",
+   "09_Config_Templates/release-policy.yaml",
+   "04_ADR/ADR-020-config-deploy-path.md"
+  ],
+  "Q34": [
+   "03_Architecture/SECURITY.md"
+  ],
+  "Q46": [
+   "03_Architecture/SECURITY.md"
+  ],
+  "Q23": [
+   "CLAUDE.md"
+  ],
+  "Q50": [
+   "11_Production_Contracts/WORKFLOW_CONTRACT.md",
+   "11_Production_Contracts/EVOLUTION_CONTRACT.md",
+   "04_ADR/"
+  ],
+  "Q51": [
+   "README.md"
+  ],
+  "Q68": [
+   "09_Config_Templates/agent-hiring.yaml",
+   "09_Config_Templates/workflows/WF-E05.yaml",
+   "08_Skills/paperclip-create-agent/SKILL.md"
+  ]
+ }
+}

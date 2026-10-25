@@ -1,0 +1,648 @@
+# Project OS configuration template; unresolved readiness blocks the relevant live profile.
+schema_version: 1
+bundle_state: template
+timezone: Asia/Tashkent
+decision_refs: [Q08, Q32, Q35, Q38, Q42, Q47, Q61]
+change_set:
+  daily_batch_time: '10:00'
+  batch_cutoff: '09:45'
+  schedule_ref: operations.schedule
+  urgent_immediate: true
+  auto_approve_on_timeout: false
+  quorum: 1
+  edit_rules:
+    numeric_only: true
+    direction: decrease_only
+    requires_new_revision: true
+  approval_ttl_hours: 12
+  expiry_basis: presented_at
+  decisions: [approve, reject, edit_decrease, expire]
+  change_spacing:   # P-43, stricter: one measurable budget increase per entity at a time
+    min_interval_hours_ref: budget.ads_limits   # owner value min_interval_hours
+    applies_to: [budget_change increase, entity_activate]   # a pause and re-activation does not bypass spacing
+    scope: per managed entity and its parent (ad set and campaign budget owner)
+    exempt: [budget_change decrease, entity_pause, protective_pause, capacity hold reductions, Q38 urgent items]
+    urgent_definition: a Q38 urgent item exempt from spacing is an overspend or policy-rejection reaction (a decrease or a pause), never an increase or an activation
+    refusal: budget_change_exceeds_limit (reason min_interval)
+  experiment_lock:   # P-43, stricter: a running experiment is not confounded by other changes in its pipeline
+    applies_while: an experiment of the pipeline is running (WF-B05 from S04 launch until the S07 decision or stop)
+    blocks: [budget_change increase, creative_activate, entity_activate, ad_create, adset_duplicate, campaign_create, campaign_activate]   # outside the experiment's own arms
+    allows: [budget_change decrease, entity_pause, protective_pause, kill, the experiment's own arm commands]
+    owner_confounders: an owner-only landing_pr_merge, offer_change or events_manager_change in the pipeline while it runs marks the experiment attribution_confounded (verdict at best inconclusive) unless the owner stops it first
+    release:   # the lock outlives the run until its arms are confirmed stopped
+      after: "the WF-B05 run reaches a terminal state (S07 decision, owner stop or cancel, max_duration or exposure stop, compensate_then_end)"
+      requires: "every arm command of the run and every compensation command of a stop is terminal with remote evidence (arms stopped or reverted)"
+      holds_while: [compensate_then_end, reconciling, manual_resolution]
+      override: none
+    refusal: readiness_blocked (reason experiment_lock)
+trust_ramp:
+  levels:
+  - L0_shadow
+  - L1_approve_each
+  - L2_auto_within_guardrails
+  initial_level: L1_approve_each   # trust axis is L1<->L2; L0 comes only from pipeline_mode or global shadow
+  axis: trust levels move only between L1_approve_each and L2_auto_within_guardrails per trust key; L0 comes only from pipeline_mode or global shadow
+  trust_key: "action_type x pipeline, and also x direction (increase | decrease) for graduation.direction_split_actions; L2 on one direction never grants L2 to the other (P-55)"
+  effective_level: min(global_mode, pipeline_mode, trust_level of the command's trust key)
+  graduation:
+    consecutive_clean_items: 10
+    incident_free_days: 14
+    incident_window_anchor: after_last_counted_item_same_action_type_and_pipeline
+    scope: per_action_type_per_pipeline
+    requires_owner_confirmation: true
+    owner_action: trust_graduation
+    human_gate: HG-L2-01
+    qualifying_outcomes:
+    - met
+    outcome_source: command_outcomes
+    inconclusive_counts_as_clean: false
+    shadow_items_count: false
+    requires_identity_isolation_evidence: true
+    decision_rule: TRUST_RAMP_GRADUATION   # decision-statistics.yaml
+    outcome_computed_by: deterministic   # sync-worker outcome_classify in WF-B07 S02; an agent annotates, never sets met (P-42)
+    outcome_step: WF-B07.S02
+    met_rule: >-
+      the observed value of expected_effect.metric over horizon_days (wh.metrics) lies inside [range_low, range_high] and its
+      change from the proposal-time value has the stated direction (hold - inside the band); data_status valid. Otherwise
+      not_met; any data_status other than valid gives inconclusive
+    harm_rule:   # P-54: harm is computed, never left to an agent
+      computed_by: outcome_classify   # WF-B07 S02, sync-worker
+      against_direction_margin_ref: business.acceptance   # field harm_margin_pct (owner value)
+      against_direction: >-
+        data_status valid and the observed value of expected_effect.metric moved against the stated direction beyond the band
+        by more than harm_margin_pct of the proposal-time value
+      guardrail_breach_ref: business.acceptance   # field guardrails (lead_to_contract / KC-02 included)
+      guardrail_breach: a guardrail of the pipeline is breached in the item's scope within horizon_days
+      linked_incident: 'a WF-O02 incident run names the command (input affected_command_ids; the owner can open one manually)'
+      effect: 'harmful = true and outcome not_met; harmful takes precedence over met in streak_effects; demotion and a WF-O02 incident signal (WF-B07 S03)'
+    harm_flag:   # one-way human/agent signal on top of the computed rule
+      writers: [funnel-analyst]   # WF-B07 S04 or the weekly report run (WF-B06); the owner uses harm_rule.linked_incident
+      direction: one_way   # sets harmful = true; no row clears harmful or raises an outcome
+      applies_to: any outcome of the command, met included, at any time
+      effect_on_write: the gateway applies the trust demotion and starts a WF-O02 incident run when the flag is written
+    countable_item: >-
+      basis_tag D, T or X (never ?); proposal-time value of the metric known and non-zero; relative band width
+      (range_high - range_low) / |proposal-time value| not above business.acceptance outcome_band_max_relative_width
+    direction_split_actions: [budget_change]   # increases and decreases graduate as separate pairs
+    overlap_rule: >-
+      an outcome is inconclusive with reason attribution_confounded whenever any other command in its expected_effect scope
+      (pipeline scope - the pipeline; entity scope - the same entity or its parent), protective pauses and kills included,
+      has an execution time or an open effect window that intersects the item's window, earlier commands included;
+      overlapping_command_ids are recorded with the outcome (P-43, P-58)
+    overlap_includes: [non_protective_commands, protective_pause, kill, earlier_commands_with_open_effect_window]
+    streak_order: presented_at of the pair's live items; an item whose outcome is still pending blocks graduation until it is recorded
+    streak_effects:   # every item outcome or approval result of the pair -> streak effect; harmful takes precedence over met
+      met_countable: increment
+      met_uncountable: reset
+      not_met: reset
+      inconclusive: reset   # interim stricter reading (P-42); the owner reviews it at HG-F5-04 (the alternative is hold)
+      harmful: reset
+      rejected: reset
+      edit_decrease: reset
+      expired: reset
+      cancelled: reset
+      failed_confirmed: reset   # an approved item whose command ended failed_confirmed (also via manual_resolution) has no outcome row
+      terminal_without_outcome: reset   # any other terminal command state that never gets an outcome row resets instead of leaving the key pending
+      shadow: not_counted
+    incident_definition: [harmful outcome on the trust key, an INC record tagged to the trust key, KC-01 trigger on the pipeline, 'KC-02 trigger on the pipeline - an incident from the trigger until its clear; the incident-free days restart at the clear']
+    feasibility_evidence: >-
+      build/F5/TRUST_RAMP_FEASIBILITY.md for HG-F5-04 - per trust key: live items per day r, decisive share d (valid data),
+      met share p among decisive items (shadow and history). Both models are printed (P-55): reset (the interim
+      rule applied) - q = d * p over all live items, E[items] = (1 - q^10) / ((1 - q) * q^10), E[days] = E[items] / r + horizon
+      + 14; hold (the alternative) - E[items] = (1 - p^10) / ((1 - p) * p^10), E[days] = E[items] / (r * d) + horizon + 14.
+      More than 180 days is flagged as unreachable at the current volume. At r = 0.5/day: d = 0.3, p = 0.8 - reset about
+      4.2 million days (never), hold about 277; d = 0.7, p = 0.9 - reset about 543, hold about 53
+  demotion:
+    on_incident: L1_approve_each
+    on_kill_criteria: L1_approve_each   # trust axis stays L1<->L2; the pipeline itself goes to L0 through protective control kill_criteria_l0
+  transitions:   # pipeline_mode per pipeline (execution-policy pipeline_modes) and trust_level per trust key; execution-policy resume and restore are the single source of the resume and restore guards
+  - {axis: pipeline_mode, cause: go_live, from: L0_shadow, to: L1_approve_each, guard: 'capability profile passes at the transition (pipeline.rent.L1 F6_STEP1, pipeline.sale.L1 F6_STEP2) and owner pipeline_mode_change typed code (HG-F6-01 rent, HG-F6-02 sale)', actor: owner}
+  - {axis: pipeline_mode, cause: post_kill_criteria_resume, from: L0_shadow, to: L1_approve_each, guard: 'execution-policy resume.after_kill_criteria - C05 RCA, owner takeover_scope_change (HG-F6-04) and owner pipeline_mode_change', actor: owner}
+  - {axis: pipeline_mode, cause: restore, from: L0_shadow, to: L1_approve_each, guard: 'execution-policy restore - reconcile complete and owner control_resume (cause restore) per pipeline, at most L1; not a gate', actor: owner}
+  - {axis: pipeline_mode, cause: owner_mode, from: L1_approve_each, to: L2_auto_within_guardrails, guard: 'L2_ENABLE passes and owner pipeline_mode_change typed code', actor: owner}
+  - {axis: pipeline_mode, cause: owner_mode, from: L2_auto_within_guardrails, to: L1_approve_each, guard: owner pipeline_mode_change typed code, actor: owner}
+  - {axis: pipeline_mode, cause: global_kill_resume, from: L2_auto_within_guardrails, to: L1_approve_each, guard: 'execution-policy resume.after_global_kill - min(pre_kill_pipeline_mode, L1_approve_each)', actor: amt-control}
+  - {axis: pipeline_mode, cause: owner_mode, from: L1_approve_each, to: L0_shadow, guard: owner pipeline_mode_change typed code, actor: owner}
+  - {axis: pipeline_mode, cause: owner_mode, from: L2_auto_within_guardrails, to: L0_shadow, guard: owner pipeline_mode_change typed code, actor: owner}
+  - {axis: pipeline_mode, cause: kill_criteria_l0, from: L1_approve_each, to: L0_shadow, guard: 'KC-01 triggered (protective control kill_criteria_l0)', actor: amt-control}
+  - {axis: pipeline_mode, cause: kill_criteria_l0, from: L2_auto_within_guardrails, to: L0_shadow, guard: 'KC-01 triggered (protective control kill_criteria_l0)', actor: amt-control}
+  - {axis: pipeline_mode, cause: restore_without_journal, from: L1_approve_each, to: L0_shadow, guard: 'restore without the control journal (execution-policy restore.journal_unavailable)', actor: amt-control}
+  - {axis: pipeline_mode, cause: restore_without_journal, from: L2_auto_within_guardrails, to: L0_shadow, guard: 'restore without the control journal (execution-policy restore.journal_unavailable)', actor: amt-control}
+  - {axis: trust_level, cause: graduation, from: L1_approve_each, to: L2_auto_within_guardrails, guard: 'graduation met for the trust key (decision rule TRUST_RAMP_GRADUATION), identity isolation evidence, action not in never_auto, owner trust_graduation typed code (HG-L2-01)', actor: owner}
+  - {axis: trust_level, cause: demotion, from: L2_auto_within_guardrails, to: L1_approve_each, guard: 'incident on the trust key (graduation.incident_definition) or KC-01 on the pipeline (demotion)', actor: amt-control}
+  - {axis: trust_level, cause: owner_lowering, from: L2_auto_within_guardrails, to: L1_approve_each, guard: 'owner /graduate <trust key> L1 (lowering, not a gate)', actor: owner}
+  illegal_transitions:
+  - pipeline_mode L0_shadow -> L2_auto_within_guardrails in one step
+  - trust_level into or out of L0_shadow (the trust axis is L1 <-> L2 only)
+  - any raise (L0 -> L1, L1 -> L2) by an agent, a workflow, amt-control or a timer
+  - trust_level L2 for an action in never_auto
+  never_auto:
+  - campaign_create
+  - campaign_activate
+  - adset_duplicate
+  - offer_change
+  - landing_pr_merge
+  - events_manager_change
+  - amo_pipeline_change_proposal
+  - role_change
+  - kill_switch
+  - control_resume
+  - global_mode_change
+  - pipeline_mode_change
+  - takeover_scope_change
+  - trust_graduation
+  - budget_override
+  - asset_rights_clear
+  - asset_rights_revoke
+  - upgrade_proposal_approval
+  - upgrade_release
+  - harness_handover
+  - migration_drill
+  - protected_surface_change
+  - engineering_budget_change
+  - agent_resume
+  - plan_authority_items
+  never_auto_cases: [re_activation_after_protective_pause]   # case-level never_auto: no trust key (action x pipeline) reaches L2 for this case
+actions:
+  creative_activate:
+    approvers: [owner, ads_approver]
+    max_level: L2_auto_within_guardrails
+    review_required: true
+    scope: activating an AD inside an existing active ad set - a new ad from an approved creative, a creative swap, or re-activating an ad that was active before (e.g. after kill B paused it at ad level; after a protective pause only through the owner-only case re_activation_after_protective_pause); exact creative revision requires independent Reviewer pass and any applicable human language check
+    requires: [independent_reviewer_pass, human_language_check_when_required]
+    cases:
+      re_activation_after_protective_pause: {applies_when: "the entity's last pause is a protective_actions row with no later re-activation command; the gateway assigns this case before the generic case", approvers: [owner], max_level: never_auto, never_auto: true}
+  budget_change:
+    approvers: [owner, ads_approver]
+    max_level: L2_auto_within_guardrails
+    review_required: true
+    limits:
+      max_rolling24h_change_pct: 20
+      formula: rolling24h_sum_abs_delta / verified_budget_at_window_start <= 0.20
+      decision_status: P-01
+      zero_or_unknown_baseline: owner_review_no_auto_increase
+    business_outcome_guard: increase blocked while KC-02 is triggered or lead_to_contract data_status is not valid
+  entity_pause:
+    approvers: [owner, ads_approver]
+    max_level: L2_auto_within_guardrails
+    review_required: false
+  entity_activate:
+    approvers: [owner, ads_approver]
+    max_level: L2_auto_within_guardrails
+    review_required: true
+    scope: re-activating a CAMPAIGN or AD SET that was active before (managed_entities.ever_active = true), not ads; after a protective pause only through the owner-only case re_activation_after_protective_pause
+    cases:
+      re_activation_after_protective_pause: {applies_when: "the entity's last pause is a protective_actions row with no later re-activation command; the gateway assigns this case before the generic case", approvers: [owner], max_level: never_auto, never_auto: true}
+  campaign_activate:
+    approvers: [owner]
+    max_level: never_auto
+    review_required: true
+    scope: FIRST activation of any entity created via campaign_create or adset_duplicate (managed_entities.ever_active = false)
+  ad_create:
+    approvers: [owner, ads_approver]
+    max_level: L2_auto_within_guardrails
+    review_required: true
+    requires: [independent_reviewer_pass, human_language_check_when_required]
+    create_status: PAUSED
+  campaign_create:
+    approvers: [owner]
+    max_level: never_auto
+    review_required: true
+    create_status: PAUSED
+  adset_duplicate:
+    approvers: [owner]
+    max_level: never_auto
+    review_required: true
+    create_status: PAUSED
+  asset_upload:
+    approvers: []
+    auto: true
+    audit: true
+    review_required: true
+    requires: [independent_reviewer_pass, human_language_check_when_required, asset_rights_cleared]
+  experiment_exposure:
+    decision_ref: Q64
+    approvers: [owner, ads_approver]
+    max_level: L1_approve_each
+    review_required: true
+    scope: starting live exposure of an experiment arm; one experiment per pipeline at a time (Q41)
+  protective_pause:
+    approvers: []
+    pre_authorized_by: owner_approved_policy_revision
+    decision_status: P-21
+    scope: managed_entities_only
+    operations: [pause]
+    never: [activate, budget_increase, create]
+    invoker: amt-control
+    executor_path: amt-executor pause_only_emergency_path
+    allowed_global_modes: [shadow, enabled, read_only, killed]
+    review_required: false
+    audit: true
+    alert: ALERT_PROTECTIVE_PAUSE
+    additional_to: provider_spending_limit
+  offer_change:
+    approvers: [owner]
+    max_level: never_auto
+    review_required: true
+    channel: github_pr
+  landing_pr_merge:
+    approvers: [owner]
+    max_level: never_auto
+    review_required: true
+    channel: github_pr
+  events_manager_change:
+    approvers: [owner]
+    max_level: never_auto
+    review_required: true
+    channel: change_set_manual_execution
+  amo_tag_write:
+    approvers: []
+    auto: true
+    audit: true
+    review_required: false
+    constraints:
+      tag_prefix: 'AMT:'
+  amo_field_write:
+    approvers: []
+    auto: true
+    audit: true
+    review_required: false
+    constraints:
+      field_allowlist: [amt_creative_id, amt_quality_flag, amt_lead_score]
+  amo_pipeline_change_proposal:
+    approvers: [owner]
+    max_level: never_auto
+    review_required: false
+    channel: change_set_manual_execution
+  plan_authority_items:
+    approvers: [owner]
+    max_level: never_auto
+    review_required: false
+    scope: weekly plan items that need owner authority (new campaign, offer, landing deploy, budget beyond guardrails)
+  role_change:
+    approvers: [owner]
+    two_step: typed_code
+    max_level: never_auto
+    review_required: false
+    includes: [membership_add, membership_remove, membership_expiry, person_suspend, person_resume, person_flag_add, person_flag_remove, assignment_add, assignment_remove]
+    command_ops:   # TELEGRAM /role subcommand -> included op (validator D26); membership_expiry is applied by the expiry job, /role list is read-only
+      add: membership_add
+      remove: membership_remove
+      suspend: person_suspend
+      resume: person_resume
+      flag add: person_flag_add
+      flag remove: person_flag_remove
+      assign: assignment_add
+      unassign: assignment_remove
+    mirror_to: independent_monitor_channel
+    second_channel_for_owner_and_ads_approver_grants: OD-10
+  kill_switch:
+    approvers: [owner]
+    two_step: typed_code
+    max_level: never_auto
+    review_required: false
+    default_mode: A
+    deputy_emergency_kill: OD-04
+  global_mode_change:
+    approvers: [owner]
+    two_step: typed_code
+    max_level: never_auto
+    review_required: false
+    scope: global write_mode shadow -> enabled (first time at HG-F6-01) and enabled -> shadow; read_only and killed are entered only by protective controls or kill and left only by control_resume, except that amt-release maintenance_release ends the read_only of its own maintenance_hold (execution-policy.yaml#maintenance_hold)
+    requires_profile: F6_STEP1   # checked only for the raise shadow -> enabled (execution-policy.yaml#capability_enablement)
+    binding: [from_mode, to_mode, profile_evaluation_digest, control_epoch]   # profile_evaluation_digest: the profile and every key's record_revision and evidence_at as evaluated when the code is consumed
+  control_resume:
+    approvers: [owner]
+    two_step: typed_code
+    max_level: never_auto
+    review_required: false
+    binding: [pipeline_set, from_mode, to_mode, cause_ref, control_epoch]
+  pipeline_mode_change:
+    approvers: [owner]
+    two_step: typed_code
+    max_level: never_auto
+    review_required: false
+    binding: [pipeline, from_mode, to_mode, evidence_ref, profile_evaluation_digest, policy_revision]   # profile_evaluation_digest only for a raise (L0 -> L1, L1 -> L2)
+  takeover_scope_change:
+    approvers: [owner]
+    two_step: typed_code
+    max_level: never_auto
+    review_required: false
+    human_gate: HG-F6-04
+    binding: [pipeline, managed_entity_manifest_hash, policy_revision]
+  trust_graduation:
+    approvers: [owner]
+    two_step: typed_code
+    max_level: never_auto
+    review_required: false
+    human_gate: HG-L2-01
+    binding: [action_type, pipeline, from_level, to_level, outcome_evidence_ref, isolation_evidence_ref, profile_evaluation_digest]   # profile_evaluation_digest only for L1 -> L2
+  budget_override:
+    approvers: [owner]
+    two_step: typed_code
+    max_level: never_auto
+    review_required: false
+    command: /budget raise <agent_slug|media_generation> <whole_usd>
+    unit_rule: extra_minor = whole_usd * 100
+    bounded_by: budgets.yaml#openrouter.key_hard_cap_minor
+    affects_ads_cap: false
+  asset_rights_clear:
+    approvers: [owner]
+    evidence_preparer_flag: rights_clearer
+    two_step: typed_code
+    max_level: never_auto
+    review_required: false
+    uploader_may_not_clear: true
+    binding: [asset_sha256, consent_ref, purpose, text_version, territory, expires_at]
+  asset_rights_revoke:
+    approvers: [owner]
+    evidence_preparer_flag: rights_clearer
+    two_step: typed_code
+    max_level: never_auto
+    review_required: false
+    effect: offer_and_asset_revocation_propagation
+  upgrade_proposal_approval:
+    approvers: [owner]
+    two_step: typed_code
+    max_level: never_auto
+    review_required: false
+    policy_ref: evolution-policy.yaml#gates.upgrade_proposal_approval
+  upgrade_release:
+    approvers: [owner]
+    two_step: typed_code
+    max_level: never_auto
+    review_required: false
+    human_gate: HG-REL-01
+    record: release_approvals
+    policy_ref: evolution-policy.yaml#gates.upgrade_release
+  harness_handover:
+    approvers: [owner]
+    two_step: typed_code
+    max_level: never_auto
+    review_required: false
+    policy_ref: evolution-policy.yaml#gates.harness_handover
+  migration_drill:
+    approvers: [owner]
+    two_step: typed_code
+    max_level: never_auto
+    review_required: false
+    record: migration_drills
+    policy_ref: evolution-policy.yaml#gates.migration_drill
+  protected_surface_change:
+    approvers: [owner]
+    two_step: typed_code
+    max_level: never_auto
+    review_required: false
+    independent_human_review_required: true
+    policy_ref: evolution-policy.yaml#gates.protected_surface_change
+  engineering_budget_change:
+    approvers: [owner]
+    two_step: typed_code
+    max_level: never_auto
+    review_required: false
+    policy_ref: evolution-policy.yaml#gates.engineering_budget_change
+  readiness_signoff:
+    approvers: [readiness_accountable_or_co_signer]   # resolved per key from readiness.yaml accountable_role and co_signers
+    approver_source: readiness.yaml#requirements accountable_role/co_signers; RBAC roles from amt.roles, responsibility roles from amt.responsibility_assignments
+    two_step: typed_code
+    max_level: never_auto
+    review_required: false
+    signer_may_not_be_evidence_preparer: true
+    agents_and_builder_may_sign: false
+    binding: [kind, key, record_revision, value_hash, evidence_ref, evidence_at, role, control_epoch]
+    kinds: [approve, cosign, not_applicable, withdraw]
+    withdraw:   # readiness.yaml#rules.withdraw
+      by: [owner (any key), accountable_role]
+      binding: [kind, key, record_revision, reason, role, control_epoch]
+      exempt_from: [signer_may_not_be_evidence_preparer, signing_freshness]
+      effect: valueless pending revision with the reason; suspends the effective approval
+    record: readiness_signatures
+  agent_resume:
+    approvers: [owner]
+    two_step: typed_code
+    max_level: never_auto
+    review_required: false
+    scope: resume an agent paused by cost-watchdog share exhaustion, a proxy admission pause other than billing-unreliable, or a month boundary; refused while the pause cause is still active; billing-unreliable pauses lift automatically after reconciliation is proven (budgets.yaml#openrouter.billing_unreliable_resume)
+    binding: [agent_slug, pause_reason_code, cause_ref]
+  agent_retire:
+    approvers: [owner]
+    two_step: typed_code
+    max_level: never_auto
+    review_required: false
+    scope: stop an agent created by WF-E05 (Q68) at once - its open items are cancelled, its share returns to reserve and its Paperclip agent is paused; never applies to the six base roles
+    binding: [agent_slug, hire_run_id]
+internal_auto_tools:
+- creative.register
+- change_set.propose_manual
+- review.get_subject
+- review.submit_verdict
+- change_set.record_outcome
+- experiment.create
+- experiment.update
+- experiment.close
+- evo.signal.submit
+- workflow.submit_output
+- workflow.handoff_decide
+- workflow.report_blocker
+- workflow.start
+creative_review:
+  independent_reviewer_required: true
+  human_check_substitutes_reviewer: false
+  reviewer_subject_source: review.get_subject
+  verdict_accepts_only_issued_subject_hash: true
+  model_slots:
+    reviewer.language: sonnet_class_or_proven_equal_on_uz_ru_holdout
+    reviewer.policy_checklist: cheaper_allowed
+  pre_screen:                       # Q61: Jev decision model before the Reviewer; stricter-only, never a Reviewer slot
+    decision_ref: Q61
+    engine: decision_model
+    model: typesafe/jev-1.14
+    model_alias_allowed: false       # ~typesafe/jev-latest is never sent
+    router_allowed: false            # typesafe/jev-router is never used
+    called_by: gateway               # inside review.get_subject, before the Reviewer run
+    via: llm-proxy                   # the OpenRouter key stays only in llm-proxy (I02)
+    endpoint: openrouter_decisions   # POST /api/alpha/decisions
+    provider_preferences: {data_collection: deny, allow_fallbacks: false}   # Q44★; ZDR is not required (owner G14/G16)
+    subject_types: [creative_revision, offer_pr, landing_pr]
+    checks: [meta_policy, special_ad_category, pii_leakage]
+    question_language: en
+    state_language: [uz, ru]
+    inputs: creative copy, offer text and landing text of the issued subject; image previews only if models.pre_screen approves image checks
+    sees_lead_pii: false             # Q28 stays
+    local_pii_guard:                 # builder safeguard for Q28: runs in the gateway before every Jev call
+      detectors: [uz_phone_998, email, payment_card_number, passport_or_id_number, uz_ru_person_name_heuristic, uz_ru_address_pattern]
+      name_heuristic: 'a given name from the UZ/RU list next to a capitalized token with a surname or patronymic form - Latin -ov/-ova/-ev/-eva/-yev/-yeva/-ovich/-ovna/-evich/-evna or o‘g‘li/ogli/qizi, Cyrillic -ов/-ова/-ев/-ева/-вич/-вна or ўғли/угли/қизи/кизи; also a capitalized token with such a form next to an initial (Karimov A., А. Каримова); lowercase words (for example курьеров) never match'
+      address_pattern: a street, mahalla or district marker followed by a house or flat number (ko‘cha, mahalla, tuman, uy/kv, ул., д., кв.); business addresses listed in offers.yaml are exempt
+      false_flag_limit_ref: models.pre_screen   # the guard false-flag rate is measured in F5-AT-14 and capped by the owner-approved limit
+      on_hit: Jev is not called for that subject; pii_leakage is flagged locally (stricter-only) and the Reviewer and the human approver see the local flag
+      residual: 'any name outside those forms passes - a lone given name, a lone surname without a listed given name or an initial, a given name missing from the list, and surnames with other endings; the main protection is Q28 (agents never hold lead PII), the Reviewer pii_leakage check and the human approver stay in place, and the owner accepts or rejects this residual when approving models.pre_screen (OI-54)'
+    capability: review.pre_screen    # execution-policy.yaml#capability_requires_profile -> PRE_SCREEN
+    effect: stricter_only            # a flag never turns fail into pass and never removes a Reviewer check
+    flag_rule: a flagged check cannot end as pass unless the Reviewer records pre_screen_response_uz for it; the human approver sees the flag and the response
+    thresholds_ref: models.pre_screen
+    scope_ref: models.pre_screen     # uz_ru | ru_only
+    disabled_when: review.pre_screen is not enabled (PRE_SCREEN profile not passed) or models.pre_screen is withdrawn - the Reviewer works unchanged
+    unavailable: wait                # no fallback model (Q44.3); the subject waits, ALERT_WORKFLOW_BLOCKED
+    snapshot_mismatch: wait          # served dated snapshot differs from the approved one; the owner may /readiness withdraw models.pre_screen, which disables only review.pre_screen (no other profile inherits PRE_SCREEN)
+    log: served dated snapshot, per-check probability, threshold, flag, subject_hash, usage.cost
+    cost: input tokens x approved price reserved in ai_runtime through llm-proxy; output tokens free
+  human_language_check:
+    decision_ref: Q42
+    first_copy_artifacts: 20
+    checker_flag: language_checker
+    active_person_and_membership_required: true
+    native_language: uz
+    count_scope: live_eligible_copy_artifacts
+    excluded_from_count: [shadow, eval, test]
+    count_rule_status: P-15
+    revisions_inherit_check_requirement: true
+    russian_copy_rule: OD-08
+    request_ttl_hours: 12            # same clock as approval TTL (Q32); unanswered request expires, never auto-passes
+    result_valid_while: exact creative revision, asset manifest, offer revision and policy revision unchanged
+    flow: ops-bot sends exact copy + preview + hash; callback verified like an approval; stored in human_checks
+    additional_checks_may_be_required_by_policy: true
+  evidence_binding:
+  - creative_revision
+  - asset_manifest_sha
+  - offer_revision
+  - policy_revision
+  - subject_hash
+  - person_id
+  - membership_revision
+  - checker_flag_revision
+  - verdict
+  - checked_at
+  - expires_at
+two_step:
+  typed_code:
+    code_digits: 4
+    timeout_minutes: 2
+    meaning: deliberate-action confirmation; not a second authentication factor
+agents:
+  cmo:
+    tools:
+    - meta_read.*
+    - wh.metrics
+    - wh.query
+    - fleet.read_utilization
+    - offers.read
+    - offers.propose_pr
+    - analytics.umami_query
+    - report.submit
+    - change_set.propose_manual
+    - evo.signal.submit
+    - workflow.submit_output
+    - workflow.handoff_decide
+    - workflow.report_blocker
+    - workflow.start
+  media-buyer:
+    tools:
+    - meta_read.*
+    - meta_write.pause_entity
+    - meta_write.activate_entity
+    - meta_write.update_budget
+    - meta_write.create_campaign_paused
+    - meta_write.create_ad_from_creative
+    - meta_write.duplicate_adset
+    - meta_write.upload_creative_asset
+    - wh.metrics
+    - wh.query
+    - fleet.read_utilization
+    - offers.read
+    - drive.get_asset
+    - evo.signal.submit
+    - workflow.submit_output
+    - workflow.handoff_decide
+    - workflow.report_blocker
+  creative-studio:
+    tools:
+    - drive.list_raw
+    - drive.get_asset
+    - media.generate_image
+    - media.generate_video
+    - render.html_to_png
+    - render.video_template
+    - offers.read
+    - wh.metrics
+    - creative.register
+    - meta_read.creative_previews_only
+    - evo.signal.submit
+    - workflow.submit_output
+    - workflow.handoff_decide
+    - workflow.report_blocker
+  cro:
+    tools:
+    - offers.read
+    - offers.propose_pr
+    - landing.open_pr
+    - wh.metrics
+    - wh.query
+    - analytics.umami_query
+    - analytics.clarity_export
+    - media.generate_image
+    - evo.signal.submit
+    - workflow.submit_output
+    - workflow.handoff_decide
+    - workflow.report_blocker
+    - workflow.start
+    tool_constraints:
+      media.generate_image: landing visual sketches only; rights and Reviewer pass before any live landing use
+      workflow.start: only workflows whose authorization.may_start lists this agent (WF-B04)
+  funnel-analyst:
+    tools:
+    - meta_read.*
+    - amo.read_leads
+    - amo.read_pipelines
+    - amo.read_events
+    - amo.write_tags
+    - amo.write_fields
+    - wh.query
+    - wh.metrics
+    - analytics.umami_query
+    - analytics.clarity_export
+    - fleet.read_utilization
+    - offers.read
+    - landing.open_pr
+    - change_set.record_outcome
+    - change_set.propose_manual
+    - experiment.create
+    - experiment.update
+    - experiment.close
+    - report.submit
+    - evo.signal.submit
+    - workflow.submit_output
+    - workflow.handoff_decide
+    - workflow.report_blocker
+    - workflow.start
+  reviewer:
+    tools:
+    - offers.read
+    - drive.get_asset
+    - meta_read.creative_previews_only
+    - review.get_subject
+    - review.submit_verdict
+    - workflow.submit_output
+    - workflow.handoff_decide
+    - workflow.report_blocker
+landing_pr_paths:
+  cro:
+    allow: [content/**]
+    deny: [content/offers.snapshot.json]
+  funnel-analyst:
+    allow: [tracking/**]
+meta_read_allowlist: []
+meta_read_groups:
+  creative_previews_only: []
+tracking_gate:
+  consecutive_fail_days_to_read_only: 2
+  missing_or_stale_behavior: risk_increasing_dispatch_denied
+  policy_ref: tracking-health.yaml
+rate_limits:
+  per_agent_calls_per_minute: 60
+  amocrm_global_rps_ceiling: 7
+  amocrm_ceiling_decision_ref: Q25
+  amocrm_allocation_readiness: vendor.amocrm_quota
+  amocrm_allocation_rule: approved allocations may only divide or lower the ceiling; a higher value needs a new owner Q
+read_allowlist_readiness: vendor.meta_read_tools
+execution:
+  policy_ref: execution-policy.yaml
